@@ -1,0 +1,65 @@
+import { test, expect } from "bun:test";
+import {
+  LADDER,
+  addDays,
+  applyReview,
+  initialSchedule,
+  isDue,
+  localToday,
+} from "./scheduling";
+
+test("ladder is 1, 3, 7, 14, 30 days", () => {
+  expect(LADDER).toEqual([1, 3, 7, 14, 30]);
+});
+
+test("localToday formats a date as local YYYY-MM-DD", () => {
+  expect(localToday(new Date(2026, 6, 20, 23, 59))).toBe("2026-07-20");
+  expect(localToday(new Date(2026, 0, 5, 0, 0))).toBe("2026-01-05");
+});
+
+test("addDays adds within a month", () => {
+  expect(addDays("2026-07-20", 1)).toBe("2026-07-21");
+});
+
+test("addDays rolls over month and year boundaries", () => {
+  expect(addDays("2026-07-30", 3)).toBe("2026-08-02");
+  expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+});
+
+test("new problems start at rung 0, due tomorrow", () => {
+  expect(initialSchedule("2026-07-20")).toEqual({
+    rung: 0,
+    nextReview: "2026-07-21",
+  });
+});
+
+test("pass advances one rung and schedules that interval", () => {
+  expect(applyReview(0, "pass", "2026-07-20")).toEqual({
+    rung: 1,
+    nextReview: "2026-07-23",
+  });
+  expect(applyReview(1, "pass", "2026-07-20")).toEqual({
+    rung: 2,
+    nextReview: "2026-07-27",
+  });
+});
+
+test("pass at the top rung stays at 30 days", () => {
+  expect(applyReview(4, "pass", "2026-07-20")).toEqual({
+    rung: 4,
+    nextReview: "2026-08-19",
+  });
+});
+
+test("fail resets to rung 0, due tomorrow", () => {
+  expect(applyReview(3, "fail", "2026-07-20")).toEqual({
+    rung: 0,
+    nextReview: "2026-07-21",
+  });
+});
+
+test("isDue is true for today and overdue dates only", () => {
+  expect(isDue("2026-07-20", "2026-07-20")).toBe(true);
+  expect(isDue("2026-07-01", "2026-07-20")).toBe(true);
+  expect(isDue("2026-07-21", "2026-07-20")).toBe(false);
+});
