@@ -8,6 +8,9 @@ import {
   reviewProblem,
   updateProblem,
   deleteProblem,
+  findProblemBySlug,
+  captureSubmission,
+  countReviewsToday,
 } from "./db";
 
 const TODAY = "2026-07-20";
@@ -92,4 +95,157 @@ test("operations on a missing id return null/false", () => {
   expect(reviewProblem(db, 999, "pass", TODAY)).toBeNull();
   expect(updateProblem(db, 999, { title: "x", url: "y", solution: "z" })).toBeNull();
   expect(deleteProblem(db, 999)).toBe(false);
+});
+
+test("createProblem defaults language to java and derives a slug", () => {
+  const p = add();
+  expect(p.language).toBe("java");
+  expect(findProblemBySlug(db, "two-sum")?.id).toBe(p.id);
+});
+
+test("createProblem stores an explicit language", () => {
+  const p = createProblem(
+    db,
+    {
+      title: "Two Sum",
+      url: "https://leetcode.com/problems/two-sum/",
+      solution: "def twoSum(): ...",
+      language: "python3",
+    },
+    TODAY,
+  );
+  expect(p.language).toBe("python3");
+});
+
+test("captureSubmission with no result just creates a new problem (plain Add)", () => {
+  const { problem, created } = captureSubmission(
+    db,
+    {
+      title: "3Sum",
+      url: "https://leetcode.com/problems/3sum/",
+      solution: "class Solution {}",
+      language: "java",
+    },
+    TODAY,
+  );
+  expect(created).toBe(true);
+  expect(problem.rung).toBe(0);
+  expect(problem.next_review).toBe("2026-07-21");
+  expect(getProblem(db, problem.id)!.reviews.length).toBe(0);
+});
+
+test("captureSubmission with no result on an existing problem updates fields but does not touch the schedule (plain Add)", () => {
+  const original = add(); // Two Sum at rung 0, next review 2026-07-21
+  const { problem, created } = captureSubmission(
+    db,
+    {
+      title: "Two Sum",
+      url: "https://leetcode.com/problems/two-sum/description/?envType=study-plan-v2",
+      solution: "class Solution { /* updated */ }",
+      language: "java",
+    },
+    TODAY,
+  );
+  expect(created).toBe(false);
+  expect(problem.rung).toBe(original.rung);
+  expect(problem.next_review).toBe(original.next_review);
+  expect(problem.language).toBe("java");
+  expect(getProblem(db, problem.id)!.solution).toContain("updated");
+  expect(getProblem(db, problem.id)!.reviews.length).toBe(0);
+});
+
+test("captureSubmission with result 'pass' on an unseen slug creates it AND immediately advances past the initial rung", () => {
+  const { problem, created } = captureSubmission(
+    db,
+    {
+      title: "3Sum",
+      url: "https://leetcode.com/problems/3sum/",
+      solution: "class Solution {}",
+      language: "java",
+    },
+    TODAY,
+    "pass",
+  );
+  expect(created).toBe(true);
+  expect(problem.rung).toBe(1);
+  expect(problem.next_review).toBe("2026-07-23");
+  expect(getProblem(db, problem.id)!.reviews.length).toBe(1);
+});
+
+test("captureSubmission with result 'fail' on an unseen slug creates it and logs the failed attempt", () => {
+  const { problem, created } = captureSubmission(
+    db,
+    {
+      title: "3Sum",
+      url: "https://leetcode.com/problems/3sum/",
+      solution: "class Solution {}",
+      language: "java",
+    },
+    TODAY,
+    "fail",
+  );
+  expect(created).toBe(true);
+  expect(problem.rung).toBe(0);
+  expect(problem.next_review).toBe("2026-07-21");
+  const detail = getProblem(db, problem.id)!;
+  expect(detail.reviews.length).toBe(1);
+  expect(detail.reviews[0]!.result).toBe("fail");
+});
+
+test("captureSubmission with result 'pass' updates and advances an existing problem by slug, even via a different URL", () => {
+  add(); // Two Sum at rung 0
+  const { problem, created } = captureSubmission(
+    db,
+    {
+      title: "Two Sum",
+      url: "https://leetcode.com/problems/two-sum/description/?envType=study-plan-v2",
+      solution: "class Solution { /* updated */ }",
+      language: "java",
+    },
+    TODAY,
+    "pass",
+  );
+  expect(created).toBe(false);
+  expect(problem.rung).toBe(1);
+  expect(problem.next_review).toBe("2026-07-23");
+  expect(problem.language).toBe("java");
+  expect(getProblem(db, problem.id)!.solution).toContain("updated");
+});
+
+test("captureSubmission with an explicit fail result resets an existing problem", () => {
+  add(); // Two Sum at rung 0
+  captureSubmission(
+    db,
+    {
+      title: "Two Sum",
+      url: "https://leetcode.com/problems/two-sum/",
+      solution: "class Solution {}",
+      language: "java",
+    },
+    TODAY,
+    "pass",
+  ); // rung 1 now
+  const { problem, created } = captureSubmission(
+    db,
+    {
+      title: "Two Sum",
+      url: "https://leetcode.com/problems/two-sum/",
+      solution: "class Solution { /* attempt 2 */ }",
+      language: "java",
+    },
+    TODAY,
+    "fail",
+  );
+  expect(created).toBe(false);
+  expect(problem.rung).toBe(0);
+  expect(problem.next_review).toBe("2026-07-21");
+});
+
+test("countReviewsToday counts only today's reviews", () => {
+  const a = add("Two Sum");
+  const b = add("3Sum");
+  reviewProblem(db, a.id, "pass", TODAY);
+  reviewProblem(db, b.id, "fail", TODAY);
+  reviewProblem(db, a.id, "pass", "2026-07-19");
+  expect(countReviewsToday(db, TODAY)).toBe(2);
 });

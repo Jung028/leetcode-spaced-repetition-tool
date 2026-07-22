@@ -1,6 +1,7 @@
 import { test, expect, beforeEach, afterEach } from "bun:test";
 import { openDb } from "./db";
 import { apiRoutes } from "./api";
+import { addDays, localToday } from "./scheduling";
 
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
@@ -82,4 +83,110 @@ test("PUT and DELETE /api/problems/:id", async () => {
   const del = await fetch(`${base}/api/problems/${id}`, { method: "DELETE" });
   expect(del.status).toBe(200);
   expect((await fetch(`${base}/api/problems/${id}`)).status).toBe(404);
+});
+
+const capture = (body: object) =>
+  fetch(`${base}/api/capture`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+test("POST /api/capture with no result just creates a new problem (plain Add)", async () => {
+  const res = await capture({
+    title: "3Sum",
+    url: "https://leetcode.com/problems/3sum/",
+    solution: "class Solution {}",
+    language: "java",
+  });
+  expect(res.status).toBe(201);
+  const body: any = await res.json();
+  expect(body.created).toBe(true);
+  expect(body.rung).toBe(0);
+  expect(body.language).toBe("java");
+});
+
+test("POST /api/capture with no result on an existing problem updates fields without touching the schedule (plain Add)", async () => {
+  const original: any = await (await addProblem()).json();
+  const res = await capture({
+    title: "Two Sum",
+    url: "https://leetcode.com/problems/two-sum/description/?envType=study-plan-v2",
+    solution: "updated solution",
+    language: "python3",
+  });
+  expect(res.status).toBe(200);
+  const body: any = await res.json();
+  expect(body.created).toBe(false);
+  expect(body.rung).toBe(original.rung);
+  expect(body.next_review).toBe(original.next_review);
+  expect(body.language).toBe("python3");
+});
+
+test("POST /api/capture with result 'pass' on an unseen slug creates it and immediately advances past the initial rung", async () => {
+  const res = await capture({
+    title: "3Sum",
+    url: "https://leetcode.com/problems/3sum/",
+    solution: "class Solution {}",
+    language: "java",
+    result: "pass",
+  });
+  expect(res.status).toBe(201);
+  const body: any = await res.json();
+  expect(body.created).toBe(true);
+  expect(body.rung).toBe(1);
+  expect(body.next_review).toBe(addDays(localToday(), 3));
+});
+
+test("POST /api/capture with result 'pass' updates and advances an existing problem by slug", async () => {
+  await addProblem();
+  const res = await capture({
+    title: "Two Sum",
+    url: "https://leetcode.com/problems/two-sum/description/?envType=study-plan-v2",
+    solution: "updated solution",
+    language: "python3",
+    result: "pass",
+  });
+  expect(res.status).toBe(200);
+  const body: any = await res.json();
+  expect(body.created).toBe(false);
+  expect(body.rung).toBe(1);
+  expect(body.language).toBe("python3");
+});
+
+test("POST /api/capture rejects blank fields", async () => {
+  const res = await capture({ title: "", url: "", solution: "" });
+  expect(res.status).toBe(400);
+});
+
+test("POST /api/capture with result 'fail' resets an existing problem's ladder", async () => {
+  await addProblem();
+  await capture({
+    title: "Two Sum",
+    url: "https://leetcode.com/problems/two-sum/",
+    solution: "attempt 1",
+    language: "java",
+    result: "pass",
+  });
+  const res = await capture({
+    title: "Two Sum",
+    url: "https://leetcode.com/problems/two-sum/",
+    solution: "attempt 2",
+    language: "java",
+    result: "fail",
+  });
+  const body: any = await res.json();
+  expect(body.rung).toBe(0);
+  expect(body.next_review).toBe(addDays(localToday(), 1));
+});
+
+test("GET /api/stats reports how many reviews happened today", async () => {
+  const { id } = (await (await addProblem()).json()) as any;
+  expect(((await (await fetch(`${base}/api/stats`)).json()) as any).completedToday).toBe(0);
+
+  await fetch(`${base}/api/problems/${id}/review`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ result: "pass" }),
+  });
+  expect(((await (await fetch(`${base}/api/stats`)).json()) as any).completedToday).toBe(1);
 });

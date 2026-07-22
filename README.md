@@ -1,8 +1,9 @@
 # LeetCode Review Board
 
-A small spaced-repetition calendar for LeetCode problems. After you solve a
-problem, add it with its title, link, and your solution; the app schedules
-re-solves on a fixed ladder and lays them out on a month calendar.
+A small spaced-repetition tool for LeetCode problems. Solve a problem, save
+it (by hand or straight from LeetCode's own page via the included
+userscript), and the app schedules re-solves on a fixed ladder, shows what's
+due today, and mirrors the schedule onto an embedded Google Calendar.
 
 ## Run
 
@@ -16,17 +17,43 @@ bun run dev      # http://localhost:3000 (hot reload)
 
 ## How it works
 
-- **Add a problem** — title, LeetCode link, and the solution code you want to
-  be able to re-derive. The first review is due tomorrow.
+- **Add a problem** — title, LeetCode link, language, and the solution code
+  you want to be able to re-derive. The first review is due tomorrow.
 - **Fixed ladder** — reviews come back after 1 → 3 → 7 → 14 → 30 days.
   **Passed** climbs one rung (and stays at 30 days at the top); **Failed**
-  resets to the start, due tomorrow. The small amber meter next to each
+  resets to the start, due tomorrow. The small orange meter next to each
   problem shows its rung.
-- **Due today** — due and overdue problems appear on the board at the top
-  (overdue ones surface on today's calendar cell, not in the past).
+- **Due today** — due and overdue problems appear on the board at the top,
+  color-coded by urgency (green/gold/red — the same visual language LeetCode
+  uses for difficulty, repointed at "how soon").
 - **Reviewing** — open a problem, try to solve it on LeetCode first; the
-  saved solution stays hidden until you reveal it. Then mark Passed or
+  saved solution stays hidden until you reveal it, then renders with real
+  syntax highlighting for whatever language it's in. Then mark Passed or
   Failed.
+- **Calendar** — the schedule is also mirrored onto a Google Calendar (kept
+  in sync on request, not automatically) and embedded directly in the app.
+
+## LeetCode → Review Board userscript
+
+`userscript/leetcode-sync.user.js` adds a "💾 Save to Review Board" button
+directly on LeetCode's problem pages. Clicking it:
+
+1. Reads the current problem's title and your in-progress code straight out
+   of the editor.
+2. Saves it to this app — if the problem's new, it's added; if it's already
+   tracked, the solution is updated **and the review is marked Passed**
+   (advancing the ladder), since successfully re-solving is exactly what
+   that means here.
+3. Resets the editor back to LeetCode's own default template for the
+   current language, so the next scheduled attempt starts clean.
+
+**Install:**
+1. Install the [Tampermonkey](https://www.tampermonkey.net/) browser extension.
+2. Open `userscript/leetcode-sync.user.js` in this repo, copy its contents.
+3. In Tampermonkey's dashboard, create a new script and paste it in, then save.
+4. Make sure the app is running (`bun run dev`) before clicking the button —
+   it POSTs to `http://localhost:4321/api/capture` (edit `APP_URL` at the top
+   of the script if you run the app on a different port).
 
 ## Tests
 
@@ -34,11 +61,12 @@ bun run dev      # http://localhost:3000 (hot reload)
 bun test
 ```
 
-Covers the scheduling ladder and date math, the SQLite layer, and the HTTP
+Covers the scheduling ladder and date math, the SQLite layer (including the
+capture/upsert flow), the syntax-highlighting language mapping, and the HTTP
 API (served against an in-memory database).
 
 ## Stack
 
-Bun (`Bun.serve` with HTML imports, `bun:sqlite`), React 19. The scheduler
-(`scheduling.ts`) is pure and shared by the server and the frontend, so the
-due/rung logic is identical in both.
+Bun (`Bun.serve` with HTML imports, `bun:sqlite`), React 19, Prism.js for
+syntax highlighting. The scheduler (`scheduling.ts`) is pure and shared by
+the server and the frontend, so the due/rung logic is identical in both.

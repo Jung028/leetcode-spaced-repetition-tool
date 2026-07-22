@@ -1,16 +1,21 @@
 import { Database } from "bun:sqlite";
 import { applyReview, initialSchedule, type ReviewResult } from "./scheduling";
+import { slugFromUrl } from "./leetcode";
+
+const DEFAULT_LANGUAGE = "java";
 
 export interface ProblemInput {
   title: string;
   url: string;
   solution: string;
+  language?: string;
 }
 
 export interface ProblemSummary {
   id: number;
   title: string;
   url: string;
+  language: string;
   rung: number;
   next_review: string;
   created_at: string;
@@ -46,7 +51,26 @@ export function openDb(path = "srs.db"): Database {
       result TEXT NOT NULL CHECK (result IN ('pass','fail'))
     );
   `);
+  migrate(db);
   return db;
+}
+
+function migrate(db: Database) {
+  const columns = db.query(`PRAGMA table_info(problems)`).all() as { name: string }[];
+  const has = (name: string) => columns.some((c) => c.name === name);
+
+  if (!has("language")) {
+    db.exec(`ALTER TABLE problems ADD COLUMN language TEXT NOT NULL DEFAULT '${DEFAULT_LANGUAGE}'`);
+  }
+  if (!has("slug")) {
+    db.exec(`ALTER TABLE problems ADD COLUMN slug TEXT`);
+    const rows = db.query(`SELECT id, url FROM problems WHERE slug IS NULL`).all() as {
+      id: number;
+      url: string;
+    }[];
+    const setSlug = db.query(`UPDATE problems SET slug = ? WHERE id = ?`);
+    for (const row of rows) setSlug.run(slugFromUrl(row.url), row.id);
+  }
 }
 
 export function createProblem(
@@ -55,22 +79,33 @@ export function createProblem(
   today: string,
 ): Problem {
   const { rung, nextReview } = initialSchedule(today);
+  const language = input.language ?? DEFAULT_LANGUAGE;
+  const slug = slugFromUrl(input.url);
   const row = db
     .query(
-      `INSERT INTO problems (title, url, solution, rung, next_review, created_at)
-       VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
+      `INSERT INTO problems (title, url, solution, language, slug, rung, next_review, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
     )
-    .get(input.title, input.url, input.solution, rung, nextReview, today);
+    .get(input.title, input.url, input.solution, language, slug, rung, nextReview, today);
   return row as Problem;
 }
 
 export function listProblems(db: Database): ProblemSummary[] {
   return db
     .query(
-      `SELECT id, title, url, rung, next_review, created_at
+      `SELECT id, title, url, language, rung, next_review, created_at
        FROM problems ORDER BY next_review, id`,
     )
     .all() as ProblemSummary[];
+}
+
+export function findProblemBySlug(db: Database, slug: string): ProblemSummary | null {
+  return db
+    .query(
+      `SELECT id, title, url, language, rung, next_review, created_at
+       FROM problems WHERE slug = ?`,
+    )
+    .get(slug) as ProblemSummary | null;
 }
 
 export function getProblem(db: Database, id: number): ProblemDetail | null {
@@ -110,13 +145,48 @@ export function updateProblem(
   id: number,
   input: ProblemInput,
 ): Problem | null {
+  const language = input.language ?? DEFAULT_LANGUAGE;
+  const slug = slugFromUrl(input.url);
   return db
     .query(
-      `UPDATE problems SET title = ?, url = ?, solution = ? WHERE id = ? RETURNING *`,
+      `UPDATE problems SET title = ?, url = ?, solution = ?, language = ?, slug = ?
+       WHERE id = ? RETURNING *`,
     )
-    .get(input.title, input.url, input.solution, id) as Problem | null;
+    .get(input.title, input.url, input.solution, language, slug, id) as Problem | null;
 }
 
 export function deleteProblem(db: Database, id: number): boolean {
   return db.query(`DELETE FROM problems WHERE id = ?`).run(id).changes > 0;
+}
+
+// `result` undefined = plain "Add problem" save: create or update fields only,
+// never touching the schedule. `result` "pass"/"fail" = "Completed"/"Failed":
+// create the problem if it's new, then always apply that result immediately
+// (a first-time pass advances past the initial rung, not just tomorrow's
+// default — a successful first solve IS the first spaced-repetition review).
+export function captureSubmission(
+  db: Database,
+  input: Required<ProblemInput>,
+  today: string,
+  result?: ReviewResult,
+): { problem: Problem; created: boolean } {
+  const slug = slugFromUrl(input.url);
+  const existing = slug ? findProblemBySlug(db, slug) : null;
+
+  if (!existing) {
+    const created = createProblem(db, input, today);
+    if (!result) return { problem: created, created: true };
+    return { problem: reviewProblem(db, created.id, result, today)!, created: true };
+  }
+
+  const updated = updateProblem(db, existing.id, input)!;
+  if (!result) return { problem: updated, created: false };
+  return { problem: reviewProblem(db, existing.id, result, today)!, created: false };
+}
+
+export function countReviewsToday(db: Database, today: string): number {
+  const row = db
+    .query(`SELECT COUNT(*) AS n FROM reviews WHERE reviewed_at = ?`)
+    .get(today) as { n: number };
+  return row.n;
 }

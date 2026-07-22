@@ -3,11 +3,19 @@ import { openDb } from "./db";
 import { apiRoutes } from "./api";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
+const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 
 const server = Bun.serve({
   port: Number(process.env.PORT ?? 3000),
   routes: {
     "/": index,
+    // Served over http (not file://) so Tampermonkey's browser extension can
+    // detect the .user.js URL and show its install prompt — file:// URLs are
+    // blocked by default unless "Allow access to file URLs" is enabled.
+    "/leetcode-sync.user.js": () =>
+      new Response(Bun.file(userscriptPath), {
+        headers: { "content-type": "text/javascript; charset=utf-8" },
+      }),
     ...apiRoutes(db),
   },
   development: {

@@ -1,27 +1,70 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { LADDER, isDue, localToday } from "./scheduling";
+import { LADDER, addDays, isDue, localToday } from "./scheduling";
 import type { ProblemSummary, ProblemDetail } from "./db";
-import { highlightJava } from "./highlight";
+import { highlightCode } from "./highlight";
+import { sydneyWallClockToUtc, toGoogleUtcStamp } from "./sydneyTime";
 import "./index.css";
+
+// Opens a one-click Google Calendar "quick add" tab for a review date — no
+// OAuth needed, just the browser's own logged-in Google session. Always a
+// full 22:00–00:00 Sydney-time slot; doesn't try to detect/avoid overlaps
+// with other problems on the same day (Google's calendar UI stacks
+// overlapping events fine, and computing a shared split here would need
+// fetching every other problem due that day just to lay out one popup).
+function openCalendarQuickAdd(title: string, url: string, nextReview: string) {
+  const start = sydneyWallClockToUtc(nextReview, 22, 0);
+  const end = sydneyWallClockToUtc(addDays(nextReview, 1), 0, 0);
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: `LeetCode review: ${title}`,
+    dates: `${toGoogleUtcStamp(start)}/${toGoogleUtcStamp(end)}`,
+    details: `Open on LeetCode: ${url}`,
+  });
+  window.open(
+    `https://calendar.google.com/calendar/render?${params.toString()}`,
+    "_blank",
+    "noopener,noreferrer",
+  );
+}
 
 type View =
   | { name: "board" }
   | { name: "add" }
   | { name: "detail"; id: number };
 
+type ProblemFields = { title: string; url: string; solution: string; language: string };
+
+const LANGUAGE_OPTIONS = [
+  "java",
+  "python3",
+  "cpp",
+  "c",
+  "csharp",
+  "javascript",
+  "typescript",
+  "golang",
+  "ruby",
+  "swift",
+  "kotlin",
+  "rust",
+  "php",
+];
+
 const api = {
   list: () =>
     fetch("/api/problems").then((r) => r.json() as Promise<ProblemSummary[]>),
   get: (id: number) =>
     fetch(`/api/problems/${id}`).then((r) => r.json() as Promise<ProblemDetail>),
-  create: (body: { title: string; url: string; solution: string }) =>
+  stats: () =>
+    fetch("/api/stats").then((r) => r.json() as Promise<{ completedToday: number }>),
+  create: (body: ProblemFields) =>
     fetch("/api/problems", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     }),
-  update: (id: number, body: { title: string; url: string; solution: string }) =>
+  update: (id: number, body: ProblemFields) =>
     fetch(`/api/problems/${id}`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
@@ -59,24 +102,101 @@ function RungMeter({ rung }: { rung: number }) {
   );
 }
 
-function Stats({ problems, today }: { problems: ProblemSummary[]; today: string }) {
+function TrackedListModal({
+  problems,
+  onOpen,
+  onClose,
+}: {
+  problems: ProblemSummary[];
+  onOpen: (id: number) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const sorted = [...problems].sort((a, b) => a.next_review.localeCompare(b.next_review));
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <h2>Tracked problems</h2>
+          <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
+        </div>
+        {sorted.length === 0 ? (
+          <p className="board-empty">Nothing tracked yet.</p>
+        ) : (
+          <ul className="modal-rows">
+            {sorted.map((p) => (
+              <li key={p.id}>
+                <button
+                  className="modal-row"
+                  onClick={() => {
+                    onOpen(p.id);
+                    onClose();
+                  }}
+                >
+                  <span className="modal-row-date">{p.next_review}</span>
+                  <span className="modal-row-title">{p.title}</span>
+                  <span className="lang-tag">{p.language}</span>
+                  <RungMeter rung={p.rung} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Stats({
+  problems,
+  today,
+  completedToday,
+  onOpen,
+}: {
+  problems: ProblemSummary[];
+  today: string;
+  completedToday: number;
+  onOpen: (id: number) => void;
+}) {
+  const [showTracked, setShowTracked] = useState(false);
   const due = problems.filter((p) => isDue(p.next_review, today)).length;
   const overdue = problems.filter((p) => p.next_review < today).length;
   return (
-    <div className="stats">
-      <div className="stat stat-total">
-        <span className="stat-num">{problems.length}</span>
-        <span className="stat-label">Tracked</span>
+    <>
+      <div className="stats">
+        <button className="stat stat-total" onClick={() => setShowTracked(true)}>
+          <span className="stat-num">{problems.length}</span>
+          <span className="stat-label">Tracked</span>
+        </button>
+        <div className="stat stat-due">
+          <span className="stat-num">{due}</span>
+          <span className="stat-label">Due today</span>
+        </div>
+        <div className="stat stat-overdue">
+          <span className="stat-num">{overdue}</span>
+          <span className="stat-label">Overdue</span>
+        </div>
+        <div className="stat stat-completed">
+          <span className="stat-num">{completedToday}</span>
+          <span className="stat-label">Completed today</span>
+        </div>
       </div>
-      <div className="stat stat-due">
-        <span className="stat-num">{due}</span>
-        <span className="stat-label">Due today</span>
-      </div>
-      <div className="stat stat-overdue">
-        <span className="stat-num">{overdue}</span>
-        <span className="stat-label">Overdue</span>
-      </div>
-    </div>
+      {showTracked && (
+        <TrackedListModal
+          problems={problems}
+          onOpen={onOpen}
+          onClose={() => setShowTracked(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -112,6 +232,7 @@ function DueBoard({
                   <button className="board-row-main" onClick={() => openExternal(p.url)}>
                     <span className="tag">{overdue > 0 ? `${overdue}d late` : "due"}</span>
                     <span className="board-title">{p.title}</span>
+                    <span className="lang-tag">{p.language}</span>
                     <RungMeter rung={p.rung} />
                   </button>
                   <button
@@ -132,22 +253,35 @@ function DueBoard({
   );
 }
 
-const GOOGLE_CALENDAR_EMAIL = "aedamjung@gmail.com";
+// Each entry is overlaid in the embed with its own Google-palette color, so
+// LeetCode reviews and the university timetable stay visually distinct
+// instead of blending into one undifferentiated calendar.
+const EMBEDDED_CALENDARS = [
+  { id: "aedamjung@gmail.com", color: "#F4511E" }, // Tangerine — LeetCode reviews
+  {
+    id: "crc3t59ndtkt77bdu0j6tv35ant0erjl@import.calendar.google.com",
+    color: "#039BE5", // Peacock — University of Sydney timetable
+  },
+];
 
 function GoogleCalendarEmbed() {
   const src = useMemo(() => {
     const params = new URLSearchParams({
-      src: GOOGLE_CALENDAR_EMAIL,
       mode: "MONTH",
       wkst: "2", // Monday
+      ctz: "Australia/Sydney",
       showTitle: "0",
       showNav: "1",
       showDate: "1",
       showPrint: "0",
       showTabs: "1",
-      showCalendars: "0",
+      showCalendars: "1",
       showTz: "0",
     });
+    for (const cal of EMBEDDED_CALENDARS) {
+      params.append("src", cal.id);
+      params.append("color", cal.color);
+    }
     return `https://calendar.google.com/calendar/embed?${params.toString()}`;
   }, []);
 
@@ -156,8 +290,11 @@ function GoogleCalendarEmbed() {
       <div className="section-head">
         <h2>Calendar</h2>
       </div>
+      <p className="rule-note">
+        Add/Passed/Failed opens a one-click Google Calendar quick-add tab — click Save there to add it.
+      </p>
       <div className="gcal-frame">
-        <iframe src={src} title="Google Calendar — LeetCode review schedule" />
+        <iframe src={src} title="Google Calendar — LeetCode reviews and study timetable" />
       </div>
     </section>
   );
@@ -169,14 +306,14 @@ function ProblemForm({
   onSubmit,
   onCancel,
 }: {
-  initial: { title: string; url: string; solution: string };
+  initial: ProblemFields;
   submitLabel: string;
-  onSubmit: (v: { title: string; url: string; solution: string }) => Promise<void>;
+  onSubmit: (v: ProblemFields) => Promise<void>;
   onCancel: () => void;
 }) {
   const [v, setV] = useState(initial);
   const [error, setError] = useState("");
-  const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setV({ ...v, [k]: e.target.value });
 
   return (
@@ -198,6 +335,14 @@ function ProblemForm({
       <label>
         LeetCode link
         <input value={v.url} onChange={set("url")} type="url" placeholder="https://leetcode.com/problems/two-sum/" />
+      </label>
+      <label>
+        Language
+        <select value={v.language} onChange={set("language")}>
+          {LANGUAGE_OPTIONS.map((lang) => (
+            <option key={lang} value={lang}>{lang}</option>
+          ))}
+        </select>
       </label>
       <label>
         Your solution
@@ -231,7 +376,7 @@ function Detail({
   useEffect(() => { load(); }, [id]);
 
   const highlighted = useMemo(
-    () => (p ? highlightJava(p.solution) : ""),
+    () => (p ? highlightCode(p.solution, p.language) : ""),
     [p],
   );
 
@@ -253,7 +398,9 @@ function Detail({
     );
 
   const review = async (result: "pass" | "fail") => {
-    await api.review(id, result);
+    const res = await api.review(id, result);
+    const updated: ProblemSummary = await res.json();
+    openCalendarQuickAdd(updated.title, updated.url, updated.next_review);
     onChanged();
     onBack();
   };
@@ -262,6 +409,7 @@ function Detail({
     <article className="detail">
       <header className="detail-head">
         <h2>{p.title}</h2>
+        <span className="lang-tag">{p.language}</span>
         <RungMeter rung={p.rung} />
       </header>
       <p className="detail-meta">
@@ -275,9 +423,9 @@ function Detail({
       </p>
 
       {revealed ? (
-        <pre className="solution language-java">
+        <pre className={`solution language-${p.language}`}>
           <code
-            className="language-java"
+            className={`language-${p.language}`}
             dangerouslySetInnerHTML={{ __html: highlighted }}
           />
         </pre>
@@ -333,8 +481,12 @@ function App() {
   const today = localToday();
   const [view, setView] = useState<View>({ name: "board" });
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
+  const [completedToday, setCompletedToday] = useState(0);
 
-  const refresh = () => api.list().then(setProblems);
+  const refresh = () => {
+    api.list().then(setProblems);
+    api.stats().then((s) => setCompletedToday(s.completedToday));
+  };
   useEffect(() => { refresh(); }, []);
 
   const open = (id: number) => setView({ name: "detail", id });
@@ -361,7 +513,7 @@ function App() {
 
       {view.name === "board" && (
         <>
-          <Stats problems={problems} today={today} />
+          <Stats problems={problems} today={today} completedToday={completedToday} onOpen={open} />
           <p className="rule-note">
             Pass a review and the problem comes back later: 1 → 3 → 7 → 14 → 30
             days. Fail and it starts over, due tomorrow.
@@ -373,11 +525,13 @@ function App() {
 
       {view.name === "add" && (
         <ProblemForm
-          initial={{ title: "", url: "", solution: "" }}
+          initial={{ title: "", url: "", solution: "", language: "java" }}
           submitLabel="Add problem"
           onCancel={() => setView({ name: "board" })}
           onSubmit={async (v) => {
-            await api.create(v);
+            const res = await api.create(v);
+            const created: ProblemSummary = await res.json();
+            openCalendarQuickAdd(created.title, created.url, created.next_review);
             await refresh();
             setView({ name: "board" });
           }}

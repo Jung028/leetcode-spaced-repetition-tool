@@ -1,5 +1,7 @@
 import type { Database } from "bun:sqlite";
 import {
+  captureSubmission,
+  countReviewsToday,
   createProblem,
   deleteProblem,
   getProblem,
@@ -18,8 +20,9 @@ function parseInput(body: unknown): ProblemInput | null {
   const title = typeof b?.title === "string" ? b.title.trim() : "";
   const url = typeof b?.url === "string" ? b.url.trim() : "";
   const solution = typeof b?.solution === "string" ? b.solution.trim() : "";
+  const language = typeof b?.language === "string" && b.language.trim() ? b.language.trim() : "java";
   if (!title || !url || !solution) return null;
-  return { title, url, solution };
+  return { title, url, solution, language };
 }
 
 export function apiRoutes(db: Database) {
@@ -56,6 +59,27 @@ export function apiRoutes(db: Database) {
         const p = reviewProblem(db, Number(req.params.id), body.result, localToday());
         return p ? json(p) : json({ error: "not found" }, 404);
       },
+    },
+    "/api/capture": {
+      POST: async (req: Request) => {
+        const body = (await req.json().catch(() => null)) as
+          | (Record<string, unknown> & { result?: string })
+          | null;
+        const input = parseInput(body);
+        if (!input) return json({ error: "title, url and solution are required" }, 400);
+        const result =
+          body?.result === "pass" || body?.result === "fail" ? body.result : undefined;
+        const { problem, created } = captureSubmission(
+          db,
+          input as Required<ProblemInput>,
+          localToday(),
+          result,
+        );
+        return json({ ...problem, created }, created ? 201 : 200);
+      },
+    },
+    "/api/stats": {
+      GET: () => json({ completedToday: countReviewsToday(db, localToday()) }),
     },
   };
 }
