@@ -12,7 +12,7 @@
 
 - Weights on Goals steps are **not** validated to sum to 100 — the UI shows the allocated sum as a hint only.
 - A project auto-archives (drops off the active board) once its done steps' weights sum to ≥100, and re-activates if you un-toggle back below 100.
-- A step's `due_date` is never assigned in the past: the first step is due on the project's `created_at` date, each later step is due the day after the previous step's `due_date`, clamped to `today` if that would be in the past.
+- A step's `due_date` is never assigned in the past: the first step is due on the project's `created_at` date (clamped to `today` if `created_at` is already in the past by the time the first step is added), and each later step is due the day after the previous step's `due_date`, likewise clamped to `today` if that would be in the past.
 - `DueItem.id` from `/api/home/due` is only unique **within its `source`** (a LeetCode problem id, a Theory `concept_day`, and a Goals step id can collide as the same number) — frontend list rendering must key rows on `` `${item.source}-${item.id}` ``, never `id` alone.
 - Build order is fixed: Goals (Tasks 1–6) before Home (Tasks 7–9), since `home-api.ts` imports from `goals-db.ts`.
 - No change to the existing `/api/problems` or `/api/theory/*` routes or their tables — Home reads them, it doesn't modify them.
@@ -38,6 +38,10 @@ import { nextStepDueDate, projectProgress } from "./goals-scheduling";
 
 test("first step is due the project's creation date", () => {
   expect(nextStepDueDate({ created_at: "2026-07-31" }, [], "2026-07-31")).toBe("2026-07-31");
+});
+
+test("first step is clamped to today if the project's creation date is already in the past", () => {
+  expect(nextStepDueDate({ created_at: "2026-07-01" }, [], "2026-07-31")).toBe("2026-07-31");
 });
 
 test("second step is due the day after the first step's due date", () => {
@@ -94,7 +98,7 @@ export function nextStepDueDate(
   existingSteps: { due_date: string }[],
   today: string,
 ): string {
-  if (existingSteps.length === 0) return project.created_at;
+  if (existingSteps.length === 0) return project.created_at < today ? today : project.created_at;
   const lastDue = existingSteps.reduce(
     (max, s) => (s.due_date > max ? s.due_date : max),
     existingSteps[0]!.due_date,

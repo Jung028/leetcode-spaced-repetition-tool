@@ -57,14 +57,17 @@ Steps are added one at a time (via "add step" in the project detail view).
 Each new step's `due_date` is assigned automatically:
 
 - The **first** step added to a project is due on the project's
-  `created_at` date.
+  `created_at` date — **unless** that's already in the past by the time you
+  add the step (e.g. you create the project, then don't add a first step
+  until days later), in which case it's due **today** instead. A step is
+  never born already overdue.
 - Each **subsequent** step is due the day after the *previous step's*
   `due_date` — **unless** that would land in the past, in which case it's
   due **today** instead (you can't be assigned a step due yesterday).
 
 ```ts
 function nextStepDueDate(project: { created_at: string }, existingSteps: { due_date: string }[], today: string): string {
-  if (existingSteps.length === 0) return project.created_at;
+  if (existingSteps.length === 0) return project.created_at < today ? today : project.created_at;
   const lastDue = existingSteps.reduce((max, s) => (s.due_date > max ? s.due_date : max), existingSteps[0]!.due_date);
   const candidate = addDays(lastDue, 1);
   return candidate < today ? today : candidate;
