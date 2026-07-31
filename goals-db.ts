@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import { projectProgress } from "./goals-scheduling";
+import { nextStepDueDate, projectProgress } from "./goals-scheduling";
 
 export interface Project {
   id: number;
@@ -94,4 +94,53 @@ export function getProjectDetail(db: Database, id: number): ProjectDetail | null
   if (!row) return null;
   const steps = listStepsForProject(db, id);
   return { ...toProject(row), steps, progress: projectProgress(steps) };
+}
+
+export function createStep(
+  db: Database,
+  projectId: number,
+  label: string,
+  weight: number,
+  today: string,
+): ProjectStep | null {
+  const project = getProjectRow(db, projectId);
+  if (!project) return null;
+  const existing = listStepsForProject(db, projectId);
+  const dueDate = nextStepDueDate({ created_at: project.created_at }, existing, today);
+  const row = db
+    .query(
+      `INSERT INTO project_steps (project_id, label, weight, due_date, done, done_at)
+       VALUES (?, ?, ?, ?, 0, NULL) RETURNING *`,
+    )
+    .get(projectId, label, weight, dueDate) as ProjectStepRow;
+  return toStep(row);
+}
+
+export function toggleStep(db: Database, stepId: number, today: string): ProjectStep | null {
+  const stepRow = db.query(`SELECT * FROM project_steps WHERE id = ?`).get(stepId) as ProjectStepRow | null;
+  if (!stepRow) return null;
+
+  const nowDone = stepRow.done === 0;
+  const updated = db
+    .query(`UPDATE project_steps SET done = ?, done_at = ? WHERE id = ? RETURNING *`)
+    .get(nowDone ? 1 : 0, nowDone ? today : null, stepId) as ProjectStepRow;
+
+  const steps = listStepsForProject(db, stepRow.project_id);
+  const progress = projectProgress(steps);
+  db.query(`UPDATE projects SET archived = ? WHERE id = ?`).run(progress >= 100 ? 1 : 0, stepRow.project_id);
+
+  return toStep(updated);
+}
+
+export function listDueSteps(db: Database, today: string): (ProjectStep & { project_title: string })[] {
+  const rows = db
+    .query(
+      `SELECT s.*, p.title AS project_title
+       FROM project_steps s
+       JOIN projects p ON p.id = s.project_id
+       WHERE s.due_date <= ? AND s.done = 0
+       ORDER BY s.due_date, s.id`,
+    )
+    .all(today) as (ProjectStepRow & { project_title: string })[];
+  return rows.map((row) => ({ ...toStep(row), project_title: row.project_title }));
 }
