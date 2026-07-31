@@ -1,0 +1,61 @@
+import type { Database } from "bun:sqlite";
+import {
+  countOverdueTheory,
+  countTheoryReviewsToday,
+  listDueTheory,
+  reviewTheoryConcept,
+  saveTheoryAnswer,
+} from "./theory-db";
+import { buildTheorySchedule } from "./theory-content";
+import { localToday } from "./scheduling";
+
+const TOTAL_DAYS = buildTheorySchedule().length;
+
+const json = (data: unknown, status = 200) => Response.json(data, { status });
+
+function parseConceptDay(raw: string): number | null {
+  const day = Number(raw);
+  if (!Number.isInteger(day) || day < 1 || day > TOTAL_DAYS) return null;
+  return day;
+}
+
+export function theoryApiRoutes(db: Database) {
+  return {
+    "/api/theory/due": {
+      GET: () => {
+        const today = localToday();
+        const due = listDueTheory(db, today);
+        return json({
+          due,
+          stats: {
+            dueCount: due.length,
+            overdueCount: countOverdueTheory(db, today),
+            completedToday: countTheoryReviewsToday(db, today),
+          },
+        });
+      },
+    },
+    "/api/theory/:day/answer": {
+      POST: async (req: Request & { params: { day: string } }) => {
+        const day = parseConceptDay(req.params.day);
+        if (day === null) return json({ error: `day must be between 1 and ${TOTAL_DAYS}` }, 400);
+        const body = (await req.json().catch(() => null)) as { yourAnswer?: unknown } | null;
+        const yourAnswer = typeof body?.yourAnswer === "string" ? body.yourAnswer : "";
+        const updated = saveTheoryAnswer(db, day, yourAnswer);
+        return updated ? json(updated) : json({ error: "not found" }, 404);
+      },
+    },
+    "/api/theory/:day/review": {
+      POST: async (req: Request & { params: { day: string } }) => {
+        const day = parseConceptDay(req.params.day);
+        if (day === null) return json({ error: `day must be between 1 and ${TOTAL_DAYS}` }, 400);
+        const body = (await req.json().catch(() => null)) as { result?: string } | null;
+        if (body?.result !== "correct" && body?.result !== "wrong") {
+          return json({ error: "result must be 'correct' or 'wrong'" }, 400);
+        }
+        const updated = reviewTheoryConcept(db, day, body.result, localToday());
+        return updated ? json(updated) : json({ error: "not found" }, 404);
+      },
+    },
+  };
+}

@@ -1,6 +1,7 @@
 # LeetCode Review Board
 
-A small spaced-repetition tool for LeetCode problems. Solve a problem, save
+A small spaced-repetition tool for LeetCode problems, plus a Theory tab for
+working through system design/DSA/interview concepts. Solve a problem, save
 it (by hand or straight from LeetCode's own page via the included
 userscript), and the app schedules re-solves on a fixed ladder, shows what's
 due today, and mirrors the schedule onto an embedded Google Calendar.
@@ -32,6 +33,26 @@ bun run dev      # http://localhost:3000 (hot reload)
   Failed.
 - **Calendar** — the schedule is also mirrored onto a Google Calendar (kept
   in sync on request, not automatically) and embedded directly in the app.
+
+## Theory tab
+
+A spaced-repetition deck of 150 concept cards — System Design (50), Data
+Structures & Algorithms (30), Distributed Systems (20), Databases (20),
+Networking & OS (15), and Behavioral/interview questions (15) — content
+lives in `theory-content.ts`. One concept is introduced per day (concept 1
+due day one, concept 2 the next day, and so on), and each concept then
+follows its own ladder: write your own answer, reveal the model answer to
+compare, then mark **Correct** or **Wrong**. Correct climbs a ladder of
+3 → 5 → 7 → 14 → 30 days; Wrong resets it, due again tomorrow — same shape
+as the LeetCode ladder, just its own interval sequence
+(`theory-scheduling.ts`). The Due board shows everything due today or
+overdue (there's no cap — miss a few days and they stack up, same as the
+LeetCode board). Reviewing a card opens a Google Calendar quick-add for its
+new next-review date (21:00-21:30 Sydney time, tagged `[theory-150]`,
+distinct from the LeetCode review slot at 22:00-00:00), so LeetCode reviews
+and Theory reviews both show up on the same embedded calendar. Your saved
+answers and scheduling state persist in `srs.db`; the question/answer
+content itself is static and ships with the code.
 
 ## LeetCode → Review Board userscript
 

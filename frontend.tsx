@@ -4,6 +4,7 @@ import { LADDER, addDays, isDue, localToday } from "./scheduling";
 import type { ProblemSummary, ProblemDetail } from "./db";
 import { highlightCode } from "./highlight";
 import { sydneyWallClockToUtc, toGoogleUtcStamp } from "./sydneyTime";
+import TheoryApp from "./TheoryApp";
 import "./index.css";
 
 // Opens a one-click Google Calendar "quick add" tab for a review date — no
@@ -477,7 +478,7 @@ function Detail({
   );
 }
 
-function App() {
+function LeetCodeApp() {
   const today = localToday();
   const [view, setView] = useState<View>({ name: "board" });
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
@@ -492,7 +493,7 @@ function App() {
   const open = (id: number) => setView({ name: "detail", id });
 
   return (
-    <div className="app">
+    <>
       <header className="masthead">
         <button className="wordmark" onClick={() => setView({ name: "board" })}>
           Review Board
@@ -546,6 +547,37 @@ function App() {
           onChanged={refresh}
         />
       )}
+    </>
+  );
+}
+
+type Tab = "leetcode" | "theory";
+
+function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+  return (
+    <nav className="tabs" aria-label="Sections">
+      <button
+        className={tab === "leetcode" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("leetcode")}
+      >
+        LeetCode
+      </button>
+      <button
+        className={tab === "theory" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("theory")}
+      >
+        Theory
+      </button>
+    </nav>
+  );
+}
+
+function App() {
+  const [tab, setTab] = useState<Tab>("leetcode");
+  return (
+    <div className="app">
+      <TabBar tab={tab} onChange={setTab} />
+      {tab === "leetcode" ? <LeetCodeApp /> : <TheoryApp />}
     </div>
   );
 }

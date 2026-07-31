@@ -1,8 +1,12 @@
 import index from "./index.html";
 import { openDb } from "./db";
 import { apiRoutes } from "./api";
+import { migrateTheory } from "./theory-db";
+import { theoryApiRoutes } from "./theory-api";
+import { localToday } from "./scheduling";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
+migrateTheory(db, localToday());
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 
 const server = Bun.serve({
@@ -17,6 +21,7 @@ const server = Bun.serve({
         headers: { "content-type": "text/javascript; charset=utf-8" },
       }),
     ...apiRoutes(db),
+    ...theoryApiRoutes(db),
   },
   development: {
     hmr: true,
