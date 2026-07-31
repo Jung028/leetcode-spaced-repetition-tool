@@ -5,6 +5,7 @@ import { migrateTheory } from "./theory-db";
 import { theoryApiRoutes } from "./theory-api";
 import { migrateGoals } from "./goals-db";
 import { goalsApiRoutes } from "./goals-api";
+import { homeApiRoutes } from "./home-api";
 import { localToday } from "./scheduling";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
@@ -26,6 +27,7 @@ const server = Bun.serve({
     ...apiRoutes(db),
     ...theoryApiRoutes(db),
     ...goalsApiRoutes(db),
+    ...homeApiRoutes(db),
   },
   development: {
     hmr: true,
