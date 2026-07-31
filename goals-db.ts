@@ -138,7 +138,7 @@ export function listDueSteps(db: Database, today: string): (ProjectStep & { proj
       `SELECT s.*, p.title AS project_title
        FROM project_steps s
        JOIN projects p ON p.id = s.project_id
-       WHERE s.due_date <= ? AND s.done = 0
+       WHERE s.due_date <= ? AND s.done = 0 AND p.archived = 0
        ORDER BY s.due_date, s.id`,
     )
     .all(today) as (ProjectStepRow & { project_title: string })[];

@@ -238,8 +238,9 @@ export default function TheoryApp({
   const [view, setView] = useState<View>({ name: "board" });
   const [due, setDue] = useState<TheoryProgress[]>([]);
   const [stats, setStats] = useState<Stats>({ dueCount: 0, overdueCount: 0, completedToday: 0 });
+  const [loaded, setLoaded] = useState(false);
 
-  const refresh = () => api.due().then(({ due, stats }) => { setDue(due); setStats(stats); });
+  const refresh = () => api.due().then(({ due, stats }) => { setDue(due); setStats(stats); setLoaded(true); });
   useEffect(() => { refresh(); }, []);
 
   useEffect(() => {
@@ -261,6 +262,7 @@ export default function TheoryApp({
       )}
 
       {view.name === "detail" && (() => {
+        if (!loaded) return <p className="board-empty">Loading…</p>;
         const entry = due.find((d) => d.concept_day === view.conceptDay);
         return entry ? (
           <TheoryDetail

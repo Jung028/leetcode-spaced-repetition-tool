@@ -117,3 +117,21 @@ test("listDueSteps excludes steps already marked done", () => {
   toggleStep(db, step.id, TODAY);
   expect(listDueSteps(db, TODAY)).toEqual([]);
 });
+
+test("listDueSteps excludes an undone step whose project has auto-archived", () => {
+  // Create the project and both steps with due dates safely in the past so
+  // both remain "due" (<= TODAY) without depending on TODAY itself.
+  const p = createProject(db, "Complete tracely onboarding", "2026-08-10", "2026-07-01");
+  const s1 = createStep(db, p.id, "Complete signup page", 100, "2026-07-01")!;
+  const s2 = createStep(db, p.id, "Complete full test in incognito", 20, "2026-07-02")!;
+  expect(s1.due_date <= TODAY).toBe(true);
+  expect(s2.due_date <= TODAY).toBe(true);
+
+  // Toggling only s1 (weight 100) already reaches >= 100%, auto-archiving the
+  // project while s2 is left undone and still due.
+  toggleStep(db, s1.id, TODAY);
+  expect(getProjectDetail(db, p.id)!.archived).toBe(true);
+
+  const due = listDueSteps(db, TODAY);
+  expect(due.map((s) => s.id)).not.toContain(s2.id);
+});
