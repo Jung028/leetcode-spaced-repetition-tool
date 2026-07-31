@@ -5,7 +5,7 @@ export function nextStepDueDate(
   existingSteps: { due_date: string }[],
   today: string,
 ): string {
-  if (existingSteps.length === 0) return project.created_at;
+  if (existingSteps.length === 0) return project.created_at < today ? today : project.created_at;
   const lastDue = existingSteps.reduce(
     (max, s) => (s.due_date > max ? s.due_date : max),
     existingSteps[0]!.due_date,

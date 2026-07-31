@@ -5,6 +5,10 @@ test("first step is due the project's creation date", () => {
   expect(nextStepDueDate({ created_at: "2026-07-31" }, [], "2026-07-31")).toBe("2026-07-31");
 });
 
+test("first step is clamped to today if the project's creation date is already in the past", () => {
+  expect(nextStepDueDate({ created_at: "2026-07-01" }, [], "2026-07-31")).toBe("2026-07-31");
+});
+
 test("second step is due the day after the first step's due date", () => {
   expect(
     nextStepDueDate({ created_at: "2026-07-31" }, [{ due_date: "2026-07-31" }], "2026-07-31"),
