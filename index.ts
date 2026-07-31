@@ -3,10 +3,13 @@ import { openDb } from "./db";
 import { apiRoutes } from "./api";
 import { migrateTheory } from "./theory-db";
 import { theoryApiRoutes } from "./theory-api";
+import { migrateGoals } from "./goals-db";
+import { goalsApiRoutes } from "./goals-api";
 import { localToday } from "./scheduling";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
 migrateTheory(db, localToday());
+migrateGoals(db);
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 
 const server = Bun.serve({
@@ -22,6 +25,7 @@ const server = Bun.serve({
       }),
     ...apiRoutes(db),
     ...theoryApiRoutes(db),
+    ...goalsApiRoutes(db),
   },
   development: {
     hmr: true,
