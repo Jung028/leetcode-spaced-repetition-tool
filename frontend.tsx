@@ -6,6 +6,7 @@ import { highlightCode } from "./highlight";
 import { sydneyWallClockToUtc, toGoogleUtcStamp } from "./sydneyTime";
 import TheoryApp from "./TheoryApp";
 import GoalsApp from "./GoalsApp";
+import HomeApp from "./HomeApp";
 import "./index.css";
 
 // Opens a one-click Google Calendar "quick add" tab for a review date — no
@@ -255,53 +256,6 @@ function DueBoard({
   );
 }
 
-// Each entry is overlaid in the embed with its own Google-palette color, so
-// LeetCode reviews and the university timetable stay visually distinct
-// instead of blending into one undifferentiated calendar.
-const EMBEDDED_CALENDARS = [
-  { id: "aedamjung@gmail.com", color: "#F4511E" }, // Tangerine — LeetCode reviews
-  {
-    id: "crc3t59ndtkt77bdu0j6tv35ant0erjl@import.calendar.google.com",
-    color: "#039BE5", // Peacock — University of Sydney timetable
-  },
-];
-
-function GoogleCalendarEmbed() {
-  const src = useMemo(() => {
-    const params = new URLSearchParams({
-      mode: "MONTH",
-      wkst: "2", // Monday
-      ctz: "Australia/Sydney",
-      showTitle: "0",
-      showNav: "1",
-      showDate: "1",
-      showPrint: "0",
-      showTabs: "1",
-      showCalendars: "1",
-      showTz: "0",
-    });
-    for (const cal of EMBEDDED_CALENDARS) {
-      params.append("src", cal.id);
-      params.append("color", cal.color);
-    }
-    return `https://calendar.google.com/calendar/embed?${params.toString()}`;
-  }, []);
-
-  return (
-    <section className="calendar" aria-label="Review calendar">
-      <div className="section-head">
-        <h2>Calendar</h2>
-      </div>
-      <p className="rule-note">
-        Add/Passed/Failed opens a one-click Google Calendar quick-add tab — click Save there to add it.
-      </p>
-      <div className="gcal-frame">
-        <iframe src={src} title="Google Calendar — LeetCode reviews and study timetable" />
-      </div>
-    </section>
-  );
-}
-
 function ProblemForm({
   initial,
   submitLabel,
@@ -521,7 +475,6 @@ function LeetCodeApp() {
             days. Fail and it starts over, due tomorrow.
           </p>
           <DueBoard problems={problems} today={today} onOpen={open} />
-          <GoogleCalendarEmbed />
         </>
       )}
 
@@ -552,11 +505,17 @@ function LeetCodeApp() {
   );
 }
 
-type Tab = "leetcode" | "theory" | "goals";
+type Tab = "home" | "leetcode" | "theory" | "goals";
 
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
     <nav className="tabs" aria-label="Sections">
+      <button
+        className={tab === "home" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("home")}
+      >
+        Home
+      </button>
       <button
         className={tab === "leetcode" ? "tab tab-active" : "tab"}
         onClick={() => onChange("leetcode")}
@@ -580,10 +539,11 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
 }
 
 function App() {
-  const [tab, setTab] = useState<Tab>("leetcode");
+  const [tab, setTab] = useState<Tab>("home");
   return (
     <div className="app">
       <TabBar tab={tab} onChange={setTab} />
+      {tab === "home" && <HomeApp onNavigate={(item) => setTab(item.source)} />}
       {tab === "leetcode" && <LeetCodeApp />}
       {tab === "theory" && <TheoryApp />}
       {tab === "goals" && <GoalsApp />}
