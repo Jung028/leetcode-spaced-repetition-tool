@@ -1,8 +1,8 @@
 // home-api.ts
 import type { Database } from "bun:sqlite";
-import { listProblems } from "./db";
-import { listDueTheory } from "./theory-db";
-import { listDueSteps } from "./goals-db";
+import { listProblems, countReviewsToday } from "./db";
+import { listDueTheory, countTheoryReviewsToday } from "./theory-db";
+import { listDueSteps, countStepsCompletedToday } from "./goals-db";
 import { isDue, localToday } from "./scheduling";
 import { buildTheorySchedule } from "./theory-content";
 
@@ -67,6 +67,22 @@ function goalsDue(db: Database, today: string): DueItem[] {
   }));
 }
 
+export interface HomeStats {
+  dueToday: number;
+  overdue: number;
+  completedToday: number;
+}
+
+function homeStats(db: Database, today: string): HomeStats {
+  const items = [...leetcodeDue(db, today), ...theoryDue(db, today), ...goalsDue(db, today)];
+  return {
+    dueToday: items.filter((i) => i.overdueDays === 0).length,
+    overdue: items.filter((i) => i.overdueDays > 0).length,
+    completedToday:
+      countReviewsToday(db, today) + countTheoryReviewsToday(db, today) + countStepsCompletedToday(db, today),
+  };
+}
+
 export function homeApiRoutes(db: Database) {
   return {
     "/api/home/due": {
@@ -76,6 +92,9 @@ export function homeApiRoutes(db: Database) {
         items.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
         return Response.json(items);
       },
+    },
+    "/api/home/stats": {
+      GET: () => Response.json(homeStats(db, localToday())),
     },
   };
 }

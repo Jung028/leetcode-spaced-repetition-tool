@@ -132,6 +132,13 @@ export function toggleStep(db: Database, stepId: number, today: string): Project
   return toStep(updated);
 }
 
+export function countStepsCompletedToday(db: Database, today: string): number {
+  const row = db
+    .query(`SELECT COUNT(*) AS n FROM project_steps WHERE done = 1 AND done_at = ?`)
+    .get(today) as { n: number };
+  return row.n;
+}
+
 export function listDueSteps(db: Database, today: string): (ProjectStep & { project_title: string })[] {
   const rows = db
     .query(
