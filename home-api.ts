@@ -39,18 +39,20 @@ function leetcodeDue(db: Database, today: string): DueItem[] {
 }
 
 function theoryDue(db: Database, today: string): DueItem[] {
-  return listDueTheory(db, today).map((entry) => {
-    const concept = SCHEDULE[entry.concept_day - 1]!;
-    return {
-      source: "theory" as const,
-      id: entry.concept_day,
-      title: concept.question,
-      subtitle: concept.category,
-      dueDate: entry.next_review,
-      overdueDays: overdueDays(entry.next_review, today),
-      linkId: entry.concept_day,
-    };
-  });
+  return listDueTheory(db, today)
+    .filter((entry) => SCHEDULE[entry.concept_day - 1])
+    .map((entry) => {
+      const concept = SCHEDULE[entry.concept_day - 1]!;
+      return {
+        source: "theory" as const,
+        id: entry.concept_day,
+        title: concept.question,
+        subtitle: concept.category,
+        dueDate: entry.next_review,
+        overdueDays: overdueDays(entry.next_review, today),
+        linkId: entry.concept_day,
+      };
+    });
 }
 
 function goalsDue(db: Database, today: string): DueItem[] {

@@ -220,7 +220,7 @@ function DueBoard({
         <span className="board-count">{due.length}</span>
       </div>
       {due.length === 0 ? (
-        <p className="board-empty">Nothing due. The next reviews are on the calendar below.</p>
+        <p className="board-empty">Nothing due. The next reviews are on the calendar on the Home tab.</p>
       ) : (
         <ul className="board-rows">
           {due.map((p, i) => {

@@ -1,17 +1,6 @@
 // HomeApp.tsx
 import React, { useEffect, useMemo, useState } from "react";
-
-type DueSource = "leetcode" | "theory" | "goals";
-
-interface DueItem {
-  source: DueSource;
-  id: number;
-  title: string;
-  subtitle: string;
-  dueDate: string;
-  overdueDays: number;
-  linkId: number;
-}
+import type { DueItem, DueSource } from "./home-api";
 
 const SOURCE_LABEL: Record<DueSource, string> = {
   leetcode: "LeetCode",
@@ -70,9 +59,21 @@ function GoogleCalendarEmbed() {
 
 export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) => void }) {
   const [items, setItems] = useState<DueItem[]>([]);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    fetch("/api/home/due").then((r) => r.json()).then(setItems);
+    fetch("/api/home/due")
+      .then((r) => {
+        if (!r.ok) throw new Error(`/api/home/due responded ${r.status}`);
+        return r.json();
+      })
+      .then((data) => {
+        setItems(data);
+        setLoadError(false);
+      })
+      .catch(() => {
+        setLoadError(true);
+      });
   }, []);
 
   return (
@@ -82,7 +83,9 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
           <h2>Everything due</h2>
           <span className="board-count">{items.length}</span>
         </div>
-        {items.length === 0 ? (
+        {loadError ? (
+          <p className="board-empty">Couldn't load what's due.</p>
+        ) : items.length === 0 ? (
           <p className="board-empty">Nothing due — you're all caught up.</p>
         ) : (
           <ul className="board-rows">
