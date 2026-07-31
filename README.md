@@ -54,6 +54,29 @@ and Theory reviews both show up on the same embedded calendar. Your saved
 answers and scheduling state persist in `srs.db`; the question/answer
 content itself is static and ships with the code.
 
+## Goals tab
+
+A project/deadline tracker, independent of the spaced-repetition decks.
+Create a project with a title and a deadline (e.g. "Complete tracely
+onboarding", due in two weeks), then break it into weighted steps (e.g.
+"Complete signup page" — 20%). Each step gets its own due date
+automatically — the first step is due the day you create it, and each
+later step is due the day after the previous one (never backdated: if
+that would land in the past, it's due today instead). Check steps off as
+you finish them; a project's progress is the sum of its done steps'
+weights, and it drops off the active board once that reaches 100%.
+Weights aren't forced to sum to 100 — the detail view just shows how much
+is allocated as a hint.
+
+## Home tab
+
+The default tab when the app loads. Shows the Google Calendar embed
+(previously only on the LeetCode tab) plus one unified "Everything due"
+list merging due/overdue items from LeetCode, Theory, and Goals, sorted
+together by due date. Clicking an item jumps straight to its detail view
+in the right tab, so you don't have to check three tabs separately to see
+what needs attention.
+
 ## LeetCode → Review Board userscript
 
 `userscript/leetcode-sync.user.js` adds a "💾 Save to Review Board" button

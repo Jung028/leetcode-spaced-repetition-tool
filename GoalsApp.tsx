@@ -244,13 +244,26 @@ function ProjectDetailView({
   );
 }
 
-export default function GoalsApp() {
+export default function GoalsApp({
+  openProjectId,
+  onOpened,
+}: {
+  openProjectId?: number | null;
+  onOpened?: () => void;
+} = {}) {
   const today = localToday();
   const [view, setView] = useState<View>({ name: "board" });
   const [projects, setProjects] = useState<Project[]>([]);
 
   const refresh = () => api.list().then(setProjects);
   useEffect(() => { refresh(); }, []);
+
+  useEffect(() => {
+    if (openProjectId != null) {
+      setView({ name: "detail", projectId: openProjectId });
+      onOpened?.();
+    }
+  }, [openProjectId]);
 
   return (
     <div className="goals">

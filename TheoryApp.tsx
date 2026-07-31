@@ -227,7 +227,13 @@ function TheoryDetail({
   );
 }
 
-export default function TheoryApp() {
+export default function TheoryApp({
+  openConceptDay,
+  onOpened,
+}: {
+  openConceptDay?: number | null;
+  onOpened?: () => void;
+} = {}) {
   const today = localToday();
   const [view, setView] = useState<View>({ name: "board" });
   const [due, setDue] = useState<TheoryProgress[]>([]);
@@ -235,6 +241,13 @@ export default function TheoryApp() {
 
   const refresh = () => api.due().then(({ due, stats }) => { setDue(due); setStats(stats); });
   useEffect(() => { refresh(); }, []);
+
+  useEffect(() => {
+    if (openConceptDay != null) {
+      setView({ name: "detail", conceptDay: openConceptDay });
+      onOpened?.();
+    }
+  }, [openConceptDay]);
 
   return (
     <div className="theory">

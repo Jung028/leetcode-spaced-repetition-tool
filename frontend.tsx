@@ -433,7 +433,13 @@ function Detail({
   );
 }
 
-function LeetCodeApp() {
+function LeetCodeApp({
+  openProblemId,
+  onOpened,
+}: {
+  openProblemId?: number | null;
+  onOpened?: () => void;
+} = {}) {
   const today = localToday();
   const [view, setView] = useState<View>({ name: "board" });
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
@@ -444,6 +450,13 @@ function LeetCodeApp() {
     api.stats().then((s) => setCompletedToday(s.completedToday));
   };
   useEffect(() => { refresh(); }, []);
+
+  useEffect(() => {
+    if (openProblemId != null) {
+      setView({ name: "detail", id: openProblemId });
+      onOpened?.();
+    }
+  }, [openProblemId]);
 
   const open = (id: number) => setView({ name: "detail", id });
 
@@ -507,6 +520,11 @@ function LeetCodeApp() {
 
 type Tab = "home" | "leetcode" | "theory" | "goals";
 
+type DeepLink =
+  | { tab: "leetcode"; problemId: number }
+  | { tab: "theory"; conceptDay: number }
+  | { tab: "goals"; projectId: number };
+
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
     <nav className="tabs" aria-label="Sections">
@@ -540,13 +558,37 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
 
 function App() {
   const [tab, setTab] = useState<Tab>("home");
+  const [deepLink, setDeepLink] = useState<DeepLink | null>(null);
+
+  const navigate = (item: { source: "leetcode" | "theory" | "goals"; linkId: number }) => {
+    if (item.source === "leetcode") setDeepLink({ tab: "leetcode", problemId: item.linkId });
+    else if (item.source === "theory") setDeepLink({ tab: "theory", conceptDay: item.linkId });
+    else setDeepLink({ tab: "goals", projectId: item.linkId });
+    setTab(item.source);
+  };
+
   return (
     <div className="app">
       <TabBar tab={tab} onChange={setTab} />
-      {tab === "home" && <HomeApp onNavigate={(item) => setTab(item.source)} />}
-      {tab === "leetcode" && <LeetCodeApp />}
-      {tab === "theory" && <TheoryApp />}
-      {tab === "goals" && <GoalsApp />}
+      {tab === "home" && <HomeApp onNavigate={navigate} />}
+      {tab === "leetcode" && (
+        <LeetCodeApp
+          openProblemId={deepLink?.tab === "leetcode" ? deepLink.problemId : null}
+          onOpened={() => setDeepLink(null)}
+        />
+      )}
+      {tab === "theory" && (
+        <TheoryApp
+          openConceptDay={deepLink?.tab === "theory" ? deepLink.conceptDay : null}
+          onOpened={() => setDeepLink(null)}
+        />
+      )}
+      {tab === "goals" && (
+        <GoalsApp
+          openProjectId={deepLink?.tab === "goals" ? deepLink.projectId : null}
+          onOpened={() => setDeepLink(null)}
+        />
+      )}
     </div>
   );
 }
