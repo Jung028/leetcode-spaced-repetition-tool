@@ -4,6 +4,9 @@ import { LADDER, addDays, isDue, localToday } from "./scheduling";
 import type { ProblemSummary, ProblemDetail } from "./db";
 import { highlightCode } from "./highlight";
 import { sydneyWallClockToUtc, toGoogleUtcStamp } from "./sydneyTime";
+import TheoryApp from "./TheoryApp";
+import GoalsApp from "./GoalsApp";
+import HomeApp from "./HomeApp";
 import "./index.css";
 
 // Opens a one-click Google Calendar "quick add" tab for a review date — no
@@ -217,7 +220,7 @@ function DueBoard({
         <span className="board-count">{due.length}</span>
       </div>
       {due.length === 0 ? (
-        <p className="board-empty">Nothing due. The next reviews are on the calendar below.</p>
+        <p className="board-empty">Nothing due. The next reviews are on the calendar on the Home tab.</p>
       ) : (
         <ul className="board-rows">
           {due.map((p, i) => {
@@ -249,53 +252,6 @@ function DueBoard({
           })}
         </ul>
       )}
-    </section>
-  );
-}
-
-// Each entry is overlaid in the embed with its own Google-palette color, so
-// LeetCode reviews and the university timetable stay visually distinct
-// instead of blending into one undifferentiated calendar.
-const EMBEDDED_CALENDARS = [
-  { id: "aedamjung@gmail.com", color: "#F4511E" }, // Tangerine — LeetCode reviews
-  {
-    id: "crc3t59ndtkt77bdu0j6tv35ant0erjl@import.calendar.google.com",
-    color: "#039BE5", // Peacock — University of Sydney timetable
-  },
-];
-
-function GoogleCalendarEmbed() {
-  const src = useMemo(() => {
-    const params = new URLSearchParams({
-      mode: "MONTH",
-      wkst: "2", // Monday
-      ctz: "Australia/Sydney",
-      showTitle: "0",
-      showNav: "1",
-      showDate: "1",
-      showPrint: "0",
-      showTabs: "1",
-      showCalendars: "1",
-      showTz: "0",
-    });
-    for (const cal of EMBEDDED_CALENDARS) {
-      params.append("src", cal.id);
-      params.append("color", cal.color);
-    }
-    return `https://calendar.google.com/calendar/embed?${params.toString()}`;
-  }, []);
-
-  return (
-    <section className="calendar" aria-label="Review calendar">
-      <div className="section-head">
-        <h2>Calendar</h2>
-      </div>
-      <p className="rule-note">
-        Add/Passed/Failed opens a one-click Google Calendar quick-add tab — click Save there to add it.
-      </p>
-      <div className="gcal-frame">
-        <iframe src={src} title="Google Calendar — LeetCode reviews and study timetable" />
-      </div>
     </section>
   );
 }
@@ -477,7 +433,13 @@ function Detail({
   );
 }
 
-function App() {
+function LeetCodeApp({
+  openProblemId,
+  onOpened,
+}: {
+  openProblemId?: number | null;
+  onOpened?: () => void;
+} = {}) {
   const today = localToday();
   const [view, setView] = useState<View>({ name: "board" });
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
@@ -489,10 +451,17 @@ function App() {
   };
   useEffect(() => { refresh(); }, []);
 
+  useEffect(() => {
+    if (openProblemId != null) {
+      setView({ name: "detail", id: openProblemId });
+      onOpened?.();
+    }
+  }, [openProblemId]);
+
   const open = (id: number) => setView({ name: "detail", id });
 
   return (
-    <div className="app">
+    <>
       <header className="masthead">
         <button className="wordmark" onClick={() => setView({ name: "board" })}>
           Review Board
@@ -519,7 +488,6 @@ function App() {
             days. Fail and it starts over, due tomorrow.
           </p>
           <DueBoard problems={problems} today={today} onOpen={open} />
-          <GoogleCalendarEmbed />
         </>
       )}
 
@@ -544,6 +512,81 @@ function App() {
           today={today}
           onBack={() => setView({ name: "board" })}
           onChanged={refresh}
+        />
+      )}
+    </>
+  );
+}
+
+type Tab = "home" | "leetcode" | "theory" | "goals";
+
+type DeepLink =
+  | { tab: "leetcode"; problemId: number }
+  | { tab: "theory"; conceptDay: number }
+  | { tab: "goals"; projectId: number };
+
+function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+  return (
+    <nav className="tabs" aria-label="Sections">
+      <button
+        className={tab === "home" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("home")}
+      >
+        Home
+      </button>
+      <button
+        className={tab === "leetcode" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("leetcode")}
+      >
+        LeetCode
+      </button>
+      <button
+        className={tab === "theory" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("theory")}
+      >
+        Theory
+      </button>
+      <button
+        className={tab === "goals" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("goals")}
+      >
+        Goals
+      </button>
+    </nav>
+  );
+}
+
+function App() {
+  const [tab, setTab] = useState<Tab>("home");
+  const [deepLink, setDeepLink] = useState<DeepLink | null>(null);
+
+  const navigate = (item: { source: "leetcode" | "theory" | "goals"; linkId: number }) => {
+    if (item.source === "leetcode") setDeepLink({ tab: "leetcode", problemId: item.linkId });
+    else if (item.source === "theory") setDeepLink({ tab: "theory", conceptDay: item.linkId });
+    else setDeepLink({ tab: "goals", projectId: item.linkId });
+    setTab(item.source);
+  };
+
+  return (
+    <div className="app">
+      <TabBar tab={tab} onChange={setTab} />
+      {tab === "home" && <HomeApp onNavigate={navigate} />}
+      {tab === "leetcode" && (
+        <LeetCodeApp
+          openProblemId={deepLink?.tab === "leetcode" ? deepLink.problemId : null}
+          onOpened={() => setDeepLink(null)}
+        />
+      )}
+      {tab === "theory" && (
+        <TheoryApp
+          openConceptDay={deepLink?.tab === "theory" ? deepLink.conceptDay : null}
+          onOpened={() => setDeepLink(null)}
+        />
+      )}
+      {tab === "goals" && (
+        <GoalsApp
+          openProjectId={deepLink?.tab === "goals" ? deepLink.projectId : null}
+          onOpened={() => setDeepLink(null)}
         />
       )}
     </div>

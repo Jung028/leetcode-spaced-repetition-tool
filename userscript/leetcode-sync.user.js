@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         LeetCode → Review Board Sync
 // @namespace    https://github.com/Jung028/leetcode-spaced-repetition-tool
-// @version      3.1.0
-// @description  Three always-available buttons on LeetCode problem pages: Add (save title/link/code, no scheduling effect), Completed (Pass), and Failed — Completed/Failed create the problem if it's new and immediately apply spaced repetition. Each action opens a one-click Google Calendar quick-add for the new review date.
+// @version      3.2.0
+// @description  Three always-available buttons on LeetCode problem pages: Add (save title/link/code, no scheduling effect), Completed (Pass), and Failed — Completed/Failed create the problem if it's new and immediately apply spaced repetition. Each action opens a one-click Google Calendar quick-add for the new review date. Also auto-resets the editor to default starter code the first time you open a problem in a tab, so review sessions never start by looking at a past attempt.
 // @match        https://leetcode.com/problems/*
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
@@ -324,4 +324,48 @@
   addButton.addEventListener("click", () => doSubmit(undefined));
   passButton.addEventListener("click", () => doSubmit("pass"));
   failButton.addEventListener("click", () => doSubmit("fail"));
+
+  function waitForMonacoModel(timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      (function poll() {
+        const model = getMonacoModel();
+        if (model) return resolve(model);
+        if (Date.now() - start > timeoutMs) return reject(new Error("Monaco never loaded"));
+        setTimeout(poll, 250);
+      })();
+    });
+  }
+
+  // Wipes the editor back to the default starter code the moment a problem
+  // page is opened, so reviewing a problem never starts by looking at a
+  // previous attempt. Gated on sessionStorage (not just "once ever") so an
+  // accidental refresh mid-solve doesn't also nuke whatever you're currently
+  // typing — only the first open of this problem in this browser tab resets.
+  async function autoResetOnOpen() {
+    const slug = slugFromLocation();
+    if (!slug) return;
+
+    const flagKey = `srs-auto-reset:${slug}`;
+    if (sessionStorage.getItem(flagKey)) return;
+
+    try {
+      await waitForMonacoModel(15000);
+      const { question } = await graphql(QUESTION_QUERY, { titleSlug: slug });
+      const { langSlug } = readCurrentCode();
+      const language =
+        langSlug || (question.codeSnippets[0] && question.codeSnippets[0].langSlug);
+      if (!language) return;
+
+      resetEditor(question.questionId, language, question.codeSnippets);
+      sessionStorage.setItem(flagKey, "1");
+      showToast("Editor reset to default code for a fresh attempt");
+    } catch (err) {
+      // Silent: the manual buttons remain the fallback if e.g. Monaco is slow
+      // to load or the GraphQL call fails, and a toast here would just be
+      // background noise the user can't act on.
+    }
+  }
+
+  autoResetOnOpen();
 })();
