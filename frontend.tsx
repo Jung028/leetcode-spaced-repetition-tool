@@ -5,6 +5,7 @@ import type { ProblemSummary, ProblemDetail } from "./db";
 import { highlightCode } from "./highlight";
 import { sydneyWallClockToUtc, toGoogleUtcStamp } from "./sydneyTime";
 import TheoryApp from "./TheoryApp";
+import GoalsApp from "./GoalsApp";
 import "./index.css";
 
 // Opens a one-click Google Calendar "quick add" tab for a review date — no
@@ -551,7 +552,7 @@ function LeetCodeApp() {
   );
 }
 
-type Tab = "leetcode" | "theory";
+type Tab = "leetcode" | "theory" | "goals";
 
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
@@ -568,6 +569,12 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
       >
         Theory
       </button>
+      <button
+        className={tab === "goals" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("goals")}
+      >
+        Goals
+      </button>
     </nav>
   );
 }
@@ -577,7 +584,9 @@ function App() {
   return (
     <div className="app">
       <TabBar tab={tab} onChange={setTab} />
-      {tab === "leetcode" ? <LeetCodeApp /> : <TheoryApp />}
+      {tab === "leetcode" && <LeetCodeApp />}
+      {tab === "theory" && <TheoryApp />}
+      {tab === "goals" && <GoalsApp />}
     </div>
   );
 }

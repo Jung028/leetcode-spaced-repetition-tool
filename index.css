@@ -798,3 +798,31 @@ button.stat:hover {
     animation: none;
   }
 }
+
+/* Goals tab */
+.goal-weight {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--dim);
+  flex-shrink: 0;
+}
+
+.goal-deadline {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--dim);
+  flex-shrink: 0;
+}
+
+.step-row {
+  gap: 0.75rem;
+  cursor: pointer;
+}
+
+.step-row input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  accent-color: var(--orange);
+}
