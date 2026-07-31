@@ -1,9 +1,9 @@
 // home-api.test.ts
 import { test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { openDb, createProblem } from "./db";
-import { migrateTheory } from "./theory-db";
-import { migrateGoals, createProject, createStep } from "./goals-db";
+import { openDb, createProblem, reviewProblem } from "./db";
+import { migrateTheory, reviewTheoryConcept } from "./theory-db";
+import { migrateGoals, createProject, createStep, toggleStep } from "./goals-db";
 import { homeApiRoutes } from "./home-api";
 import { localToday, addDays } from "./scheduling";
 
@@ -65,6 +65,41 @@ test("GET /api/home/due sorts all sources together by due date ascending", async
   const dueDates = items.map((i) => i.dueDate);
   expect(dueDates).toEqual([...dueDates].sort());
   expect(items[0]!.source).toBe("goals");
+});
+
+test("GET /api/home/stats starts with concept 1 due today, nothing overdue, nothing completed", async () => {
+  const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
+  expect(stats).toEqual({ dueToday: 1, overdue: 0, completedToday: 0 });
+});
+
+test("GET /api/home/stats counts dueToday and overdue across all three sources", async () => {
+  createProblem(
+    db,
+    { title: "Two Sum", url: "https://leetcode.com/problems/two-sum/", solution: "code" },
+    addDays(TODAY, -1),
+  ); // due today
+  const overdueProject = createProject(db, "Overdue project", addDays(TODAY, 10), addDays(TODAY, -3));
+  createStep(db, overdueProject.id, "Overdue step", 20, addDays(TODAY, -3)); // overdue
+
+  const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
+  expect(stats.dueToday).toBe(2); // leetcode problem + theory concept 1
+  expect(stats.overdue).toBe(1); // the goals step
+});
+
+test("GET /api/home/stats counts completedToday across all three sources", async () => {
+  const problem = createProblem(
+    db,
+    { title: "Two Sum", url: "https://leetcode.com/problems/two-sum/", solution: "code" },
+    addDays(TODAY, -1),
+  );
+  reviewProblem(db, problem.id, "pass", TODAY);
+  reviewTheoryConcept(db, 1, "correct", TODAY);
+  const project = createProject(db, "Complete tracely onboarding", addDays(TODAY, 10), TODAY);
+  const step = createStep(db, project.id, "Complete signup page", 20, TODAY)!;
+  toggleStep(db, step.id, TODAY);
+
+  const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
+  expect(stats.completedToday).toBe(3);
 });
 
 test("overdueDays is 0 for an item due today and positive for an overdue item", async () => {

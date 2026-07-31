@@ -1,6 +1,15 @@
 import { test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { migrateGoals, createProject, listProjects, getProjectDetail, createStep, toggleStep, listDueSteps } from "./goals-db";
+import {
+  migrateGoals,
+  createProject,
+  listProjects,
+  getProjectDetail,
+  createStep,
+  toggleStep,
+  listDueSteps,
+  countStepsCompletedToday,
+} from "./goals-db";
 
 const TODAY = "2026-07-31";
 let db: Database;
@@ -134,4 +143,25 @@ test("listDueSteps excludes an undone step whose project has auto-archived", () 
 
   const due = listDueSteps(db, TODAY);
   expect(due.map((s) => s.id)).not.toContain(s2.id);
+});
+
+test("countStepsCompletedToday counts steps toggled done today, not other days", () => {
+  const p = createProject(db, "Complete tracely onboarding", "2026-08-10", TODAY);
+  const s1 = createStep(db, p.id, "Step A", 20, TODAY)!;
+  const s2 = createStep(db, p.id, "Step B", 20, TODAY)!;
+  toggleStep(db, s1.id, TODAY);
+  toggleStep(db, s2.id, "2026-07-25");
+  expect(countStepsCompletedToday(db, TODAY)).toBe(1);
+});
+
+test("countStepsCompletedToday excludes a step that was toggled done then un-toggled", () => {
+  const p = createProject(db, "Complete tracely onboarding", "2026-08-10", TODAY);
+  const s1 = createStep(db, p.id, "Step A", 20, TODAY)!;
+  toggleStep(db, s1.id, TODAY);
+  toggleStep(db, s1.id, TODAY);
+  expect(countStepsCompletedToday(db, TODAY)).toBe(0);
+});
+
+test("countStepsCompletedToday is 0 when nothing has been completed", () => {
+  expect(countStepsCompletedToday(db, TODAY)).toBe(0);
 });

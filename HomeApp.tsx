@@ -1,6 +1,8 @@
 // HomeApp.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import type { DueItem, DueSource } from "./home-api";
+import type { DueItem, DueSource, HomeStats } from "./home-api";
+
+const EMPTY_STATS: HomeStats = { dueToday: 0, overdue: 0, completedToday: 0 };
 
 const SOURCE_LABEL: Record<DueSource, string> = {
   leetcode: "LeetCode",
@@ -59,6 +61,7 @@ function GoogleCalendarEmbed() {
 
 export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) => void }) {
   const [items, setItems] = useState<DueItem[]>([]);
+  const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
@@ -74,10 +77,29 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
       .catch(() => {
         setLoadError(true);
       });
+
+    fetch("/api/home/stats")
+      .then((r) => (r.ok ? r.json() : EMPTY_STATS))
+      .then(setStats)
+      .catch(() => setStats(EMPTY_STATS));
   }, []);
 
   return (
     <div className="home">
+      <div className="stats stats-3">
+        <div className="stat stat-due">
+          <span className="stat-num">{stats.dueToday}</span>
+          <span className="stat-label">Due today</span>
+        </div>
+        <div className="stat stat-overdue">
+          <span className="stat-num">{stats.overdue}</span>
+          <span className="stat-label">Overdue</span>
+        </div>
+        <div className="stat stat-completed">
+          <span className="stat-num">{stats.completedToday}</span>
+          <span className="stat-label">Completed today</span>
+        </div>
+      </div>
       <section className="board" aria-label="Everything due">
         <div className="section-head">
           <h2>Everything due</h2>
