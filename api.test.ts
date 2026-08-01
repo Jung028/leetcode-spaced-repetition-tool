@@ -190,3 +190,23 @@ test("GET /api/stats reports how many reviews happened today", async () => {
   });
   expect(((await (await fetch(`${base}/api/stats`)).json()) as any).completedToday).toBe(1);
 });
+
+test("GET /api/problems/completed-today lists problems reviewed today only", async () => {
+  const { id } = (await (await addProblem()).json()) as any;
+  await addProblem({
+    title: "3Sum",
+    url: "https://leetcode.com/problems/3sum/",
+    solution: "y",
+  });
+
+  expect(await (await fetch(`${base}/api/problems/completed-today`)).json()).toEqual([]);
+
+  await fetch(`${base}/api/problems/${id}/review`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ result: "pass" }),
+  });
+  const completed: any = await (await fetch(`${base}/api/problems/completed-today`)).json();
+  expect(completed.length).toBe(1);
+  expect(completed[0].title).toBe("Two Sum");
+});

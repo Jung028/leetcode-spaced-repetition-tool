@@ -9,6 +9,7 @@ import {
   toggleStep,
   listDueSteps,
   countStepsCompletedToday,
+  listStepsCompletedOn,
 } from "./goals-db";
 
 const TODAY = "2026-07-31";
@@ -164,4 +165,33 @@ test("countStepsCompletedToday excludes a step that was toggled done then un-tog
 
 test("countStepsCompletedToday is 0 when nothing has been completed", () => {
   expect(countStepsCompletedToday(db, TODAY)).toBe(0);
+});
+
+test("listStepsCompletedOn returns steps done today, joined with project title", () => {
+  const p = createProject(db, "Complete tracely onboarding", "2026-08-10", TODAY);
+  const s1 = createStep(db, p.id, "Step A", 20, TODAY)!;
+  createStep(db, p.id, "Step B (not done)", 20, TODAY);
+  toggleStep(db, s1.id, TODAY);
+
+  const completed = listStepsCompletedOn(db, TODAY);
+  expect(completed.length).toBe(1);
+  expect(completed[0]!.id).toBe(s1.id);
+  expect(completed[0]!.project_title).toBe("Complete tracely onboarding");
+});
+
+test("listStepsCompletedOn excludes steps done on a different day", () => {
+  const p = createProject(db, "Complete tracely onboarding", "2026-08-10", TODAY);
+  const s1 = createStep(db, p.id, "Step A", 20, TODAY)!;
+  toggleStep(db, s1.id, "2026-07-25");
+  expect(listStepsCompletedOn(db, TODAY)).toEqual([]);
+});
+
+test("listStepsCompletedOn includes a step even if its project has since auto-archived", () => {
+  const p = createProject(db, "Complete tracely onboarding", "2026-08-10", TODAY);
+  const s1 = createStep(db, p.id, "Step A", 100, TODAY)!;
+  toggleStep(db, s1.id, TODAY); // completes the project, auto-archiving it
+  expect(getProjectDetail(db, p.id)!.archived).toBe(true);
+
+  const completed = listStepsCompletedOn(db, TODAY);
+  expect(completed.map((s) => s.id)).toContain(s1.id);
 });

@@ -3,6 +3,7 @@ import {
   countOverdueTheory,
   countTheoryReviewsToday,
   listDueTheory,
+  listTheoryCompletedToday,
   reviewTheoryConcept,
   saveTheoryAnswer,
 } from "./theory-db";
@@ -34,6 +35,9 @@ export function theoryApiRoutes(db: Database) {
           },
         });
       },
+    },
+    "/api/theory/completed-today": {
+      GET: () => json(listTheoryCompletedToday(db, localToday())),
     },
     "/api/theory/:day/answer": {
       POST: async (req: Request & { params: { day: string } }) => {

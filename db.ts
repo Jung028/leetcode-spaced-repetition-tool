@@ -190,3 +190,16 @@ export function countReviewsToday(db: Database, today: string): number {
     .get(today) as { n: number };
   return row.n;
 }
+
+export function listCompletedToday(db: Database, today: string): ProblemSummary[] {
+  return db
+    .query(
+      `SELECT p.id, p.title, p.url, p.language, p.rung, p.next_review, p.created_at
+       FROM problems p
+       JOIN reviews r ON r.problem_id = p.id
+       WHERE r.reviewed_at = ?
+       GROUP BY p.id
+       ORDER BY p.id`,
+    )
+    .all(today) as ProblemSummary[];
+}

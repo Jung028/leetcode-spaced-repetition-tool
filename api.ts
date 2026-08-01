@@ -5,6 +5,7 @@ import {
   createProblem,
   deleteProblem,
   getProblem,
+  listCompletedToday,
   listProblems,
   reviewProblem,
   updateProblem,
@@ -34,6 +35,9 @@ export function apiRoutes(db: Database) {
         if (!input) return json({ error: "title, url and solution are required" }, 400);
         return json(createProblem(db, input, localToday()), 201);
       },
+    },
+    "/api/problems/completed-today": {
+      GET: () => json(listCompletedToday(db, localToday())),
     },
     "/api/problems/:id": {
       GET: (req: { params: { id: string } }) => {

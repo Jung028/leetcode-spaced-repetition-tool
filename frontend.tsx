@@ -106,10 +106,14 @@ function RungMeter({ rung }: { rung: number }) {
 }
 
 function TrackedListModal({
+  title = "Tracked problems",
+  emptyMessage = "Nothing tracked yet.",
   problems,
   onOpen,
   onClose,
 }: {
+  title?: string;
+  emptyMessage?: string;
   problems: ProblemSummary[];
   onOpen: (id: number) => void;
   onClose: () => void;
@@ -128,11 +132,11 @@ function TrackedListModal({
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <h2>Tracked problems</h2>
+          <h2>{title}</h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
         {sorted.length === 0 ? (
-          <p className="board-empty">Nothing tracked yet.</p>
+          <p className="board-empty">{emptyMessage}</p>
         ) : (
           <ul className="modal-rows">
             {sorted.map((p) => (
@@ -158,6 +162,8 @@ function TrackedListModal({
   );
 }
 
+type StatModal = "tracked" | "due" | "overdue" | "completed" | null;
+
 function Stats({
   problems,
   today,
@@ -169,34 +175,80 @@ function Stats({
   completedToday: number;
   onOpen: (id: number) => void;
 }) {
-  const [showTracked, setShowTracked] = useState(false);
-  const due = problems.filter((p) => isDue(p.next_review, today)).length;
-  const overdue = problems.filter((p) => p.next_review < today).length;
+  const [openModal, setOpenModal] = useState<StatModal>(null);
+  const [completedList, setCompletedList] = useState<ProblemSummary[] | null>(null);
+
+  // Reset the cached completed-today list whenever the underlying count
+  // changes (e.g. after a review elsewhere on the board), so a stale list
+  // isn't shown next time this modal is reopened without a tab switch.
+  useEffect(() => {
+    setCompletedList(null);
+  }, [completedToday]);
+
+  const dueProblems = problems.filter((p) => isDue(p.next_review, today));
+  const overdueProblems = problems.filter((p) => p.next_review < today);
+
+  const openCompleted = () => {
+    setOpenModal("completed");
+    if (completedList === null) {
+      fetch("/api/problems/completed-today")
+        .then((r) => r.json())
+        .then(setCompletedList);
+    }
+  };
+
   return (
     <>
       <div className="stats">
-        <button className="stat stat-total" onClick={() => setShowTracked(true)}>
+        <button className="stat stat-total" onClick={() => setOpenModal("tracked")}>
           <span className="stat-num">{problems.length}</span>
           <span className="stat-label">Tracked</span>
         </button>
-        <div className="stat stat-due">
-          <span className="stat-num">{due}</span>
+        <button className="stat stat-due" onClick={() => setOpenModal("due")}>
+          <span className="stat-num">{dueProblems.length}</span>
           <span className="stat-label">Due today</span>
-        </div>
-        <div className="stat stat-overdue">
-          <span className="stat-num">{overdue}</span>
+        </button>
+        <button className="stat stat-overdue" onClick={() => setOpenModal("overdue")}>
+          <span className="stat-num">{overdueProblems.length}</span>
           <span className="stat-label">Overdue</span>
-        </div>
-        <div className="stat stat-completed">
+        </button>
+        <button className="stat stat-completed" onClick={openCompleted}>
           <span className="stat-num">{completedToday}</span>
           <span className="stat-label">Completed today</span>
-        </div>
+        </button>
       </div>
-      {showTracked && (
+      {openModal === "tracked" && (
         <TrackedListModal
           problems={problems}
           onOpen={onOpen}
-          onClose={() => setShowTracked(false)}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+      {openModal === "due" && (
+        <TrackedListModal
+          title="Due today"
+          emptyMessage="Nothing due today."
+          problems={dueProblems}
+          onOpen={onOpen}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+      {openModal === "overdue" && (
+        <TrackedListModal
+          title="Overdue"
+          emptyMessage="Nothing overdue."
+          problems={overdueProblems}
+          onOpen={onOpen}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+      {openModal === "completed" && (
+        <TrackedListModal
+          title="Completed today"
+          emptyMessage="Nothing completed today yet."
+          problems={completedList ?? []}
+          onOpen={onOpen}
+          onClose={() => setOpenModal(null)}
         />
       )}
     </>

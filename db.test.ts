@@ -11,6 +11,7 @@ import {
   findProblemBySlug,
   captureSubmission,
   countReviewsToday,
+  listCompletedToday,
 } from "./db";
 
 const TODAY = "2026-07-20";
@@ -248,4 +249,22 @@ test("countReviewsToday counts only today's reviews", () => {
   reviewProblem(db, b.id, "fail", TODAY);
   reviewProblem(db, a.id, "pass", "2026-07-19");
   expect(countReviewsToday(db, TODAY)).toBe(2);
+});
+
+test("listCompletedToday returns problems reviewed today, deduped, ordered by id", () => {
+  const a = add("Two Sum");
+  const b = add("3Sum");
+  add("Untouched"); // never reviewed
+  reviewProblem(db, a.id, "pass", TODAY);
+  reviewProblem(db, a.id, "fail", TODAY); // second review same day, shouldn't duplicate
+  reviewProblem(db, b.id, "pass", "2026-07-19"); // different day, shouldn't show up
+
+  const completed = listCompletedToday(db, TODAY);
+  expect(completed.map((p) => p.id)).toEqual([a.id]);
+  expect(completed[0]!.title).toBe("Two Sum");
+});
+
+test("listCompletedToday is empty when nothing was reviewed today", () => {
+  add("Two Sum");
+  expect(listCompletedToday(db, TODAY)).toEqual([]);
 });

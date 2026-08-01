@@ -23,6 +23,64 @@ const EMBEDDED_CALENDARS = [
   { id: "crc3t59ndtkt77bdu0j6tv35ant0erjl@import.calendar.google.com", color: "#039BE5" },
 ];
 
+function HomeListModal({
+  title,
+  emptyMessage,
+  items,
+  onNavigate,
+  onClose,
+}: {
+  title: string;
+  emptyMessage: string;
+  items: DueItem[];
+  onNavigate: (item: DueItem) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const sorted = [...items].sort((a, b) => a.title.localeCompare(b.title));
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <h2>{title}</h2>
+          <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
+        </div>
+        {sorted.length === 0 ? (
+          <p className="board-empty">{emptyMessage}</p>
+        ) : (
+          <ul className="modal-rows">
+            {sorted.map((item) => (
+              <li key={`${item.source}-${item.id}`}>
+                <button
+                  className="modal-row"
+                  onClick={() => {
+                    onNavigate(item);
+                    onClose();
+                  }}
+                >
+                  <span className="cat-tag" style={{ "--cat-color": SOURCE_COLOR[item.source] } as React.CSSProperties}>
+                    {SOURCE_LABEL[item.source]}
+                  </span>
+                  <span className="modal-row-title">{item.title}</span>
+                  <span className="goal-deadline">{item.subtitle}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function GoogleCalendarEmbed() {
   const src = useMemo(() => {
     const params = new URLSearchParams({
@@ -59,10 +117,27 @@ function GoogleCalendarEmbed() {
   );
 }
 
+type StatModal = "due" | "overdue" | "completed" | null;
+
 export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) => void }) {
   const [items, setItems] = useState<DueItem[]>([]);
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
   const [loadError, setLoadError] = useState(false);
+  const [openModal, setOpenModal] = useState<StatModal>(null);
+  const [completedList, setCompletedList] = useState<DueItem[] | null>(null);
+
+  const dueToday = items.filter((item) => item.overdueDays === 0);
+  const overdue = items.filter((item) => item.overdueDays > 0);
+
+  const openCompleted = () => {
+    setOpenModal("completed");
+    if (completedList === null) {
+      fetch("/api/home/completed-today")
+        .then((r) => (r.ok ? r.json() : []))
+        .then(setCompletedList)
+        .catch(() => setCompletedList([]));
+    }
+  };
 
   useEffect(() => {
     fetch("/api/home/due")
@@ -87,19 +162,46 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
   return (
     <div className="home">
       <div className="stats stats-3">
-        <div className="stat stat-due">
+        <button className="stat stat-due" onClick={() => setOpenModal("due")}>
           <span className="stat-num">{stats.dueToday}</span>
           <span className="stat-label">Due today</span>
-        </div>
-        <div className="stat stat-overdue">
+        </button>
+        <button className="stat stat-overdue" onClick={() => setOpenModal("overdue")}>
           <span className="stat-num">{stats.overdue}</span>
           <span className="stat-label">Overdue</span>
-        </div>
-        <div className="stat stat-completed">
+        </button>
+        <button className="stat stat-completed" onClick={openCompleted}>
           <span className="stat-num">{stats.completedToday}</span>
           <span className="stat-label">Completed today</span>
-        </div>
+        </button>
       </div>
+      {openModal === "due" && (
+        <HomeListModal
+          title="Due today"
+          emptyMessage="Nothing due today."
+          items={dueToday}
+          onNavigate={onNavigate}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+      {openModal === "overdue" && (
+        <HomeListModal
+          title="Overdue"
+          emptyMessage="Nothing overdue."
+          items={overdue}
+          onNavigate={onNavigate}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+      {openModal === "completed" && (
+        <HomeListModal
+          title="Completed today"
+          emptyMessage="Nothing completed today yet."
+          items={completedList ?? []}
+          onNavigate={onNavigate}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
       <section className="board" aria-label="Everything due">
         <div className="section-head">
           <h2>Everything due</h2>
