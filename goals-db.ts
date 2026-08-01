@@ -139,6 +139,19 @@ export function countStepsCompletedToday(db: Database, today: string): number {
   return row.n;
 }
 
+export function listStepsCompletedOn(db: Database, today: string): (ProjectStep & { project_title: string })[] {
+  const rows = db
+    .query(
+      `SELECT s.*, p.title AS project_title
+       FROM project_steps s
+       JOIN projects p ON p.id = s.project_id
+       WHERE s.done = 1 AND s.done_at = ?
+       ORDER BY s.due_date, s.id`,
+    )
+    .all(today) as (ProjectStepRow & { project_title: string })[];
+  return rows.map((row) => ({ ...toStep(row), project_title: row.project_title }));
+}
+
 export function listDueSteps(db: Database, today: string): (ProjectStep & { project_title: string })[] {
   const rows = db
     .query(

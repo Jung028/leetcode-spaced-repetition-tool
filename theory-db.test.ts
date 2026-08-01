@@ -8,6 +8,7 @@ import {
   reviewTheoryConcept,
   countTheoryReviewsToday,
   countOverdueTheory,
+  listTheoryCompletedToday,
 } from "./theory-db";
 
 const TODAY = "2026-07-20";
@@ -94,4 +95,17 @@ test("countTheoryReviewsToday only counts today's reviews", () => {
 test("countOverdueTheory counts strictly-past next_review dates, not today's", () => {
   expect(countOverdueTheory(db, TODAY)).toBe(0);
   expect(countOverdueTheory(db, "2026-07-22")).toBe(2); // concepts 1 and 2 are now overdue
+});
+
+test("listTheoryCompletedToday returns concepts reviewed today, deduped, ordered by concept_day", () => {
+  reviewTheoryConcept(db, 1, "wrong", TODAY);
+  reviewTheoryConcept(db, 1, "correct", TODAY); // second review same day, shouldn't duplicate
+  reviewTheoryConcept(db, 2, "correct", "2026-07-19"); // different day, shouldn't show up
+
+  const completed = listTheoryCompletedToday(db, TODAY);
+  expect(completed.map((c) => c.concept_day)).toEqual([1]);
+});
+
+test("listTheoryCompletedToday is empty when nothing was reviewed today", () => {
+  expect(listTheoryCompletedToday(db, TODAY)).toEqual([]);
 });

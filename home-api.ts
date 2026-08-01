@@ -1,8 +1,8 @@
 // home-api.ts
 import type { Database } from "bun:sqlite";
-import { listProblems, countReviewsToday } from "./db";
-import { listDueTheory, countTheoryReviewsToday } from "./theory-db";
-import { listDueSteps, countStepsCompletedToday } from "./goals-db";
+import { listProblems, countReviewsToday, listCompletedToday } from "./db";
+import { listDueTheory, countTheoryReviewsToday, listTheoryCompletedToday } from "./theory-db";
+import { listDueSteps, countStepsCompletedToday, listStepsCompletedOn } from "./goals-db";
 import { isDue, localToday } from "./scheduling";
 import { buildTheorySchedule } from "./theory-content";
 
@@ -67,6 +67,47 @@ function goalsDue(db: Database, today: string): DueItem[] {
   }));
 }
 
+function leetcodeCompletedToday(db: Database, today: string): DueItem[] {
+  return listCompletedToday(db, today).map((p) => ({
+    source: "leetcode" as const,
+    id: p.id,
+    title: p.title,
+    subtitle: p.language,
+    dueDate: today,
+    overdueDays: 0,
+    linkId: p.id,
+  }));
+}
+
+function theoryCompletedToday(db: Database, today: string): DueItem[] {
+  return listTheoryCompletedToday(db, today)
+    .filter((entry) => SCHEDULE[entry.concept_day - 1])
+    .map((entry) => {
+      const concept = SCHEDULE[entry.concept_day - 1]!;
+      return {
+        source: "theory" as const,
+        id: entry.concept_day,
+        title: concept.question,
+        subtitle: concept.category,
+        dueDate: today,
+        overdueDays: 0,
+        linkId: entry.concept_day,
+      };
+    });
+}
+
+function goalsCompletedToday(db: Database, today: string): DueItem[] {
+  return listStepsCompletedOn(db, today).map((step) => ({
+    source: "goals" as const,
+    id: step.id,
+    title: step.label,
+    subtitle: step.project_title,
+    dueDate: today,
+    overdueDays: 0,
+    linkId: step.project_id,
+  }));
+}
+
 export interface HomeStats {
   dueToday: number;
   overdue: number;
@@ -95,6 +136,18 @@ export function homeApiRoutes(db: Database) {
     },
     "/api/home/stats": {
       GET: () => Response.json(homeStats(db, localToday())),
+    },
+    "/api/home/completed-today": {
+      GET: () => {
+        const today = localToday();
+        const items = [
+          ...leetcodeCompletedToday(db, today),
+          ...theoryCompletedToday(db, today),
+          ...goalsCompletedToday(db, today),
+        ];
+        items.sort((a, b) => a.source.localeCompare(b.source) || a.title.localeCompare(b.title));
+        return Response.json(items);
+      },
     },
   };
 }

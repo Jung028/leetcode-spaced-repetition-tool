@@ -107,3 +107,15 @@ export function countOverdueTheory(db: Database, today: string): number {
     .get(today) as { n: number };
   return row.n;
 }
+
+export function listTheoryCompletedToday(db: Database, today: string): TheoryProgress[] {
+  return db
+    .query(
+      `SELECT DISTINCT ts.concept_day, ts.rung, ts.next_review, ts.your_answer
+       FROM theory_schedule ts
+       JOIN theory_reviews tr ON tr.concept_day = ts.concept_day
+       WHERE tr.reviewed_at = ?
+       ORDER BY ts.concept_day`,
+    )
+    .all(today) as TheoryProgress[];
+}

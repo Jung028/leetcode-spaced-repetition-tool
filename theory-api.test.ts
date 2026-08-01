@@ -71,6 +71,19 @@ test("review rejects a bad result value", async () => {
   expect(res.status).toBe(400);
 });
 
+test("GET /api/theory/completed-today lists concepts reviewed today only", async () => {
+  expect(await (await fetch(`${base}/api/theory/completed-today`)).json()).toEqual([]);
+
+  await fetch(`${base}/api/theory/1/review`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ result: "correct" }),
+  });
+  const completed: any = await (await fetch(`${base}/api/theory/completed-today`)).json();
+  expect(completed.length).toBe(1);
+  expect(completed[0].concept_day).toBe(1);
+});
+
 test("day out of range (0, 151, non-numeric) is rejected with 400 on both routes", async () => {
   for (const bad of ["0", "151", "abc"]) {
     const answerRes = await fetch(`${base}/api/theory/${bad}/answer`, {
