@@ -158,10 +158,16 @@ function TheoryDetail({
   onChanged: () => void;
 }) {
   const concept = SCHEDULE[entry.concept_day - 1]!;
-  const [draft, setDraft] = useState(entry.your_answer);
+  // Always starts blank, even if a previous answer was saved to this
+  // concept — reopening is for practicing recall again, not reading back
+  // what you wrote last time.
+  const [draft, setDraft] = useState("");
   const [revealed, setRevealed] = useState(false);
 
-  const saveAnswer = () => api.saveAnswer(entry.concept_day, draft);
+  const saveAnswer = () => {
+    setRevealed(false);
+    return api.saveAnswer(entry.concept_day, draft);
+  };
 
   const review = async (result: Result) => {
     await saveAnswer();
