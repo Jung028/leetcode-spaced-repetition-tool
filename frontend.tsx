@@ -141,18 +141,28 @@ function TrackedListModal({
           <ul className="modal-rows">
             {sorted.map((p) => (
               <li key={p.id}>
-                <button
-                  className="modal-row"
-                  onClick={() => {
-                    onOpen(p.id);
-                    onClose();
-                  }}
-                >
-                  <span className="modal-row-date">{p.next_review}</span>
-                  <span className="modal-row-title">{p.title}</span>
-                  <span className="lang-tag">{p.language}</span>
-                  <RungMeter rung={p.rung} />
-                </button>
+                <div className="modal-row">
+                  <button
+                    style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1, minWidth: 0, textAlign: "left" }}
+                    onClick={() => {
+                      onOpen(p.id);
+                      onClose();
+                    }}
+                  >
+                    <span className="modal-row-date">{p.next_review}</span>
+                    <span className="modal-row-title">{p.title}</span>
+                    <span className="lang-tag">{p.language}</span>
+                    <RungMeter rung={p.rung} />
+                  </button>
+                  <button
+                    className="board-row-review"
+                    onClick={() => openExternal(p.url)}
+                    title="Open on LeetCode"
+                    aria-label="Open on LeetCode"
+                  >
+                    ↗
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
