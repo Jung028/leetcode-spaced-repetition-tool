@@ -7,6 +7,7 @@ export interface Project {
   deadline: string;
   created_at: string;
   archived: boolean;
+  link: string | null;
 }
 
 export interface ProjectStep {
@@ -30,6 +31,7 @@ interface ProjectRow {
   deadline: string;
   created_at: string;
   archived: number;
+  link: string | null;
 }
 
 interface ProjectStepRow {
@@ -64,6 +66,11 @@ export function migrateGoals(db: Database): void {
       done_at TEXT
     );
   `);
+
+  const columns = db.query(`PRAGMA table_info(projects)`).all() as { name: string }[];
+  if (!columns.some((c) => c.name === "link")) {
+    db.exec(`ALTER TABLE projects ADD COLUMN link TEXT`);
+  }
 }
 
 export function createProject(db: Database, title: string, deadline: string, today: string): Project {
@@ -71,6 +78,13 @@ export function createProject(db: Database, title: string, deadline: string, tod
     .query(`INSERT INTO projects (title, deadline, created_at, archived) VALUES (?, ?, ?, 0) RETURNING *`)
     .get(title, deadline, today) as ProjectRow;
   return toProject(row);
+}
+
+export function setProjectLink(db: Database, id: number, link: string | null): Project | null {
+  const row = db
+    .query(`UPDATE projects SET link = ? WHERE id = ? RETURNING *`)
+    .get(link, id) as ProjectRow | null;
+  return row ? toProject(row) : null;
 }
 
 export function listProjects(db: Database): Project[] {

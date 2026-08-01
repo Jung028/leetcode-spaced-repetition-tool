@@ -485,6 +485,11 @@ button.stat:hover {
   color: var(--text);
 }
 
+a.btn {
+  text-decoration: none;
+  display: inline-block;
+}
+
 .btn:hover {
   border-color: var(--dim);
 }

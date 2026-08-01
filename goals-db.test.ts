@@ -9,6 +9,7 @@ import {
   toggleStep,
   listDueSteps,
   countStepsCompletedToday,
+  setProjectLink,
 } from "./goals-db";
 
 const TODAY = "2026-07-31";
@@ -164,4 +165,28 @@ test("countStepsCompletedToday excludes a step that was toggled done then un-tog
 
 test("countStepsCompletedToday is 0 when nothing has been completed", () => {
   expect(countStepsCompletedToday(db, TODAY)).toBe(0);
+});
+
+test("a new project starts with no link", () => {
+  const p = createProject(db, "Complete tracely onboarding", "2026-08-10", TODAY);
+  expect(p.link).toBeNull();
+  expect(getProjectDetail(db, p.id)!.link).toBeNull();
+});
+
+test("setProjectLink sets the link on a project", () => {
+  const p = createProject(db, "Complete tracely onboarding", "2026-08-10", TODAY);
+  const updated = setProjectLink(db, p.id, "https://notion.so/my-project")!;
+  expect(updated.link).toBe("https://notion.so/my-project");
+  expect(getProjectDetail(db, p.id)!.link).toBe("https://notion.so/my-project");
+});
+
+test("setProjectLink can clear a link back to null", () => {
+  const p = createProject(db, "Complete tracely onboarding", "2026-08-10", TODAY);
+  setProjectLink(db, p.id, "https://notion.so/my-project");
+  const cleared = setProjectLink(db, p.id, null)!;
+  expect(cleared.link).toBeNull();
+});
+
+test("setProjectLink on an unknown project returns null", () => {
+  expect(setProjectLink(db, 9999, "https://example.com")).toBeNull();
 });

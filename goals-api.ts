@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import { createProject, listProjects, getProjectDetail, createStep, toggleStep } from "./goals-db";
+import { createProject, listProjects, getProjectDetail, createStep, toggleStep, setProjectLink } from "./goals-db";
 import { localToday } from "./scheduling";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
@@ -20,6 +20,13 @@ export function goalsApiRoutes(db: Database) {
       GET: (req: { params: { id: string } }) => {
         const detail = getProjectDetail(db, Number(req.params.id));
         return detail ? json(detail) : json({ error: "not found" }, 404);
+      },
+      PUT: async (req: Request & { params: { id: string } }) => {
+        const body = (await req.json().catch(() => null)) as { link?: unknown } | null;
+        if (typeof body?.link !== "string") return json({ error: "link must be a string" }, 400);
+        const link = body.link.trim() || null;
+        const updated = setProjectLink(db, Number(req.params.id), link);
+        return updated ? json(updated) : json({ error: "not found" }, 404);
       },
     },
     "/api/goals/:id/steps": {
