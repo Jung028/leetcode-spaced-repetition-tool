@@ -80,22 +80,144 @@ function TheoryRungMeter({ rung }: { rung: number }) {
   );
 }
 
-function TheoryStats({ stats }: { stats: Stats }) {
+function TheoryListModal({
+  title,
+  emptyMessage,
+  entries,
+  onOpen,
+  onClose,
+}: {
+  title: string;
+  emptyMessage: string;
+  entries: TheoryProgress[];
+  onOpen: (conceptDay: number) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const sorted = [...entries].sort((a, b) => a.next_review.localeCompare(b.next_review));
+
   return (
-    <div className="stats stats-3">
-      <div className="stat stat-due">
-        <span className="stat-num">{stats.dueCount}</span>
-        <span className="stat-label">Due today</span>
-      </div>
-      <div className="stat stat-overdue">
-        <span className="stat-num">{stats.overdueCount}</span>
-        <span className="stat-label">Overdue</span>
-      </div>
-      <div className="stat stat-completed">
-        <span className="stat-num">{stats.completedToday}</span>
-        <span className="stat-label">Completed today</span>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <h2>{title}</h2>
+          <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
+        </div>
+        {sorted.length === 0 ? (
+          <p className="board-empty">{emptyMessage}</p>
+        ) : (
+          <ul className="modal-rows">
+            {sorted.map((entry) => {
+              const concept = SCHEDULE[entry.concept_day - 1];
+              if (!concept) return null;
+              return (
+                <li key={entry.concept_day}>
+                  <button
+                    className="modal-row"
+                    onClick={() => {
+                      onOpen(entry.concept_day);
+                      onClose();
+                    }}
+                  >
+                    <span className="modal-row-date">{entry.next_review}</span>
+                    <span
+                      className="cat-tag"
+                      style={{ "--cat-color": CATEGORY_COLORS[concept.category] } as React.CSSProperties}
+                    >
+                      {concept.category}
+                    </span>
+                    <span className="modal-row-title">{concept.question}</span>
+                    <TheoryRungMeter rung={entry.rung} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </div>
+  );
+}
+
+type StatModal = "due" | "overdue" | "completed" | null;
+
+function TheoryStats({
+  stats,
+  due,
+  today,
+  onOpen,
+}: {
+  stats: Stats;
+  due: TheoryProgress[];
+  today: string;
+  onOpen: (conceptDay: number) => void;
+}) {
+  const [openModal, setOpenModal] = useState<StatModal>(null);
+  const [completedList, setCompletedList] = useState<TheoryProgress[] | null>(null);
+
+  const dueToday = due.filter((entry) => entry.next_review === today);
+  const overdue = due.filter((entry) => entry.next_review < today);
+
+  const openCompleted = () => {
+    setOpenModal("completed");
+    if (completedList === null) {
+      fetch("/api/theory/completed-today")
+        .then((r) => r.json())
+        .then(setCompletedList);
+    }
+  };
+
+  return (
+    <>
+      <div className="stats stats-3">
+        <button className="stat stat-due" onClick={() => setOpenModal("due")}>
+          <span className="stat-num">{stats.dueCount}</span>
+          <span className="stat-label">Due today</span>
+        </button>
+        <button className="stat stat-overdue" onClick={() => setOpenModal("overdue")}>
+          <span className="stat-num">{stats.overdueCount}</span>
+          <span className="stat-label">Overdue</span>
+        </button>
+        <button className="stat stat-completed" onClick={openCompleted}>
+          <span className="stat-num">{stats.completedToday}</span>
+          <span className="stat-label">Completed today</span>
+        </button>
+      </div>
+      {openModal === "due" && (
+        <TheoryListModal
+          title="Due today"
+          emptyMessage="Nothing due today."
+          entries={dueToday}
+          onOpen={onOpen}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+      {openModal === "overdue" && (
+        <TheoryListModal
+          title="Overdue"
+          emptyMessage="Nothing overdue."
+          entries={overdue}
+          onOpen={onOpen}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+      {openModal === "completed" && (
+        <TheoryListModal
+          title="Completed today"
+          emptyMessage="Nothing completed today yet."
+          entries={completedList ?? []}
+          onOpen={onOpen}
+          onClose={() => setOpenModal(null)}
+        />
+      )}
+    </>
   );
 }
 
@@ -252,7 +374,12 @@ export default function TheoryApp({
 
   return (
     <div className="theory">
-      <TheoryStats stats={stats} />
+      <TheoryStats
+        stats={stats}
+        due={due}
+        today={today}
+        onOpen={(conceptDay) => setView({ name: "detail", conceptDay })}
+      />
       <p className="rule-note">
         Correct climbs the ladder: 3 → 5 → 7 → 14 → 30 days. Wrong resets it, due tomorrow.
       </p>
