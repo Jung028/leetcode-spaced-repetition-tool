@@ -177,6 +177,14 @@ function Stats({
 }) {
   const [openModal, setOpenModal] = useState<StatModal>(null);
   const [completedList, setCompletedList] = useState<ProblemSummary[] | null>(null);
+
+  // Reset the cached completed-today list whenever the underlying count
+  // changes (e.g. after a review elsewhere on the board), so a stale list
+  // isn't shown next time this modal is reopened without a tab switch.
+  useEffect(() => {
+    setCompletedList(null);
+  }, [completedToday]);
+
   const dueProblems = problems.filter((p) => isDue(p.next_review, today));
   const overdueProblems = problems.filter((p) => p.next_review < today);
 

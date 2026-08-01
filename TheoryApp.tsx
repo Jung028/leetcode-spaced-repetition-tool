@@ -162,7 +162,13 @@ function TheoryStats({
   const [openModal, setOpenModal] = useState<StatModal>(null);
   const [completedList, setCompletedList] = useState<TheoryProgress[] | null>(null);
 
-  const dueToday = due.filter((entry) => entry.next_review === today);
+  // Reset the cached completed-today list whenever the underlying count
+  // changes (e.g. after a review elsewhere on the board), so a stale list
+  // isn't shown next time this modal is reopened without a tab switch.
+  useEffect(() => {
+    setCompletedList(null);
+  }, [stats.completedToday]);
+
   const overdue = due.filter((entry) => entry.next_review < today);
 
   const openCompleted = () => {
@@ -194,7 +200,7 @@ function TheoryStats({
         <TheoryListModal
           title="Due today"
           emptyMessage="Nothing due today."
-          entries={dueToday}
+          entries={due}
           onOpen={onOpen}
           onClose={() => setOpenModal(null)}
         />
