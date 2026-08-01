@@ -164,9 +164,13 @@ function TheoryDetail({
   const [draft, setDraft] = useState("");
   const [revealed, setRevealed] = useState(false);
 
-  const saveAnswer = () => {
-    setRevealed(false);
-    return api.saveAnswer(entry.concept_day, draft);
+  // Saving reveals the model answer immediately (so you can compare right
+  // away) and clears the draft — the answer's already saved server-side,
+  // no need to keep looking at what you just typed.
+  const saveAnswer = async () => {
+    await api.saveAnswer(entry.concept_day, draft);
+    setRevealed(true);
+    setDraft("");
   };
 
   const review = async (result: Result) => {
