@@ -22,6 +22,12 @@ const api = {
     }).then((r) => r.json() as Promise<ProjectStep>),
   toggleStep: (stepId: number) =>
     fetch(`/api/goals/steps/${stepId}/toggle`, { method: "POST" }).then((r) => r.json() as Promise<ProjectStep>),
+  setLink: (id: number, link: string) =>
+    fetch(`/api/goals/${id}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ link }),
+    }).then((r) => r.json() as Promise<Project>),
 };
 
 const daysUntil = (deadline: string, today: string) =>
@@ -56,17 +62,28 @@ function ProjectBoard({
             const color = daysLeft < 0 ? "red" : daysLeft <= 3 ? "gold" : "green";
             return (
               <li key={p.id} style={{ animationDelay: `${i * 60}ms` }}>
-                <button
-                  className="board-row board-row-main"
+                <div
+                  className="board-row"
                   style={{ "--urgency": `var(--${color})` } as React.CSSProperties}
-                  onClick={() => onOpen(p.id)}
                 >
-                  <span className="tag">
-                    {daysLeft < 0 ? `${-daysLeft}d late` : daysLeft === 0 ? "today" : `${daysLeft}d left`}
-                  </span>
-                  <span className="board-title">{p.title}</span>
-                  <span className="goal-deadline">{p.deadline}</span>
-                </button>
+                  <button className="board-row-main" onClick={() => onOpen(p.id)}>
+                    <span className="tag">
+                      {daysLeft < 0 ? `${-daysLeft}d late` : daysLeft === 0 ? "today" : `${daysLeft}d left`}
+                    </span>
+                    <span className="board-title">{p.title}</span>
+                    <span className="goal-deadline">{p.deadline}</span>
+                  </button>
+                  {p.link && (
+                    <button
+                      className="board-row-review"
+                      onClick={() => window.open(p.link!, "_blank", "noopener,noreferrer")}
+                      title="Open link"
+                      aria-label="Open link"
+                    >
+                      ↗
+                    </button>
+                  )}
+                </div>
               </li>
             );
           })}
@@ -168,8 +185,13 @@ function ProjectDetailView({
 }) {
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
   const [addingStep, setAddingStep] = useState(false);
+  const [linkDraft, setLinkDraft] = useState("");
 
-  const load = () => api.get(projectId).then(setDetail);
+  const load = () =>
+    api.get(projectId).then((d) => {
+      setDetail(d);
+      setLinkDraft(d.link ?? "");
+    });
   useEffect(() => { load(); }, [projectId]);
 
   if (!detail) return <p className="board-empty">Loading…</p>;
@@ -188,6 +210,33 @@ function ProjectDetailView({
           {allocated}% allocated across {detail.steps.length} step{detail.steps.length === 1 ? "" : "s"}
         </span>
       </p>
+
+      <form
+        className="form"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const updated = await api.setLink(projectId, linkDraft.trim());
+          setDetail((d) => (d ? { ...d, link: updated.link } : d));
+        }}
+      >
+        <label>
+          Link
+          <input
+            value={linkDraft}
+            onChange={(e) => setLinkDraft(e.target.value)}
+            type="url"
+            placeholder="https://notion.so/..."
+          />
+        </label>
+        <div className="btn-row">
+          <button type="submit" className="btn">Save link</button>
+          {detail.link && (
+            <a className="btn" href={detail.link} target="_blank" rel="noreferrer">
+              Open ↗
+            </a>
+          )}
+        </div>
+      </form>
 
       <ul className="board-rows">
         {detail.steps.map((s) => {

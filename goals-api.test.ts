@@ -137,3 +137,74 @@ test("POST /api/goals/steps/:stepId/toggle on an unknown step returns 404", asyn
   const res = await fetch(`${base}/api/goals/steps/9999/toggle`, { method: "POST" });
   expect(res.status).toBe(404);
 });
+
+test("PUT /api/goals/:id sets the project's link", async () => {
+  const created: any = await (
+    await fetch(`${base}/api/goals`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(createProjectBody),
+    })
+  ).json();
+
+  const res = await fetch(`${base}/api/goals/${created.id}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ link: "https://notion.so/my-project" }),
+  });
+  expect(res.status).toBe(200);
+  const updated: any = await res.json();
+  expect(updated.link).toBe("https://notion.so/my-project");
+
+  const detail: any = await (await fetch(`${base}/api/goals/${created.id}`)).json();
+  expect(detail.link).toBe("https://notion.so/my-project");
+});
+
+test("PUT /api/goals/:id clears the link when sent an empty string", async () => {
+  const created: any = await (
+    await fetch(`${base}/api/goals`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(createProjectBody),
+    })
+  ).json();
+  await fetch(`${base}/api/goals/${created.id}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ link: "https://notion.so/my-project" }),
+  });
+
+  const res = await fetch(`${base}/api/goals/${created.id}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ link: "" }),
+  });
+  const updated: any = await res.json();
+  expect(updated.link).toBeNull();
+});
+
+test("PUT /api/goals/:id rejects a non-string link", async () => {
+  const created: any = await (
+    await fetch(`${base}/api/goals`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(createProjectBody),
+    })
+  ).json();
+
+  const res = await fetch(`${base}/api/goals/${created.id}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ link: 123 }),
+  });
+  expect(res.status).toBe(400);
+});
+
+test("PUT /api/goals/:id on an unknown project returns 404", async () => {
+  const res = await fetch(`${base}/api/goals/9999`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ link: "https://example.com" }),
+  });
+  expect(res.status).toBe(404);
+});
