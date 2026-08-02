@@ -16,11 +16,10 @@ beforeEach(() => {
 
 afterEach(() => server.stop(true));
 
-test("GET /api/theory/due starts with only concept 1 due, no overdue, nothing completed", async () => {
+test("GET /api/theory/due starts with the first 5 concepts released under the cap, no overdue, nothing completed", async () => {
   const body: any = await (await fetch(`${base}/api/theory/due`)).json();
-  expect(body.due.length).toBe(1);
-  expect(body.due[0].concept_day).toBe(1);
-  expect(body.stats).toEqual({ dueCount: 1, overdueCount: 0, completedToday: 0 });
+  expect(body.due.map((d: any) => d.concept_day)).toEqual([1, 2, 3, 4, 5]);
+  expect(body.stats).toEqual({ dueCount: 5, overdueCount: 0, completedToday: 0 });
 });
 
 test("POST /api/theory/:day/answer saves a draft without touching scheduling", async () => {
@@ -35,7 +34,7 @@ test("POST /api/theory/:day/answer saves a draft without touching scheduling", a
   expect(saved.rung).toBe(-1);
 });
 
-test("POST /api/theory/:day/review 'correct' advances rung 3 days out and drops off today's due list", async () => {
+test("POST /api/theory/:day/review 'correct' advances rung 3 days out, and the next concept fills the vacated slot", async () => {
   const res = await fetch(`${base}/api/theory/1/review`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -47,7 +46,7 @@ test("POST /api/theory/:day/review 'correct' advances rung 3 days out and drops 
   expect(updated.next_review).toBe(addDays(localToday(), 3));
 
   const due: any = await (await fetch(`${base}/api/theory/due`)).json();
-  expect(due.due.length).toBe(0);
+  expect(due.due.map((d: any) => d.concept_day)).toEqual([2, 3, 4, 5, 6]);
   expect(due.stats.completedToday).toBe(1);
 });
 
