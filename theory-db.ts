@@ -5,18 +5,24 @@ import { releaseCount } from "./scheduling";
 
 export interface TheoryProgress {
   concept_day: number;
+  category: string;
   rung: number;
   next_review: string;
   your_answer: string;
+  question: string;
+  answer: string;
 }
 
 export function migrateTheory(db: Database, today: string): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS theory_schedule (
       concept_day INTEGER PRIMARY KEY,
+      category TEXT NOT NULL DEFAULT '',
       rung INTEGER NOT NULL DEFAULT -1,
       next_review TEXT NOT NULL,
-      your_answer TEXT NOT NULL DEFAULT ''
+      your_answer TEXT NOT NULL DEFAULT '',
+      question TEXT NOT NULL DEFAULT '',
+      answer TEXT NOT NULL DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS theory_reviews (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,6 +34,17 @@ export function migrateTheory(db: Database, today: string): void {
       released_up_to INTEGER NOT NULL DEFAULT 0
     );
   `);
+
+  const columns = db.query(`PRAGMA table_info(theory_schedule)`).all() as { name: string }[];
+  const needsContentColumns = !columns.some((c) => c.name === "category");
+  if (needsContentColumns) {
+    db.exec(`
+      ALTER TABLE theory_schedule ADD COLUMN category TEXT NOT NULL DEFAULT '';
+      ALTER TABLE theory_schedule ADD COLUMN question TEXT NOT NULL DEFAULT '';
+      ALTER TABLE theory_schedule ADD COLUMN answer TEXT NOT NULL DEFAULT '';
+    `);
+    backfillCategories(db);
+  }
 
   const { count } = db.query(`SELECT COUNT(*) AS count FROM theory_schedule`).get() as {
     count: number;
@@ -47,11 +64,22 @@ export function migrateTheory(db: Database, today: string): void {
 
 function seedSchedule(db: Database, today: string): void {
   const insert = db.query(
-    `INSERT INTO theory_schedule (concept_day, rung, next_review, your_answer) VALUES (?, ?, ?, '')`,
+    `INSERT INTO theory_schedule (concept_day, category, rung, next_review, your_answer) VALUES (?, ?, ?, ?, '')`,
   );
   for (const concept of buildTheorySchedule()) {
     const { rung, nextReview } = initialTheorySchedule(today, concept.day);
-    insert.run(concept.day, rung, nextReview);
+    insert.run(concept.day, concept.category, rung, nextReview);
+  }
+}
+
+// Sets each row's category from the static day->category structure. Used
+// when upgrading a pre-existing db that predates the category/question/
+// answer columns — every row already exists, it just needs its category
+// filled in (question/answer stay blank via the column default).
+function backfillCategories(db: Database): void {
+  const update = db.query(`UPDATE theory_schedule SET category = ? WHERE concept_day = ?`);
+  for (const concept of buildTheorySchedule()) {
+    update.run(concept.category, concept.day);
   }
 }
 
@@ -93,14 +121,18 @@ function runTheoryReleaseGate(db: Database, today: string): void {
   db.query(`UPDATE theory_state SET released_up_to = ?`).run(newUpTo);
 }
 
-// Everything due today or overdue among *released* concepts — capped at
-// MAX_ACTIVE_BACKLOG by the release gate, not unbounded.
+// Everything due today or overdue among *released, content-filled*
+// concepts — capped at MAX_ACTIVE_BACKLOG by the release gate, and hidden
+// entirely if content hasn't been added yet. The gate itself (above) does
+// NOT apply this filter — it must keep counting blank concepts as backlog,
+// or it would see an artificially-empty backlog and release everything at
+// once.
 export function listDueTheory(db: Database, today: string): TheoryProgress[] {
   runTheoryReleaseGate(db, today);
   return db
     .query(
-      `SELECT concept_day, rung, next_review, your_answer FROM theory_schedule
-       WHERE concept_day <= (SELECT released_up_to FROM theory_state) AND next_review <= ?
+      `SELECT concept_day, category, rung, next_review, your_answer, question, answer FROM theory_schedule
+       WHERE concept_day <= (SELECT released_up_to FROM theory_state) AND next_review <= ? AND question != ''
        ORDER BY next_review, concept_day`,
     )
     .all(today) as TheoryProgress[];
@@ -109,7 +141,8 @@ export function listDueTheory(db: Database, today: string): TheoryProgress[] {
 export function getTheoryConcept(db: Database, conceptDay: number): TheoryProgress | null {
   return db
     .query(
-      `SELECT concept_day, rung, next_review, your_answer FROM theory_schedule WHERE concept_day = ?`,
+      `SELECT concept_day, category, rung, next_review, your_answer, question, answer
+       FROM theory_schedule WHERE concept_day = ?`,
     )
     .get(conceptDay) as TheoryProgress | null;
 }
@@ -160,7 +193,7 @@ export function countOverdueTheory(db: Database, today: string): number {
   const row = db
     .query(
       `SELECT COUNT(*) AS n FROM theory_schedule
-       WHERE concept_day <= (SELECT released_up_to FROM theory_state) AND next_review < ?`,
+       WHERE concept_day <= (SELECT released_up_to FROM theory_state) AND next_review < ? AND question != ''`,
     )
     .get(today) as { n: number };
   return row.n;
@@ -169,11 +202,37 @@ export function countOverdueTheory(db: Database, today: string): number {
 export function listTheoryCompletedToday(db: Database, today: string): TheoryProgress[] {
   return db
     .query(
-      `SELECT DISTINCT ts.concept_day, ts.rung, ts.next_review, ts.your_answer
+      `SELECT DISTINCT ts.concept_day, ts.category, ts.rung, ts.next_review, ts.your_answer, ts.question, ts.answer
        FROM theory_schedule ts
        JOIN theory_reviews tr ON tr.concept_day = ts.concept_day
        WHERE tr.reviewed_at = ?
        ORDER BY ts.concept_day`,
     )
     .all(today) as TheoryProgress[];
+}
+
+export function saveTheoryContent(
+  db: Database,
+  conceptDay: number,
+  question: string,
+  answer: string,
+): TheoryProgress | null {
+  db.query(`UPDATE theory_schedule SET question = ?, answer = ? WHERE concept_day = ?`).run(
+    question,
+    answer,
+    conceptDay,
+  );
+  return getTheoryConcept(db, conceptDay);
+}
+
+export interface NextBlankConcept {
+  conceptDay: number;
+  category: string;
+}
+
+export function getNextBlankConcept(db: Database): NextBlankConcept | null {
+  const row = db
+    .query(`SELECT concept_day, category FROM theory_schedule WHERE question = '' ORDER BY concept_day LIMIT 1`)
+    .get() as { concept_day: number; category: string } | null;
+  return row ? { conceptDay: row.concept_day, category: row.category } : null;
 }
