@@ -7,6 +7,13 @@ import { localToday, addDays } from "./scheduling";
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
 
+const putContent = (day: number | string, question: string, answer: string) =>
+  fetch(`${base}/api/theory/${day}/content`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ question, answer }),
+  });
+
 beforeEach(() => {
   const db = new Database(":memory:");
   migrateTheory(db, localToday());
@@ -16,10 +23,18 @@ beforeEach(() => {
 
 afterEach(() => server.stop(true));
 
-test("GET /api/theory/due starts with the first 5 concepts released under the cap, no overdue, nothing completed", async () => {
+test("GET /api/theory/due starts empty until concepts have content, even though 5 are released under the cap", async () => {
   const body: any = await (await fetch(`${base}/api/theory/due`)).json();
-  expect(body.due.map((d: any) => d.concept_day)).toEqual([1, 2, 3, 4, 5]);
-  expect(body.stats).toEqual({ dueCount: 5, overdueCount: 0, completedToday: 0 });
+  expect(body.due).toEqual([]);
+  expect(body.stats).toEqual({ dueCount: 0, overdueCount: 0, completedToday: 0 });
+});
+
+test("GET /api/theory/due shows released concepts once they have content", async () => {
+  await putContent(1, "Q1", "A1");
+  await putContent(2, "Q2", "A2");
+  const body: any = await (await fetch(`${base}/api/theory/due`)).json();
+  expect(body.due.map((d: any) => d.concept_day)).toEqual([1, 2]);
+  expect(body.stats.dueCount).toBe(2);
 });
 
 test("POST /api/theory/:day/answer saves a draft without touching scheduling", async () => {
@@ -35,6 +50,8 @@ test("POST /api/theory/:day/answer saves a draft without touching scheduling", a
 });
 
 test("POST /api/theory/:day/review 'correct' advances rung 3 days out, and the next concept fills the vacated slot", async () => {
+  for (let day = 1; day <= 6; day++) await putContent(day, `Q${day}`, `A${day}`);
+
   const res = await fetch(`${base}/api/theory/1/review`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -83,7 +100,7 @@ test("GET /api/theory/completed-today lists concepts reviewed today only", async
   expect(completed[0].concept_day).toBe(1);
 });
 
-test("day out of range (0, 151, non-numeric) is rejected with 400 on both routes", async () => {
+test("day out of range (0, 151, non-numeric) is rejected with 400 on all per-day routes", async () => {
   for (const bad of ["0", "151", "abc"]) {
     const answerRes = await fetch(`${base}/api/theory/${bad}/answer`, {
       method: "POST",
@@ -98,5 +115,51 @@ test("day out of range (0, 151, non-numeric) is rejected with 400 on both routes
       body: JSON.stringify({ result: "correct" }),
     });
     expect(reviewRes.status).toBe(400);
+
+    const contentRes = await putContent(bad, "Q", "A");
+    expect(contentRes.status).toBe(400);
   }
+});
+
+test("GET /api/theory/next-blank returns concept 1 with its category on a fresh install", async () => {
+  const next: any = await (await fetch(`${base}/api/theory/next-blank`)).json();
+  expect(next.conceptDay).toBe(1);
+  expect(typeof next.category).toBe("string");
+  expect(next.category.length).toBeGreaterThan(0);
+});
+
+test("GET /api/theory/next-blank advances as content is added", async () => {
+  await putContent(1, "Q1", "A1");
+  const next: any = await (await fetch(`${base}/api/theory/next-blank`)).json();
+  expect(next.conceptDay).toBe(2);
+});
+
+test("GET /api/theory/next-blank returns null once all 150 concepts have content", async () => {
+  for (let day = 1; day <= 150; day++) await putContent(day, `Q${day}`, `A${day}`);
+  const next = await (await fetch(`${base}/api/theory/next-blank`)).json();
+  expect(next).toBeNull();
+});
+
+test("PUT /api/theory/:day/content saves question and answer", async () => {
+  const res = await putContent(3, "What is CAP theorem?", "Consistency, Availability, Partition tolerance.");
+  expect(res.status).toBe(200);
+  const updated: any = await res.json();
+  expect(updated.concept_day).toBe(3);
+  expect(updated.question).toBe("What is CAP theorem?");
+  expect(updated.answer).toBe("Consistency, Availability, Partition tolerance.");
+});
+
+test("PUT /api/theory/:day/content rejects a blank question or answer", async () => {
+  const res1 = await putContent(1, "", "An answer");
+  expect(res1.status).toBe(400);
+  const res2 = await putContent(1, "A question", "");
+  expect(res2.status).toBe(400);
+});
+
+test("PUT /api/theory/:day/content can overwrite existing content", async () => {
+  await putContent(1, "Old Q", "Old A");
+  const res = await putContent(1, "New Q", "New A");
+  const updated: any = await res.json();
+  expect(updated.question).toBe("New Q");
+  expect(updated.answer).toBe("New A");
 });
