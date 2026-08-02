@@ -240,10 +240,12 @@ function ProjectDetailView({
 
       <ul className="board-rows">
         {detail.steps.map((s) => {
-          const overdue = !s.done && s.due_date < today;
-          const color = s.done ? "green" : overdue ? "red" : "gold";
+          const overdue = s.released && !s.done && s.due_date < today;
+          const color = s.done ? "green" : !s.released ? "dim" : overdue ? "red" : "gold";
           const status = s.done
             ? "done"
+            : !s.released
+            ? "queued"
             : overdue
             ? `${daysBetween(s.due_date, today)}d late`
             : s.due_date === today
@@ -258,6 +260,7 @@ function ProjectDetailView({
                 <input
                   type="checkbox"
                   checked={s.done}
+                  disabled={!s.released}
                   onChange={async () => {
                     await api.toggleStep(s.id);
                     await load();
@@ -267,7 +270,7 @@ function ProjectDetailView({
                 <span className="tag">{status}</span>
                 <span className="board-title">{s.label}</span>
                 <span className="goal-weight">{s.weight}%</span>
-                <span className="goal-deadline">{s.due_date}</span>
+                <span className="goal-deadline">{s.released ? s.due_date : "—"}</span>
               </label>
             </li>
           );

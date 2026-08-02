@@ -7,10 +7,8 @@ import {
   reviewTheoryConcept,
   saveTheoryAnswer,
 } from "./theory-db";
-import { buildTheorySchedule } from "./theory-content";
+import { TOTAL_DAYS } from "./theory-content";
 import { localToday } from "./scheduling";
-
-const TOTAL_DAYS = buildTheorySchedule().length;
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 

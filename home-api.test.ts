@@ -15,7 +15,7 @@ let base: string;
 beforeEach(() => {
   db = openDb(":memory:");
   migrateTheory(db, TODAY);
-  migrateGoals(db);
+  migrateGoals(db, TODAY);
   server = Bun.serve({ port: 0, routes: homeApiRoutes(db) });
   base = server.url.origin;
 });
@@ -67,9 +67,9 @@ test("GET /api/home/due sorts all sources together by due date ascending", async
   expect(items[0]!.source).toBe("goals");
 });
 
-test("GET /api/home/stats starts with concept 1 due today, nothing overdue, nothing completed", async () => {
+test("GET /api/home/stats starts with the first 5 theory concepts due today, nothing overdue, nothing completed", async () => {
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats).toEqual({ dueToday: 1, overdue: 0, completedToday: 0 });
+  expect(stats).toEqual({ dueToday: 5, overdue: 0, completedToday: 0 });
 });
 
 test("GET /api/home/stats counts dueToday and overdue across all three sources", async () => {
@@ -82,7 +82,7 @@ test("GET /api/home/stats counts dueToday and overdue across all three sources",
   createStep(db, overdueProject.id, "Overdue step", 20, addDays(TODAY, -3)); // overdue
 
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats.dueToday).toBe(2); // leetcode problem + theory concept 1
+  expect(stats.dueToday).toBe(6); // leetcode problem + 5 theory concepts released under the cap
   expect(stats.overdue).toBe(1); // the goals step
 });
 

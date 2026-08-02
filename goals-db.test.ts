@@ -1,5 +1,6 @@
 import { test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
+import { addDays } from "./scheduling";
 import {
   migrateGoals,
   createProject,
@@ -18,7 +19,7 @@ let db: Database;
 
 beforeEach(() => {
   db = new Database(":memory:");
-  migrateGoals(db);
+  migrateGoals(db, TODAY);
 });
 
 test("createProject starts unarchived with no steps", () => {
@@ -31,7 +32,7 @@ test("createProject starts unarchived with no steps", () => {
 
 test("migrateGoals does not reset existing data on a second call", () => {
   createProject(db, "A", "2026-08-10", TODAY);
-  migrateGoals(db);
+  migrateGoals(db, TODAY);
   expect(listProjects(db).length).toBe(1);
 });
 
@@ -60,11 +61,11 @@ test("createStep assigns the project's created_at as the first step's due date",
   expect(step.done).toBe(false);
 });
 
-test("createStep assigns each subsequent step the day after the previous one", () => {
+test("createStep releases each subsequent step immediately too, while the project is under the backlog cap", () => {
   const p = createProject(db, "Complete tracely onboarding", "2026-08-10", TODAY);
   createStep(db, p.id, "Complete signup page", 20, TODAY);
   const second = createStep(db, p.id, "Complete full test in incognito", 20, TODAY)!;
-  expect(second.due_date).toBe("2026-08-01");
+  expect(second.due_date).toBe(TODAY);
 });
 
 test("createStep on an unknown project returns null", () => {
@@ -145,6 +146,77 @@ test("listDueSteps excludes an undone step whose project has auto-archived", () 
 
   const due = listDueSteps(db, TODAY);
   expect(due.map((s) => s.id)).not.toContain(s2.id);
+});
+
+test("a step past the backlog cap stays hidden from the due list until earlier steps clear", () => {
+  const p = createProject(db, "Big project", "2026-09-01", TODAY);
+  const steps = Array.from({ length: 6 }, (_, i) => createStep(db, p.id, `Step ${i + 1}`, 10, TODAY)!);
+
+  const due = listDueSteps(db, TODAY);
+  expect(due.map((s) => s.id)).toEqual(steps.slice(0, 5).map((s) => s.id));
+
+  toggleStep(db, steps[0]!.id, TODAY);
+  const dueAfter = listDueSteps(db, TODAY);
+  expect(dueAfter.length).toBe(5);
+  expect(dueAfter.map((s) => s.id)).toContain(steps[5]!.id);
+});
+
+test("getProjectDetail marks steps released up to the watermark and keeps creation order even as later steps release", () => {
+  const p = createProject(db, "Big project", "2026-09-01", TODAY);
+  const steps = Array.from({ length: 6 }, (_, i) => createStep(db, p.id, `Step ${i + 1}`, 10, TODAY)!);
+
+  const before = getProjectDetail(db, p.id)!;
+  expect(before.steps.map((s) => s.id)).toEqual(steps.map((s) => s.id));
+  expect(before.steps.map((s) => s.released)).toEqual([true, true, true, true, true, false]);
+
+  toggleStep(db, steps[0]!.id, TODAY); // clears backlog
+  listDueSteps(db, TODAY); // runs the release gate, releasing step 6
+
+  const after = getProjectDetail(db, p.id)!;
+  expect(after.steps.map((s) => s.id)).toEqual(steps.map((s) => s.id)); // still creation order, not date order
+  expect(after.steps.map((s) => s.released)).toEqual([true, true, true, true, true, true]);
+});
+
+test("migrating a pre-existing db backfills steps_released from already-due/done steps, capped at the backlog limit", () => {
+  const legacy = new Database(":memory:");
+  legacy.exec(`
+    CREATE TABLE projects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      deadline TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      archived INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE project_steps (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      weight INTEGER NOT NULL,
+      due_date TEXT NOT NULL,
+      done INTEGER NOT NULL DEFAULT 0,
+      done_at TEXT
+    );
+  `);
+  const project = legacy
+    .query(`INSERT INTO projects (title, deadline, created_at, archived) VALUES (?, ?, ?, 0) RETURNING *`)
+    .get("Old project", "2026-09-01", "2026-07-01") as { id: number };
+  const insertStep = legacy.query(
+    `INSERT INTO project_steps (project_id, label, weight, due_date, done, done_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
+  );
+  // 8 steps, all already due under the old day-after-day model — exactly the
+  // stuck pile this migration is meant to fix.
+  const stepIds: number[] = [];
+  for (let i = 1; i <= 8; i++) {
+    const row = insertStep.get(project.id, `Step ${i}`, 10, addDays("2026-07-01", i - 1), 0, null) as {
+      id: number;
+    };
+    stepIds.push(row.id);
+  }
+
+  migrateGoals(legacy, "2026-07-31");
+
+  const due = listDueSteps(legacy, "2026-07-31");
+  expect(due.map((s) => s.id)).toEqual(stepIds.slice(0, 5));
 });
 
 test("countStepsCompletedToday counts steps toggled done today, not other days", () => {

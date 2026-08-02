@@ -228,3 +228,5 @@ export function buildTheorySchedule(): Concept[] {
 
   return result;
 }
+
+export const TOTAL_DAYS = buildTheorySchedule().length;
