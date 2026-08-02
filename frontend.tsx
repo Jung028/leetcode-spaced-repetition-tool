@@ -144,10 +144,7 @@ function TrackedListModal({
                 <div className="modal-row">
                   <button
                     style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1, minWidth: 0, textAlign: "left" }}
-                    onClick={() => {
-                      onOpen(p.id);
-                      onClose();
-                    }}
+                    onClick={() => openExternal(p.url)}
                   >
                     <span className="modal-row-date">{p.next_review}</span>
                     <span className="modal-row-title">{p.title}</span>
@@ -156,11 +153,14 @@ function TrackedListModal({
                   </button>
                   <button
                     className="board-row-review"
-                    onClick={() => openExternal(p.url)}
-                    title="Open on LeetCode"
-                    aria-label="Open on LeetCode"
+                    onClick={() => {
+                      onOpen(p.id);
+                      onClose();
+                    }}
+                    title="View details & mark review"
+                    aria-label="View details"
                   >
-                    ↗
+                    ⋯
                   </button>
                 </div>
               </li>
