@@ -4,9 +4,6 @@ import { listProblems, countReviewsToday, listCompletedToday } from "./db";
 import { listDueTheory, countTheoryReviewsToday, listTheoryCompletedToday } from "./theory-db";
 import { listDueSteps, countStepsCompletedToday, listStepsCompletedOn } from "./goals-db";
 import { isDue, localToday } from "./scheduling";
-import { buildTheorySchedule } from "./theory-content";
-
-const SCHEDULE = buildTheorySchedule();
 
 export type DueSource = "leetcode" | "theory" | "goals";
 
@@ -39,20 +36,15 @@ function leetcodeDue(db: Database, today: string): DueItem[] {
 }
 
 function theoryDue(db: Database, today: string): DueItem[] {
-  return listDueTheory(db, today)
-    .filter((entry) => SCHEDULE[entry.concept_day - 1])
-    .map((entry) => {
-      const concept = SCHEDULE[entry.concept_day - 1]!;
-      return {
-        source: "theory" as const,
-        id: entry.concept_day,
-        title: concept.question,
-        subtitle: concept.category,
-        dueDate: entry.next_review,
-        overdueDays: overdueDays(entry.next_review, today),
-        linkId: entry.concept_day,
-      };
-    });
+  return listDueTheory(db, today).map((entry) => ({
+    source: "theory" as const,
+    id: entry.concept_day,
+    title: entry.question,
+    subtitle: entry.category,
+    dueDate: entry.next_review,
+    overdueDays: overdueDays(entry.next_review, today),
+    linkId: entry.concept_day,
+  }));
 }
 
 function goalsDue(db: Database, today: string): DueItem[] {
@@ -80,20 +72,15 @@ function leetcodeCompletedToday(db: Database, today: string): DueItem[] {
 }
 
 function theoryCompletedToday(db: Database, today: string): DueItem[] {
-  return listTheoryCompletedToday(db, today)
-    .filter((entry) => SCHEDULE[entry.concept_day - 1])
-    .map((entry) => {
-      const concept = SCHEDULE[entry.concept_day - 1]!;
-      return {
-        source: "theory" as const,
-        id: entry.concept_day,
-        title: concept.question,
-        subtitle: concept.category,
-        dueDate: today,
-        overdueDays: 0,
-        linkId: entry.concept_day,
-      };
-    });
+  return listTheoryCompletedToday(db, today).map((entry) => ({
+    source: "theory" as const,
+    id: entry.concept_day,
+    title: entry.question,
+    subtitle: entry.category,
+    dueDate: today,
+    overdueDays: 0,
+    linkId: entry.concept_day,
+  }));
 }
 
 function goalsCompletedToday(db: Database, today: string): DueItem[] {

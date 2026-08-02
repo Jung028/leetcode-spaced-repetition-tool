@@ -2,7 +2,7 @@
 import { test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { openDb, createProblem, reviewProblem } from "./db";
-import { migrateTheory, reviewTheoryConcept } from "./theory-db";
+import { migrateTheory, reviewTheoryConcept, saveTheoryContent } from "./theory-db";
 import { migrateGoals, createProject, createStep, toggleStep } from "./goals-db";
 import { homeApiRoutes } from "./home-api";
 import { localToday, addDays } from "./scheduling";
@@ -22,7 +22,8 @@ beforeEach(() => {
 
 afterEach(() => server.stop(true));
 
-test("GET /api/home/due includes concept 1 by default (Theory seeds due-today on day one)", async () => {
+test("GET /api/home/due includes a theory concept once it has content", async () => {
+  saveTheoryContent(db, 1, "Q1", "A1");
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   expect(items.some((i) => i.source === "theory" && i.linkId === 1)).toBe(true);
 });
@@ -67,7 +68,13 @@ test("GET /api/home/due sorts all sources together by due date ascending", async
   expect(items[0]!.source).toBe("goals");
 });
 
-test("GET /api/home/stats starts with the first 5 theory concepts due today, nothing overdue, nothing completed", async () => {
+test("GET /api/home/stats starts with 0 due when theory concepts are all blank", async () => {
+  const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
+  expect(stats).toEqual({ dueToday: 0, overdue: 0, completedToday: 0 });
+});
+
+test("GET /api/home/stats counts theory concepts once they have content, up to the released cap", async () => {
+  for (let day = 1; day <= 5; day++) saveTheoryContent(db, day, `Q${day}`, `A${day}`);
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
   expect(stats).toEqual({ dueToday: 5, overdue: 0, completedToday: 0 });
 });
@@ -78,11 +85,12 @@ test("GET /api/home/stats counts dueToday and overdue across all three sources",
     { title: "Two Sum", url: "https://leetcode.com/problems/two-sum/", solution: "code" },
     addDays(TODAY, -1),
   ); // due today
+  for (let day = 1; day <= 5; day++) saveTheoryContent(db, day, `Q${day}`, `A${day}`);
   const overdueProject = createProject(db, "Overdue project", addDays(TODAY, 10), addDays(TODAY, -3));
   createStep(db, overdueProject.id, "Overdue step", 20, addDays(TODAY, -3)); // overdue
 
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats.dueToday).toBe(6); // leetcode problem + 5 theory concepts released under the cap
+  expect(stats.dueToday).toBe(6); // leetcode problem + 5 theory concepts (now with content)
   expect(stats.overdue).toBe(1); // the goals step
 });
 
@@ -129,6 +137,7 @@ test("GET /api/home/completed-today is empty when nothing was completed today", 
 });
 
 test("overdueDays is 0 for an item due today and positive for an overdue item", async () => {
+  saveTheoryContent(db, 1, "Q1", "A1");
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   const conceptOne = items.find((i) => i.source === "theory" && i.linkId === 1)!;
   expect(conceptOne.overdueDays).toBe(0);
