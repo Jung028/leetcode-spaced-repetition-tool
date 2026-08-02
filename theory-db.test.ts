@@ -10,6 +10,7 @@ import {
   countOverdueTheory,
   listTheoryCompletedToday,
 } from "./theory-db";
+import { addDays } from "./scheduling";
 
 const TODAY = "2026-07-20";
 let db: Database;
@@ -19,15 +20,17 @@ beforeEach(() => {
   migrateTheory(db, TODAY);
 });
 
-test("seeds 150 concepts, one introduced per day starting today", () => {
+test("seeds 150 concepts, releasing the first 5 immediately (today) under the backlog cap", () => {
   expect(getTheoryConcept(db, 1)).toEqual({
     concept_day: 1,
     rung: -1,
-    next_review: "2026-07-20",
+    next_review: TODAY,
     your_answer: "",
   });
-  expect(getTheoryConcept(db, 2)!.next_review).toBe("2026-07-21");
-  expect(getTheoryConcept(db, 150)!.next_review).toBe("2026-12-16");
+  expect(getTheoryConcept(db, 5)!.next_review).toBe(TODAY);
+  // Not yet released — keeps its original calendar placeholder, unused until release.
+  expect(getTheoryConcept(db, 6)!.next_review).toBe(addDays(TODAY, 5));
+  expect(getTheoryConcept(db, 150)!.next_review).toBe(addDays(TODAY, 149));
 });
 
 test("migrateTheory does not reseed (and doesn't reset progress) on a second call", () => {
@@ -36,15 +39,21 @@ test("migrateTheory does not reseed (and doesn't reset progress) on a second cal
   expect(getTheoryConcept(db, 1)!.rung).toBe(0);
 });
 
-test("listDueTheory on day one returns only concept 1 (everything else is in the future)", () => {
+test("listDueTheory on day one returns the first 5 concepts released under the cap", () => {
   const due = listDueTheory(db, TODAY);
-  expect(due.length).toBe(1);
-  expect(due[0]!.concept_day).toBe(1);
+  expect(due.map((c) => c.concept_day)).toEqual([1, 2, 3, 4, 5]);
 });
 
-test("listDueTheory a week later includes everything introduced by then, oldest first", () => {
-  const due = listDueTheory(db, "2026-07-27");
-  expect(due.map((c) => c.concept_day)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+test("listDueTheory a week later still caps at 5 if nothing has been reviewed", () => {
+  // Time passing alone doesn't grow the pile — only clearing backlog does.
+  const due = listDueTheory(db, addDays(TODAY, 7));
+  expect(due.map((c) => c.concept_day)).toEqual([1, 2, 3, 4, 5]);
+});
+
+test("reviewing a released concept lets the next one in, keeping the pile at the cap", () => {
+  reviewTheoryConcept(db, 1, "correct", TODAY); // concept 1 now due in 3 days, drops off
+  const due = listDueTheory(db, TODAY);
+  expect(due.map((c) => c.concept_day)).toEqual([2, 3, 4, 5, 6]);
 });
 
 test("saveTheoryAnswer stores a draft without affecting scheduling", () => {
@@ -85,16 +94,15 @@ test("reviewTheoryConcept on an unknown concept_day returns null", () => {
 
 test("countTheoryReviewsToday only counts today's reviews", () => {
   reviewTheoryConcept(db, 1, "correct", TODAY);
-  // concept 2 isn't due yet on TODAY, but reviewing is still just a DB
-  // write — the API layer is what should stop you from reviewing early.
   reviewTheoryConcept(db, 2, "wrong", TODAY);
   reviewTheoryConcept(db, 3, "correct", "2026-07-10");
   expect(countTheoryReviewsToday(db, TODAY)).toBe(2);
 });
 
-test("countOverdueTheory counts strictly-past next_review dates, not today's", () => {
+test("countOverdueTheory counts strictly-past next_review dates among released concepts only", () => {
   expect(countOverdueTheory(db, TODAY)).toBe(0);
-  expect(countOverdueTheory(db, "2026-07-22")).toBe(2); // concepts 1 and 2 are now overdue
+  // Nothing reviewed, so the pile stays at the 5 released on day one — all overdue two days later.
+  expect(countOverdueTheory(db, addDays(TODAY, 2))).toBe(5);
 });
 
 test("listTheoryCompletedToday returns concepts reviewed today, deduped, ordered by concept_day", () => {
@@ -108,4 +116,43 @@ test("listTheoryCompletedToday returns concepts reviewed today, deduped, ordered
 
 test("listTheoryCompletedToday is empty when nothing was reviewed today", () => {
   expect(listTheoryCompletedToday(db, TODAY)).toEqual([]);
+});
+
+test("migrating a pre-existing db backfills the watermark to the furthest concept actually reached, then tops up to the cap", () => {
+  // Simulate an old-format db exactly as pre-migration code would have left
+  // it: 150 concepts seeded with calendar-offset next_review dates, only
+  // concept 1 ever actually passed. Under the old model, letting 10 days
+  // pass untouched would leave concepts 1 through 11 all cluttering the due
+  // list (concept N due on day N-1).
+  const legacy = new Database(":memory:");
+  legacy.exec(`
+    CREATE TABLE theory_schedule (
+      concept_day INTEGER PRIMARY KEY,
+      rung INTEGER NOT NULL DEFAULT -1,
+      next_review TEXT NOT NULL,
+      your_answer TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE theory_reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      concept_day INTEGER NOT NULL,
+      reviewed_at TEXT NOT NULL,
+      result TEXT NOT NULL CHECK (result IN ('correct','wrong'))
+    );
+  `);
+  const insert = legacy.query(
+    `INSERT INTO theory_schedule (concept_day, rung, next_review, your_answer) VALUES (?, ?, ?, '')`,
+  );
+  for (let day = 1; day <= 150; day++) insert.run(day, -1, addDays(TODAY, day - 1));
+  legacy
+    .query(`UPDATE theory_schedule SET rung = 0, next_review = ? WHERE concept_day = 1`)
+    .run(addDays(TODAY, 3));
+  legacy
+    .query(`INSERT INTO theory_reviews (concept_day, reviewed_at, result) VALUES (1, ?, 'correct')`)
+    .run(TODAY);
+
+  const laterToday = addDays(TODAY, 10);
+  migrateTheory(legacy, laterToday);
+
+  const due = listDueTheory(legacy, laterToday);
+  expect(due.map((c) => c.concept_day)).toEqual([1, 2, 3, 4, 5]);
 });
