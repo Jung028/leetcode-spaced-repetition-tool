@@ -22,7 +22,7 @@ export interface ProjectStep {
 }
 
 export interface ProjectDetail extends Project {
-  steps: ProjectStep[];
+  steps: (ProjectStep & { released: boolean })[];
   progress: number;
 }
 
@@ -33,6 +33,7 @@ interface ProjectRow {
   created_at: string;
   archived: number;
   link: string | null;
+  steps_released: number;
 }
 
 interface ProjectStepRow {
@@ -168,7 +169,7 @@ function getProjectRow(db: Database, id: number): ProjectRow | null {
 
 function listStepsForProject(db: Database, projectId: number): ProjectStep[] {
   return (
-    db.query(`SELECT * FROM project_steps WHERE project_id = ? ORDER BY due_date, id`).all(projectId) as ProjectStepRow[]
+    db.query(`SELECT * FROM project_steps WHERE project_id = ? ORDER BY id`).all(projectId) as ProjectStepRow[]
   ).map(toStep);
 }
 
@@ -176,7 +177,8 @@ export function getProjectDetail(db: Database, id: number): ProjectDetail | null
   const row = getProjectRow(db, id);
   if (!row) return null;
   const steps = listStepsForProject(db, id);
-  return { ...toProject(row), steps, progress: projectProgress(steps) };
+  const stepsWithReleased = steps.map((s, i) => ({ ...s, released: i < row.steps_released }));
+  return { ...toProject(row), steps: stepsWithReleased, progress: projectProgress(steps) };
 }
 
 export function createStep(

@@ -161,6 +161,22 @@ test("a step past the backlog cap stays hidden from the due list until earlier s
   expect(dueAfter.map((s) => s.id)).toContain(steps[5]!.id);
 });
 
+test("getProjectDetail marks steps released up to the watermark and keeps creation order even as later steps release", () => {
+  const p = createProject(db, "Big project", "2026-09-01", TODAY);
+  const steps = Array.from({ length: 6 }, (_, i) => createStep(db, p.id, `Step ${i + 1}`, 10, TODAY)!);
+
+  const before = getProjectDetail(db, p.id)!;
+  expect(before.steps.map((s) => s.id)).toEqual(steps.map((s) => s.id));
+  expect(before.steps.map((s) => s.released)).toEqual([true, true, true, true, true, false]);
+
+  toggleStep(db, steps[0]!.id, TODAY); // clears backlog
+  listDueSteps(db, TODAY); // runs the release gate, releasing step 6
+
+  const after = getProjectDetail(db, p.id)!;
+  expect(after.steps.map((s) => s.id)).toEqual(steps.map((s) => s.id)); // still creation order, not date order
+  expect(after.steps.map((s) => s.released)).toEqual([true, true, true, true, true, true]);
+});
+
 test("migrating a pre-existing db backfills steps_released from already-due/done steps, capped at the backlog limit", () => {
   const legacy = new Database(":memory:");
   legacy.exec(`
