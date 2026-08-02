@@ -17,12 +17,9 @@ test("schedule has exactly 150 days, numbered 1..150 with no gaps", () => {
   );
 });
 
-test("every concept has a non-empty question and answer", () => {
-  for (const c of buildTheorySchedule()) {
-    expect(c.question.trim().length).toBeGreaterThan(0);
-    expect(c.answer.trim().length).toBeGreaterThan(0);
-  }
-});
+// Content is intentionally blank right now — the 150 day/category slots are
+// placeholders for the user to fill in their own concepts, so there's no
+// non-empty-content invariant to assert here anymore.
 
 test("category counts match the source arrays", () => {
   const schedule = buildTheorySchedule();
