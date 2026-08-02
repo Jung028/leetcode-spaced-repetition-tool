@@ -1,11 +1,13 @@
 import { test, expect } from "bun:test";
 import {
   LADDER,
+  MAX_ACTIVE_BACKLOG,
   addDays,
   applyReview,
   initialSchedule,
   isDue,
   localToday,
+  releaseCount,
 } from "./scheduling";
 
 test("ladder is 1, 3, 7, 14, 30 days", () => {
@@ -62,4 +64,27 @@ test("isDue is true for today and overdue dates only", () => {
   expect(isDue("2026-07-20", "2026-07-20")).toBe(true);
   expect(isDue("2026-07-01", "2026-07-20")).toBe(true);
   expect(isDue("2026-07-21", "2026-07-20")).toBe(false);
+});
+
+test("MAX_ACTIVE_BACKLOG is 5", () => {
+  expect(MAX_ACTIVE_BACKLOG).toBe(5);
+});
+
+test("releaseCount releases nothing once backlog meets or exceeds the cap", () => {
+  expect(releaseCount(5, 100, 5)).toBe(0);
+  expect(releaseCount(8, 100, 5)).toBe(0);
+});
+
+test("releaseCount fills the gap between backlog and cap", () => {
+  expect(releaseCount(0, 100, 5)).toBe(5);
+  expect(releaseCount(3, 100, 5)).toBe(2);
+});
+
+test("releaseCount never releases more than what's remaining", () => {
+  expect(releaseCount(0, 2, 5)).toBe(2);
+  expect(releaseCount(3, 1, 5)).toBe(1);
+});
+
+test("releaseCount defaults to MAX_ACTIVE_BACKLOG when no cap is given", () => {
+  expect(releaseCount(0, 100)).toBe(5);
 });

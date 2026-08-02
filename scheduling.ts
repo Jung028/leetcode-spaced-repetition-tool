@@ -35,3 +35,18 @@ export function applyReview(
 export function isDue(nextReview: string, today: string): boolean {
   return nextReview <= today;
 }
+
+// Shared backlog cap for the Theory and Goals release gates — see
+// docs/superpowers/specs/2026-08-01-backlog-gated-scheduling-design.md.
+export const MAX_ACTIVE_BACKLOG = 5;
+
+// backlog: currently-visible due+overdue count for the domain (or project).
+// remaining: items past the watermark, still waiting to be released.
+// Returns how many of those `remaining` items to release now.
+export function releaseCount(
+  backlog: number,
+  remaining: number,
+  cap: number = MAX_ACTIVE_BACKLOG,
+): number {
+  return Math.min(Math.max(cap - backlog, 0), remaining);
+}
