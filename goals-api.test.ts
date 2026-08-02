@@ -10,7 +10,7 @@ let base: string;
 
 beforeEach(() => {
   const db = new Database(":memory:");
-  migrateGoals(db);
+  migrateGoals(db, localToday());
   server = Bun.serve({ port: 0, routes: goalsApiRoutes(db) });
   base = server.url.origin;
 });

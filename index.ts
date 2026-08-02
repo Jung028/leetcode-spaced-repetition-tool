@@ -10,7 +10,7 @@ import { localToday } from "./scheduling";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
 migrateTheory(db, localToday());
-migrateGoals(db);
+migrateGoals(db, localToday());
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 
 const server = Bun.serve({
