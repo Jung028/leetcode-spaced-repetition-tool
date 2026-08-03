@@ -192,6 +192,13 @@ test("PUT /api/theory/:day/content rejects a non-URL answer for 'image'/'link' f
   expect(linkRes.status).toBe(400);
 });
 
+test("PUT /api/theory/:day/content rejects a javascript: URL for 'image'/'link' formats", async () => {
+  const imageRes = await putContent(1, "Q", "javascript:alert(1)", "image");
+  expect(imageRes.status).toBe(400);
+  const linkRes = await putContent(2, "Q", "javascript:alert(1)", "link");
+  expect(linkRes.status).toBe(400);
+});
+
 test("PUT /api/theory/:day/content does not URL-validate plain 'text' answers", async () => {
   const res = await putContent(1, "Q", "just some prose, not a url", "text");
   expect(res.status).toBe(200);

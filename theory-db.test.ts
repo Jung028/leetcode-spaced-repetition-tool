@@ -74,6 +74,8 @@ test("a released-but-blank concept still counts toward the backlog gate, so miss
   // Nothing has content yet. If the gate ignored blanks when computing
   // backlog, it would see backlog=0 forever and release all 150 at once.
   expect(listDueTheory(db, TODAY)).toEqual([]);
+  const { released_up_to } = db.query(`SELECT released_up_to FROM theory_state`).get() as { released_up_to: number };
+  expect(released_up_to).toBe(5);
   for (let day = 1; day <= 5; day++) saveTheoryContent(db, day, `Q${day}`, `A${day}`);
   const due = listDueTheory(db, TODAY);
   expect(due.map((c) => c.concept_day)).toEqual([1, 2, 3, 4, 5]); // not 1..150

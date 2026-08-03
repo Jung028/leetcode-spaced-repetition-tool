@@ -80,10 +80,15 @@ export function theoryApiRoutes(db: Database) {
           return json({ error: "question and answer are required" }, 400);
         }
         if (answerFormat !== "text") {
+          let isHttpUrl = false;
           try {
-            new URL(answer);
+            const url = new URL(answer);
+            isHttpUrl = url.protocol === "http:" || url.protocol === "https:";
           } catch {
-            return json({ error: `answer must be a valid URL when format is '${answerFormat}'` }, 400);
+            isHttpUrl = false;
+          }
+          if (!isHttpUrl) {
+            return json({ error: `answer must be a valid http(s) URL when format is '${answerFormat}'` }, 400);
           }
         }
         const updated = saveTheoryContent(db, day, question, answer, answerFormat);

@@ -35,6 +35,12 @@ async function json<T>(res: Response): Promise<T> {
   return res.json();
 }
 
+// Shared fallback so every catch site shows something readable even if the
+// rejection wasn't an Error (e.g. a network failure) rather than leaving the
+// user staring at a silently-failed action.
+const errorMessage = (err: unknown): string =>
+  err instanceof Error ? err.message : "Something went wrong.";
+
 const api = {
   due: () =>
     fetch("/api/theory/due").then((r) => json<{ due: TheoryProgress[]; stats: Stats }>(r)),
@@ -58,6 +64,7 @@ const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ result }),
     }).then((r) => json<TheoryProgress>(r)),
+  completedToday: () => fetch("/api/theory/completed-today").then((r) => json<TheoryProgress[]>(r)),
 };
 
 const daysBetween = (a: string, b: string) =>
@@ -162,11 +169,13 @@ function TheoryStats({
   due,
   today,
   onOpen,
+  onError,
 }: {
   stats: Stats;
   due: TheoryProgress[];
   today: string;
   onOpen: (conceptDay: number) => void;
+  onError: (message: string | null) => void;
 }) {
   const [openModal, setOpenModal] = useState<StatModal>(null);
   const [completedList, setCompletedList] = useState<TheoryProgress[] | null>(null);
@@ -183,9 +192,11 @@ function TheoryStats({
   const openCompleted = () => {
     setOpenModal("completed");
     if (completedList === null) {
-      fetch("/api/theory/completed-today")
-        .then((r) => r.json())
-        .then(setCompletedList);
+      onError(null);
+      api
+        .completedToday()
+        .then(setCompletedList)
+        .catch((err) => onError(errorMessage(err)));
     }
   };
 
@@ -292,8 +303,8 @@ const ANSWER_FIELD_LABEL: Record<TheoryAnswerFormat, string> = {
 
 const isValidUrl = (value: string) => {
   try {
-    new URL(value);
-    return true;
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
   } catch {
     return false;
   }
@@ -325,7 +336,7 @@ function AddTheoryContentForm({
           return;
         }
         if (format !== "text" && !isValidUrl(answer.trim())) {
-          setError(`Answer must be a valid URL when format is '${format}'.`);
+          setError(`Answer must be a valid http(s) URL when format is '${format}'.`);
           return;
         }
         try {
@@ -375,10 +386,12 @@ function TheoryDetail({
   entry,
   onBack,
   onChanged,
+  onError,
 }: {
   entry: TheoryProgress;
   onBack: () => void;
   onChanged: () => void;
+  onError: (message: string | null) => void;
 }) {
   // Always starts blank, even if a previous answer was saved to this
   // concept — reopening is for practicing recall again, not reading back
@@ -401,6 +414,21 @@ function TheoryDetail({
     openTheoryCalendarAdd(entry.category, entry.question, updated.next_review);
     onChanged();
     onBack();
+  };
+
+  // saveAnswer/review are also called from each other (review awaits
+  // saveAnswer directly, so a failure there still stops review from
+  // continuing) — these wrappers are only for the button click handlers,
+  // so a rejection surfaces in the top-level error banner instead of
+  // becoming an unhandled rejection.
+  const handleSaveAnswer = () => {
+    onError(null);
+    saveAnswer().catch((err) => onError(errorMessage(err)));
+  };
+
+  const handleReview = (result: Result) => {
+    onError(null);
+    review(result).catch((err) => onError(errorMessage(err)));
   };
 
   return (
@@ -428,7 +456,7 @@ function TheoryDetail({
         placeholder="Write your own answer before revealing the model answer..."
       />
       <div className="btn-row">
-        <button className="btn" onClick={saveAnswer}>Save answer</button>
+        <button className="btn" onClick={handleSaveAnswer}>Save answer</button>
       </div>
 
       {revealed ? (
@@ -459,10 +487,10 @@ function TheoryDetail({
       )}
 
       <div className="btn-row">
-        <button className="btn btn-pass" onClick={() => review("correct")}>
+        <button className="btn btn-pass" onClick={() => handleReview("correct")}>
           Correct · next in {THEORY_LADDER[Math.min(entry.rung + 1, THEORY_LADDER.length - 1)]}d
         </button>
-        <button className="btn btn-fail" onClick={() => review("wrong")}>
+        <button className="btn btn-fail" onClick={() => handleReview("wrong")}>
           Wrong · repeat tomorrow
         </button>
         <span className="btn-spacer" />
@@ -485,18 +513,30 @@ export default function TheoryApp({
   const [stats, setStats] = useState<Stats>({ dueCount: 0, overdueCount: 0, completedToday: 0 });
   const [loaded, setLoaded] = useState(false);
   const [nextBlankNotice, setNextBlankNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const refresh = () => api.due().then(({ due, stats }) => { setDue(due); setStats(stats); setLoaded(true); });
+  const refresh = () => {
+    setError(null);
+    return api
+      .due()
+      .then(({ due, stats }) => { setDue(due); setStats(stats); setLoaded(true); })
+      .catch((err) => setError(errorMessage(err)));
+  };
   useEffect(() => { refresh(); }, []);
 
   const startAddingContent = async () => {
-    const slot = await api.nextBlank();
-    if (slot === null) {
-      setNextBlankNotice("All 150 concepts have content.");
-      return;
+    setError(null);
+    try {
+      const slot = await api.nextBlank();
+      if (slot === null) {
+        setNextBlankNotice("All 150 concepts have content.");
+        return;
+      }
+      setNextBlankNotice(null);
+      setView({ name: "addContent", conceptDay: slot.conceptDay, category: slot.category });
+    } catch (err) {
+      setError(errorMessage(err));
     }
-    setNextBlankNotice(null);
-    setView({ name: "addContent", conceptDay: slot.conceptDay, category: slot.category });
   };
 
   useEffect(() => {
@@ -513,7 +553,9 @@ export default function TheoryApp({
         due={due}
         today={today}
         onOpen={(conceptDay) => setView({ name: "detail", conceptDay })}
+        onError={setError}
       />
+      {error && <p className="form-error">{error}</p>}
       <p className="rule-note">
         Correct climbs the ladder: 3 → 5 → 7 → 14 → 30 days. Wrong resets it, due tomorrow.
       </p>
@@ -548,6 +590,7 @@ export default function TheoryApp({
             entry={entry}
             onBack={() => setView({ name: "board" })}
             onChanged={refresh}
+            onError={setError}
           />
         ) : (
           <p className="board-empty">

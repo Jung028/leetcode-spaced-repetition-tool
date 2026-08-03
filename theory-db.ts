@@ -87,9 +87,12 @@ function seedSchedule(db: Database, today: string): void {
 // filled in (question/answer stay blank via the column default).
 function backfillCategories(db: Database): void {
   const update = db.query(`UPDATE theory_schedule SET category = ? WHERE concept_day = ?`);
-  for (const concept of buildTheorySchedule()) {
-    update.run(concept.category, concept.day);
-  }
+  const runAll = db.transaction(() => {
+    for (const concept of buildTheorySchedule()) {
+      update.run(concept.category, concept.day);
+    }
+  });
+  runAll();
 }
 
 // Sets the watermark to the furthest concept genuinely engaged with (passed
