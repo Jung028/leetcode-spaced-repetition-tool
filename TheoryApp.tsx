@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { Category } from "./theory-content";
-import type { TheoryProgress } from "./theory-db";
+import type { TheoryAnswerFormat, TheoryProgress } from "./theory-db";
 import { THEORY_LADDER } from "./theory-scheduling";
 import { localToday } from "./scheduling";
 import { sydneyWallClockToUtc, toGoogleUtcStamp } from "./sydneyTime";
@@ -23,33 +23,41 @@ interface Stats {
 type Result = "correct" | "wrong";
 type View = { name: "board" } | { name: "detail"; conceptDay: number } | { name: "addContent"; conceptDay: number; category: string };
 
+// Fetch responses are trusted only after this check — a non-2xx response
+// (e.g. the 400 the server returns on validation failure) still parses as
+// valid JSON, so without this every failed request would silently look
+// like a success to the caller.
+async function json<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error ?? `Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
 const api = {
   due: () =>
-    fetch("/api/theory/due").then(
-      (r) => r.json() as Promise<{ due: TheoryProgress[]; stats: Stats }>,
-    ),
+    fetch("/api/theory/due").then((r) => json<{ due: TheoryProgress[]; stats: Stats }>(r)),
   nextBlank: () =>
-    fetch("/api/theory/next-blank").then(
-      (r) => r.json() as Promise<{ conceptDay: number; category: string } | null>,
-    ),
-  saveContent: (conceptDay: number, question: string, answer: string) =>
+    fetch("/api/theory/next-blank").then((r) => json<{ conceptDay: number; category: string } | null>(r)),
+  saveContent: (conceptDay: number, question: string, answer: string, answerFormat: TheoryAnswerFormat) =>
     fetch(`/api/theory/${conceptDay}/content`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ question, answer }),
-    }).then((r) => r.json() as Promise<TheoryProgress>),
+      body: JSON.stringify({ question, answer, answerFormat }),
+    }).then((r) => json<TheoryProgress>(r)),
   saveAnswer: (conceptDay: number, yourAnswer: string) =>
     fetch(`/api/theory/${conceptDay}/answer`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ yourAnswer }),
-    }).then((r) => r.json() as Promise<TheoryProgress>),
+    }).then((r) => json<TheoryProgress>(r)),
   review: (conceptDay: number, result: Result) =>
     fetch(`/api/theory/${conceptDay}/review`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ result }),
-    }).then((r) => r.json() as Promise<TheoryProgress>),
+    }).then((r) => json<TheoryProgress>(r)),
 };
 
 const daysBetween = (a: string, b: string) =>
@@ -276,6 +284,21 @@ function TheoryDueBoard({
   );
 }
 
+const ANSWER_FIELD_LABEL: Record<TheoryAnswerFormat, string> = {
+  text: "Answer",
+  image: "Image URL",
+  link: "Link URL",
+};
+
+const isValidUrl = (value: string) => {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 function AddTheoryContentForm({
   conceptDay,
   category,
@@ -289,6 +312,7 @@ function AddTheoryContentForm({
 }) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [format, setFormat] = useState<TheoryAnswerFormat>("text");
   const [error, setError] = useState("");
 
   return (
@@ -300,8 +324,16 @@ function AddTheoryContentForm({
           setError("Question and answer are both required.");
           return;
         }
-        await api.saveContent(conceptDay, question.trim(), answer.trim());
-        await onSaved();
+        if (format !== "text" && !isValidUrl(answer.trim())) {
+          setError(`Answer must be a valid URL when format is '${format}'.`);
+          return;
+        }
+        try {
+          await api.saveContent(conceptDay, question.trim(), answer.trim(), format);
+          await onSaved();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Failed to save.");
+        }
       }}
     >
       <span
@@ -315,8 +347,20 @@ function AddTheoryContentForm({
         <textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} autoFocus />
       </label>
       <label>
-        Answer
-        <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={6} />
+        Answer format
+        <select value={format} onChange={(e) => setFormat(e.target.value as TheoryAnswerFormat)}>
+          <option value="text">Text</option>
+          <option value="image">Image (URL)</option>
+          <option value="link">Link (URL)</option>
+        </select>
+      </label>
+      <label>
+        {ANSWER_FIELD_LABEL[format]}
+        {format === "text" ? (
+          <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={6} />
+        ) : (
+          <input type="url" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="https://..." />
+        )}
       </label>
       {error && <p className="form-error">{error}</p>}
       <div className="btn-row">
@@ -393,7 +437,20 @@ function TheoryDetail({
             <h3>Model answer</h3>
             <button className="btn theory-toggle" onClick={() => setRevealed(false)}>Hide</button>
           </div>
-          <p>{entry.answer}</p>
+          {entry.answer_format === "image" ? (
+            <img className="theory-model-answer-image" src={entry.answer} alt="Model answer" />
+          ) : entry.answer_format === "link" ? (
+            <a
+              className="theory-model-answer-link"
+              href={entry.answer}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {entry.answer}
+            </a>
+          ) : (
+            <p>{entry.answer}</p>
+          )}
         </div>
       ) : (
         <button className="solution-cover" onClick={() => setRevealed(true)}>
