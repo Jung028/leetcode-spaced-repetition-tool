@@ -1,14 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { buildTheorySchedule, type Category } from "./theory-content";
+import type { Category } from "./theory-content";
 import type { TheoryProgress } from "./theory-db";
 import { THEORY_LADDER } from "./theory-scheduling";
 import { localToday } from "./scheduling";
 import { sydneyWallClockToUtc, toGoogleUtcStamp } from "./sydneyTime";
-
-// Pure and identical on server/client, so compute it once here rather than
-// fetching it — only per-concept scheduling (rung, next_review, your answer)
-// needs a network round trip.
-const SCHEDULE = buildTheorySchedule();
 
 const CATEGORY_COLORS: Record<Category, string> = {
   "System Design": "#ffa116",
@@ -26,13 +21,23 @@ interface Stats {
 }
 
 type Result = "correct" | "wrong";
-type View = { name: "board" } | { name: "detail"; conceptDay: number };
+type View = { name: "board" } | { name: "detail"; conceptDay: number } | { name: "addContent"; conceptDay: number; category: string };
 
 const api = {
   due: () =>
     fetch("/api/theory/due").then(
       (r) => r.json() as Promise<{ due: TheoryProgress[]; stats: Stats }>,
     ),
+  nextBlank: () =>
+    fetch("/api/theory/next-blank").then(
+      (r) => r.json() as Promise<{ conceptDay: number; category: string } | null>,
+    ),
+  saveContent: (conceptDay: number, question: string, answer: string) =>
+    fetch(`/api/theory/${conceptDay}/content`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ question, answer }),
+    }).then((r) => r.json() as Promise<TheoryProgress>),
   saveAnswer: (conceptDay: number, yourAnswer: string) =>
     fetch(`/api/theory/${conceptDay}/answer`, {
       method: "POST",
@@ -114,31 +119,27 @@ function TheoryListModal({
           <p className="board-empty">{emptyMessage}</p>
         ) : (
           <ul className="modal-rows">
-            {sorted.map((entry) => {
-              const concept = SCHEDULE[entry.concept_day - 1];
-              if (!concept) return null;
-              return (
-                <li key={entry.concept_day}>
-                  <button
-                    className="modal-row"
-                    onClick={() => {
-                      onOpen(entry.concept_day);
-                      onClose();
-                    }}
+            {sorted.map((entry) => (
+              <li key={entry.concept_day}>
+                <button
+                  className="modal-row"
+                  onClick={() => {
+                    onOpen(entry.concept_day);
+                    onClose();
+                  }}
+                >
+                  <span className="modal-row-date">{entry.next_review}</span>
+                  <span
+                    className="cat-tag"
+                    style={{ "--cat-color": CATEGORY_COLORS[entry.category as Category] } as React.CSSProperties}
                   >
-                    <span className="modal-row-date">{entry.next_review}</span>
-                    <span
-                      className="cat-tag"
-                      style={{ "--cat-color": CATEGORY_COLORS[concept.category] } as React.CSSProperties}
-                    >
-                      {concept.category}
-                    </span>
-                    <span className="modal-row-title">{concept.question}</span>
-                    <TheoryRungMeter rung={entry.rung} />
-                  </button>
-                </li>
-              );
-            })}
+                    {entry.category}
+                  </span>
+                  <span className="modal-row-title">{entry.question}</span>
+                  <TheoryRungMeter rung={entry.rung} />
+                </button>
+              </li>
+            ))}
           </ul>
         )}
       </div>
@@ -247,7 +248,6 @@ function TheoryDueBoard({
       ) : (
         <ul className="board-rows">
           {due.map((entry, i) => {
-            const concept = SCHEDULE[entry.concept_day - 1]!;
             const overdue = daysBetween(entry.next_review, today);
             const color = overdue > 0 ? "red" : "gold";
             return (
@@ -260,11 +260,11 @@ function TheoryDueBoard({
                   <span className="tag">{overdue > 0 ? `${overdue}d late` : "due"}</span>
                   <span
                     className="cat-tag"
-                    style={{ "--cat-color": CATEGORY_COLORS[concept.category] } as React.CSSProperties}
+                    style={{ "--cat-color": CATEGORY_COLORS[entry.category as Category] } as React.CSSProperties}
                   >
-                    {concept.category}
+                    {entry.category}
                   </span>
-                  <span className="board-title">{concept.question}</span>
+                  <span className="board-title">{entry.question}</span>
                   <TheoryRungMeter rung={entry.rung} />
                 </button>
               </li>
@@ -273,6 +273,57 @@ function TheoryDueBoard({
         </ul>
       )}
     </section>
+  );
+}
+
+function AddTheoryContentForm({
+  conceptDay,
+  category,
+  onCancel,
+  onSaved,
+}: {
+  conceptDay: number;
+  category: string;
+  onCancel: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [error, setError] = useState("");
+
+  return (
+    <form
+      className="form"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!question.trim() || !answer.trim()) {
+          setError("Question and answer are both required.");
+          return;
+        }
+        await api.saveContent(conceptDay, question.trim(), answer.trim());
+        await onSaved();
+      }}
+    >
+      <span
+        className="cat-tag"
+        style={{ "--cat-color": CATEGORY_COLORS[category as Category] } as React.CSSProperties}
+      >
+        {category}
+      </span>
+      <label>
+        Question
+        <textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} autoFocus />
+      </label>
+      <label>
+        Answer
+        <textarea value={answer} onChange={(e) => setAnswer(e.target.value)} rows={6} />
+      </label>
+      {error && <p className="form-error">{error}</p>}
+      <div className="btn-row">
+        <button type="submit" className="btn btn-primary">Save concept {conceptDay}</button>
+        <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
   );
 }
 
@@ -285,7 +336,6 @@ function TheoryDetail({
   onBack: () => void;
   onChanged: () => void;
 }) {
-  const concept = SCHEDULE[entry.concept_day - 1]!;
   // Always starts blank, even if a previous answer was saved to this
   // concept — reopening is for practicing recall again, not reading back
   // what you wrote last time.
@@ -304,7 +354,7 @@ function TheoryDetail({
   const review = async (result: Result) => {
     await saveAnswer();
     const updated = await api.review(entry.concept_day, result);
-    openTheoryCalendarAdd(concept.category, concept.question, updated.next_review);
+    openTheoryCalendarAdd(entry.category, entry.question, updated.next_review);
     onChanged();
     onBack();
   };
@@ -314,14 +364,14 @@ function TheoryDetail({
       <header className="detail-head">
         <span
           className="cat-tag"
-          style={{ "--cat-color": CATEGORY_COLORS[concept.category] } as React.CSSProperties}
+          style={{ "--cat-color": CATEGORY_COLORS[entry.category as Category] } as React.CSSProperties}
         >
-          {concept.category}
+          {entry.category}
         </span>
         <TheoryRungMeter rung={entry.rung} />
       </header>
 
-      <h2 className="theory-question">{concept.question}</h2>
+      <h2 className="theory-question">{entry.question}</h2>
 
       <label className="theory-answer-label" htmlFor="theory-answer">Your answer</label>
       <textarea
@@ -343,7 +393,7 @@ function TheoryDetail({
             <h3>Model answer</h3>
             <button className="btn theory-toggle" onClick={() => setRevealed(false)}>Hide</button>
           </div>
-          <p>{concept.answer}</p>
+          <p>{entry.answer}</p>
         </div>
       ) : (
         <button className="solution-cover" onClick={() => setRevealed(true)}>
@@ -377,9 +427,20 @@ export default function TheoryApp({
   const [due, setDue] = useState<TheoryProgress[]>([]);
   const [stats, setStats] = useState<Stats>({ dueCount: 0, overdueCount: 0, completedToday: 0 });
   const [loaded, setLoaded] = useState(false);
+  const [nextBlankNotice, setNextBlankNotice] = useState<string | null>(null);
 
   const refresh = () => api.due().then(({ due, stats }) => { setDue(due); setStats(stats); setLoaded(true); });
   useEffect(() => { refresh(); }, []);
+
+  const startAddingContent = async () => {
+    const slot = await api.nextBlank();
+    if (slot === null) {
+      setNextBlankNotice("All 150 concepts have content.");
+      return;
+    }
+    setNextBlankNotice(null);
+    setView({ name: "addContent", conceptDay: slot.conceptDay, category: slot.category });
+  };
 
   useEffect(() => {
     if (openConceptDay != null) {
@@ -401,7 +462,25 @@ export default function TheoryApp({
       </p>
 
       {view.name === "board" && (
-        <TheoryDueBoard due={due} today={today} onOpen={(conceptDay) => setView({ name: "detail", conceptDay })} />
+        <>
+          <div className="btn-row">
+            <button className="btn btn-primary" onClick={startAddingContent}>+ Add theory</button>
+          </div>
+          {nextBlankNotice && <p className="board-empty">{nextBlankNotice}</p>}
+          <TheoryDueBoard due={due} today={today} onOpen={(conceptDay) => setView({ name: "detail", conceptDay })} />
+        </>
+      )}
+
+      {view.name === "addContent" && (
+        <AddTheoryContentForm
+          conceptDay={view.conceptDay}
+          category={view.category}
+          onCancel={() => setView({ name: "board" })}
+          onSaved={async () => {
+            await refresh();
+            setView({ name: "board" });
+          }}
+        />
       )}
 
       {view.name === "detail" && (() => {
