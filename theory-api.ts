@@ -8,6 +8,7 @@ import {
   reviewTheoryConcept,
   saveTheoryAnswer,
   saveTheoryContent,
+  type TheoryAnswerFormat,
 } from "./theory-db";
 import { TOTAL_DAYS } from "./theory-content";
 import { localToday } from "./scheduling";
@@ -68,13 +69,24 @@ export function theoryApiRoutes(db: Database) {
       PUT: async (req: Request & { params: { day: string } }) => {
         const day = parseConceptDay(req.params.day);
         if (day === null) return json({ error: `day must be between 1 and ${TOTAL_DAYS}` }, 400);
-        const body = (await req.json().catch(() => null)) as { question?: unknown; answer?: unknown } | null;
+        const body = (await req.json().catch(() => null)) as
+          | { question?: unknown; answer?: unknown; answerFormat?: unknown }
+          | null;
         const question = typeof body?.question === "string" ? body.question.trim() : "";
         const answer = typeof body?.answer === "string" ? body.answer.trim() : "";
+        const answerFormat: TheoryAnswerFormat =
+          body?.answerFormat === "image" || body?.answerFormat === "link" ? body.answerFormat : "text";
         if (!question || !answer) {
           return json({ error: "question and answer are required" }, 400);
         }
-        const updated = saveTheoryContent(db, day, question, answer);
+        if (answerFormat !== "text") {
+          try {
+            new URL(answer);
+          } catch {
+            return json({ error: `answer must be a valid URL when format is '${answerFormat}'` }, 400);
+          }
+        }
+        const updated = saveTheoryContent(db, day, question, answer, answerFormat);
         return updated ? json(updated) : json({ error: "not found" }, 404);
       },
     },

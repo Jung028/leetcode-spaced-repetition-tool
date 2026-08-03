@@ -787,6 +787,17 @@ a.btn {
   line-height: 1.6;
 }
 
+.theory-model-answer-image {
+  max-width: 100%;
+  display: block;
+  border-radius: 4px;
+}
+
+.theory-model-answer-link {
+  color: var(--orange);
+  word-break: break-all;
+}
+
 /* Responsive + motion */
 @media (max-width: 640px) {
   .stats {

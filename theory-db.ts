@@ -3,6 +3,8 @@ import { buildTheorySchedule, TOTAL_DAYS } from "./theory-content";
 import { initialTheorySchedule, applyTheoryReview, type TheoryResult } from "./theory-scheduling";
 import { releaseCount } from "./scheduling";
 
+export type TheoryAnswerFormat = "text" | "image" | "link";
+
 export interface TheoryProgress {
   concept_day: number;
   category: string;
@@ -11,6 +13,7 @@ export interface TheoryProgress {
   your_answer: string;
   question: string;
   answer: string;
+  answer_format: TheoryAnswerFormat;
 }
 
 export function migrateTheory(db: Database, today: string): void {
@@ -22,7 +25,8 @@ export function migrateTheory(db: Database, today: string): void {
       next_review TEXT NOT NULL,
       your_answer TEXT NOT NULL DEFAULT '',
       question TEXT NOT NULL DEFAULT '',
-      answer TEXT NOT NULL DEFAULT ''
+      answer TEXT NOT NULL DEFAULT '',
+      answer_format TEXT NOT NULL DEFAULT 'text'
     );
     CREATE TABLE IF NOT EXISTS theory_reviews (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,6 +48,11 @@ export function migrateTheory(db: Database, today: string): void {
       ALTER TABLE theory_schedule ADD COLUMN answer TEXT NOT NULL DEFAULT '';
     `);
     backfillCategories(db);
+  }
+
+  const needsFormatColumn = !columns.some((c) => c.name === "answer_format");
+  if (needsFormatColumn) {
+    db.exec(`ALTER TABLE theory_schedule ADD COLUMN answer_format TEXT NOT NULL DEFAULT 'text';`);
   }
 
   const { count } = db.query(`SELECT COUNT(*) AS count FROM theory_schedule`).get() as {
@@ -131,7 +140,7 @@ export function listDueTheory(db: Database, today: string): TheoryProgress[] {
   runTheoryReleaseGate(db, today);
   return db
     .query(
-      `SELECT concept_day, category, rung, next_review, your_answer, question, answer FROM theory_schedule
+      `SELECT concept_day, category, rung, next_review, your_answer, question, answer, answer_format FROM theory_schedule
        WHERE concept_day <= (SELECT released_up_to FROM theory_state) AND next_review <= ? AND question != ''
        ORDER BY next_review, concept_day`,
     )
@@ -141,7 +150,7 @@ export function listDueTheory(db: Database, today: string): TheoryProgress[] {
 export function getTheoryConcept(db: Database, conceptDay: number): TheoryProgress | null {
   return db
     .query(
-      `SELECT concept_day, category, rung, next_review, your_answer, question, answer
+      `SELECT concept_day, category, rung, next_review, your_answer, question, answer, answer_format
        FROM theory_schedule WHERE concept_day = ?`,
     )
     .get(conceptDay) as TheoryProgress | null;
@@ -202,7 +211,7 @@ export function countOverdueTheory(db: Database, today: string): number {
 export function listTheoryCompletedToday(db: Database, today: string): TheoryProgress[] {
   return db
     .query(
-      `SELECT DISTINCT ts.concept_day, ts.category, ts.rung, ts.next_review, ts.your_answer, ts.question, ts.answer
+      `SELECT DISTINCT ts.concept_day, ts.category, ts.rung, ts.next_review, ts.your_answer, ts.question, ts.answer, ts.answer_format
        FROM theory_schedule ts
        JOIN theory_reviews tr ON tr.concept_day = ts.concept_day
        WHERE tr.reviewed_at = ?
@@ -216,10 +225,12 @@ export function saveTheoryContent(
   conceptDay: number,
   question: string,
   answer: string,
+  answerFormat: TheoryAnswerFormat = "text",
 ): TheoryProgress | null {
-  db.query(`UPDATE theory_schedule SET question = ?, answer = ? WHERE concept_day = ?`).run(
+  db.query(`UPDATE theory_schedule SET question = ?, answer = ?, answer_format = ? WHERE concept_day = ?`).run(
     question,
     answer,
+    answerFormat,
     conceptDay,
   );
   return getTheoryConcept(db, conceptDay);

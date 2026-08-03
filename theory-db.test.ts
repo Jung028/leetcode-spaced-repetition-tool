@@ -30,6 +30,7 @@ test("seeds 150 concepts with real categories and blank content, releasing the f
   expect(first.your_answer).toBe("");
   expect(first.question).toBe("");
   expect(first.answer).toBe("");
+  expect(first.answer_format).toBe("text");
   expect(first.category.length).toBeGreaterThan(0);
 
   expect(getTheoryConcept(db, 5)!.next_review).toBe(TODAY);
@@ -94,11 +95,30 @@ test("saveTheoryContent sets question and answer, leaving scheduling untouched",
   expect(updated.next_review).toBe(TODAY);
 });
 
+test("saveTheoryContent defaults answer_format to 'text' when omitted", () => {
+  const updated = saveTheoryContent(db, 1, "Q", "A")!;
+  expect(updated.answer_format).toBe("text");
+});
+
+test("saveTheoryContent stores 'image' and 'link' formats when passed", () => {
+  const image = saveTheoryContent(db, 1, "Q", "https://example.com/pic.png", "image")!;
+  expect(image.answer_format).toBe("image");
+  const link = saveTheoryContent(db, 2, "Q2", "https://example.com/article", "link")!;
+  expect(link.answer_format).toBe("link");
+});
+
 test("saveTheoryContent can overwrite existing content", () => {
   saveTheoryContent(db, 1, "Old question", "Old answer");
   const updated = saveTheoryContent(db, 1, "New question", "New answer")!;
   expect(updated.question).toBe("New question");
   expect(updated.answer).toBe("New answer");
+});
+
+test("saveTheoryContent can overwrite a format back to 'text'", () => {
+  saveTheoryContent(db, 1, "Q", "https://example.com/pic.png", "image");
+  const updated = saveTheoryContent(db, 1, "Q", "Plain answer", "text")!;
+  expect(updated.answer_format).toBe("text");
+  expect(updated.answer).toBe("Plain answer");
 });
 
 test("saveTheoryContent on an unknown concept_day returns null", () => {
@@ -116,6 +136,13 @@ test("getNextBlankConcept returns the lowest-numbered concept still missing cont
 test("getNextBlankConcept returns null once every concept has content", () => {
   for (let day = 1; day <= 150; day++) saveTheoryContent(db, day, `Q${day}`, `A${day}`);
   expect(getNextBlankConcept(db)).toBeNull();
+});
+
+test("getNextBlankConcept is unaffected by mixed answer formats — 'blank' is about question, not format", () => {
+  saveTheoryContent(db, 1, "Q1", "https://example.com/pic.png", "image");
+  saveTheoryContent(db, 2, "Q2", "https://example.com/article", "link");
+  const next = getNextBlankConcept(db)!;
+  expect(next.conceptDay).toBe(3);
 });
 
 test("reviewTheoryConcept 'correct' advances the rung and reschedules 3 days out the first time", () => {
@@ -228,4 +255,47 @@ test("migrating a pre-existing db (old schema, no content columns) backfills cat
   // Content stays blank on an upgrade — nothing shows up in the due list
   // until content is added, even though the watermark is correctly 5.
   expect(listDueTheory(legacy, laterToday)).toEqual([]);
+});
+
+test("migrating a db that already has category/question/answer but predates answer_format backfills it to 'text' on every row", () => {
+  // Simulate a db that already went through the content-column migration
+  // (has category/question/answer, some rows with real content) but
+  // predates the answer_format column.
+  const legacy = new Database(":memory:");
+  legacy.exec(`
+    CREATE TABLE theory_schedule (
+      concept_day INTEGER PRIMARY KEY,
+      category TEXT NOT NULL DEFAULT '',
+      rung INTEGER NOT NULL DEFAULT -1,
+      next_review TEXT NOT NULL,
+      your_answer TEXT NOT NULL DEFAULT '',
+      question TEXT NOT NULL DEFAULT '',
+      answer TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE theory_reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      concept_day INTEGER NOT NULL,
+      reviewed_at TEXT NOT NULL,
+      result TEXT NOT NULL CHECK (result IN ('correct','wrong'))
+    );
+    CREATE TABLE theory_state (released_up_to INTEGER NOT NULL DEFAULT 0);
+  `);
+  const insert = legacy.query(
+    `INSERT INTO theory_schedule (concept_day, category, rung, next_review, your_answer, question, answer) VALUES (?, 'System Design', -1, ?, '', ?, ?)`,
+  );
+  for (let day = 1; day <= 150; day++) insert.run(day, addDays(TODAY, day - 1), "", "");
+  legacy.query(`UPDATE theory_schedule SET question = ?, answer = ? WHERE concept_day = 1`).run(
+    "Real question",
+    "Real answer",
+  );
+  legacy.query(`INSERT INTO theory_state (released_up_to) VALUES (5)`).run();
+
+  migrateTheory(legacy, TODAY);
+
+  for (const day of [1, 2, 150]) {
+    const row = legacy.query(`SELECT answer_format FROM theory_schedule WHERE concept_day = ?`).get(day) as {
+      answer_format: string;
+    };
+    expect(row.answer_format).toBe("text");
+  }
 });

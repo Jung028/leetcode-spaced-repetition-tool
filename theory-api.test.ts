@@ -7,11 +7,11 @@ import { localToday, addDays } from "./scheduling";
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
 
-const putContent = (day: number | string, question: string, answer: string) =>
+const putContent = (day: number | string, question: string, answer: string, answerFormat?: string) =>
   fetch(`${base}/api/theory/${day}/content`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ question, answer }),
+    body: JSON.stringify({ question, answer, ...(answerFormat !== undefined ? { answerFormat } : {}) }),
   });
 
 beforeEach(() => {
@@ -162,4 +162,44 @@ test("PUT /api/theory/:day/content can overwrite existing content", async () => 
   const updated: any = await res.json();
   expect(updated.question).toBe("New Q");
   expect(updated.answer).toBe("New A");
+});
+
+test("PUT /api/theory/:day/content defaults answer_format to 'text' when omitted", async () => {
+  const res = await putContent(1, "Q", "A");
+  const updated: any = await res.json();
+  expect(updated.answer_format).toBe("text");
+});
+
+test("PUT /api/theory/:day/content accepts 'image' format with a valid URL", async () => {
+  const res = await putContent(1, "Q", "https://example.com/pic.png", "image");
+  expect(res.status).toBe(200);
+  const updated: any = await res.json();
+  expect(updated.answer_format).toBe("image");
+  expect(updated.answer).toBe("https://example.com/pic.png");
+});
+
+test("PUT /api/theory/:day/content accepts 'link' format with a valid URL", async () => {
+  const res = await putContent(1, "Q", "https://example.com/article", "link");
+  expect(res.status).toBe(200);
+  const updated: any = await res.json();
+  expect(updated.answer_format).toBe("link");
+});
+
+test("PUT /api/theory/:day/content rejects a non-URL answer for 'image'/'link' formats", async () => {
+  const imageRes = await putContent(1, "Q", "not a url", "image");
+  expect(imageRes.status).toBe(400);
+  const linkRes = await putContent(2, "Q", "not a url", "link");
+  expect(linkRes.status).toBe(400);
+});
+
+test("PUT /api/theory/:day/content does not URL-validate plain 'text' answers", async () => {
+  const res = await putContent(1, "Q", "just some prose, not a url", "text");
+  expect(res.status).toBe(200);
+});
+
+test("PUT /api/theory/:day/content silently defaults an unrecognized answerFormat to 'text'", async () => {
+  const res = await putContent(1, "Q", "just some prose", "video");
+  expect(res.status).toBe(200);
+  const updated: any = await res.json();
+  expect(updated.answer_format).toBe("text");
 });
