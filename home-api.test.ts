@@ -72,6 +72,20 @@ test("GET /api/home/due includes today's exam paper", async () => {
   expect(examItems[0]!.linkId).toBe(1);
 });
 
+test("GET /api/home/due gives exam papers and exam review items collision-free ids", async () => {
+  const paper1 = buildExamSchedule().find((p) => p.paperDay === 1)!;
+  paper1.questions.forEach((_, i) => gradeExamAnswer(db, 1, i, i !== 0)); // question 0 wrong, rest correct
+  submitExamPaper(db, 1, addDays(TODAY, -1)); // review item's next_review lands on TODAY, while paper 2/3 are still due
+
+  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  const examItems = items.filter((i) => i.source === "exam");
+  const reviewItem = examItems.find((i) => i.subtitle === "Exam review")!;
+  expect(reviewItem).toBeTruthy();
+  expect(reviewItem.id).toBe(1000); // synthetic id: paper_day * 1000 + question_index, not the row's autoincrement PK
+  const ids = examItems.map((i) => i.id);
+  expect(new Set(ids).size).toBe(ids.length); // no id collisions between exam papers and exam review items
+});
+
 test("GET /api/home/due sorts all sources together by due date ascending", async () => {
   const project = createProject(db, "Complete tracely onboarding", addDays(TODAY, 10), addDays(TODAY, -5));
   createStep(db, project.id, "Overdue step", 20, addDays(TODAY, -5));

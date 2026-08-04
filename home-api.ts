@@ -86,7 +86,7 @@ function examDue(db: Database, today: string): DueItem[] {
     const question = content?.questions[item.question_index];
     return {
       source: "exam" as const,
-      id: item.id,
+      id: item.paper_day * 1000 + item.question_index,
       title: question ? question.prompt.slice(0, 80) : "Exam review",
       subtitle: "Exam review",
       dueDate: item.next_review,
