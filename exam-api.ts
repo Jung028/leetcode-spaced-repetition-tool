@@ -17,6 +17,7 @@ import {
   type ExamReviewItemRow,
 } from "./exam-db";
 import { buildExamSchedule, TOTAL_PAPERS } from "./exam-content";
+import type { ExamQuestionType } from "./exam-content/types";
 import { localToday } from "./scheduling";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
@@ -37,7 +38,7 @@ function parseQuestionIndex(raw: string, paperDay: number): number | null {
 
 export interface ExamQuestionView {
   index: number;
-  type: string;
+  type: ExamQuestionType;
   prompt: string;
   options: string[] | null;
   correctIndex: number | null;
@@ -93,6 +94,8 @@ export interface ExamReviewView {
   nextReview: string;
   prompt: string;
   modelAnswer: string;
+  options: string[] | null;
+  correctIndex: number | null;
 }
 
 function reviewView(item: ExamReviewItemRow): ExamReviewView | null {
@@ -106,6 +109,8 @@ function reviewView(item: ExamReviewItemRow): ExamReviewView | null {
     nextReview: item.next_review,
     prompt: question.prompt,
     modelAnswer: question.modelAnswer,
+    options: question.options ?? null,
+    correctIndex: question.correctIndex ?? null,
   };
 }
 

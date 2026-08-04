@@ -1,39 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { EXAM_REVIEW_LADDER } from "./exam-scheduling";
 import { localToday } from "./scheduling";
-
-export interface ExamQuestionView {
-  index: number;
-  type: "mcq" | "truefalse" | "short" | "scenario";
-  prompt: string;
-  options: string[] | null;
-  correctIndex: number | null;
-  modelAnswer: string;
-  yourAnswer: string;
-  correct: number | null;
-}
-
-export interface ExamPaperView {
-  paperDay: number;
-  week: number;
-  paperNumber: number;
-  title: string;
-  topics: string;
-  nextReview: string;
-  submittedAt: string | null;
-  scoreCorrect: number | null;
-  scoreTotal: number | null;
-  questions: ExamQuestionView[];
-}
-
-export interface ExamReviewView {
-  paperDay: number;
-  questionIndex: number;
-  rung: number;
-  nextReview: string;
-  prompt: string;
-  modelAnswer: string;
-}
+import type { ExamPaperView, ExamQuestionView, ExamReviewView } from "./exam-api";
 
 interface Stats {
   dueCount: number;
@@ -319,6 +287,18 @@ function ReviewDetail({
         </span>
       </header>
       <h2 className="theory-question">{item.prompt}</h2>
+      {item.options && (
+        <div className="exam-options">
+          {item.options.map((opt, i) => (
+            <label
+              key={i}
+              className={revealed && i === item.correctIndex ? "exam-option exam-option-correct" : "exam-option"}
+            >
+              {opt}
+            </label>
+          ))}
+        </div>
+      )}
       {revealed ? (
         <div className="theory-model-answer">
           <h3>Model answer</h3>

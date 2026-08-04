@@ -43,3 +43,24 @@ test("Week 1 seeds exactly 3 papers", () => {
   const week1 = buildExamSchedule().filter((p) => p.week === 1);
   expect(week1.map((p) => p.paperNumber)).toEqual([1, 2, 3]);
 });
+
+// Pins the (week, paperNumber) -> paperDay mapping for every paper currently
+// in ALL_PAPERS. paperDay is derived purely from array position, and every
+// stored answer/score/review-item in the database keys on that integer with
+// no week/paperNumber cross-check. If a future content edit ever reorders,
+// inserts, or removes a paper, this trips instead of silently re-pointing
+// every existing student's stored answers at different questions.
+test("(week, paperNumber) -> paperDay mapping is pinned for every current paper", () => {
+  const expected = [
+    { week: 1, paperNumber: 1, expectedPaperDay: 1 },
+    { week: 1, paperNumber: 2, expectedPaperDay: 2 },
+    { week: 1, paperNumber: 3, expectedPaperDay: 3 },
+  ];
+  const schedule = buildExamSchedule();
+  expect(schedule.length).toBe(expected.length);
+  for (const { week, paperNumber, expectedPaperDay } of expected) {
+    const paper = schedule.find((p) => p.week === week && p.paperNumber === paperNumber);
+    expect(paper).toBeDefined();
+    expect(paper!.paperDay).toBe(expectedPaperDay);
+  }
+});
