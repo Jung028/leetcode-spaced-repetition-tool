@@ -6,6 +6,7 @@ import {
   getTheoryConcept,
   saveTheoryAnswer,
   saveTheoryContent,
+  clearTheoryContent,
   getNextBlankConcept,
   reviewTheoryConcept,
   countTheoryReviewsToday,
@@ -125,6 +126,35 @@ test("saveTheoryContent can overwrite a format back to 'text'", () => {
 
 test("saveTheoryContent on an unknown concept_day returns null", () => {
   expect(saveTheoryContent(db, 9999, "Q", "A")).toBeNull();
+});
+
+test("clearTheoryContent resets question, answer, and answer_format to blank", () => {
+  saveTheoryContent(db, 1, "Q", "https://example.com/pic.png", "image");
+  const cleared = clearTheoryContent(db, 1)!;
+  expect(cleared.question).toBe("");
+  expect(cleared.answer).toBe("");
+  expect(cleared.answer_format).toBe("text");
+});
+
+test("clearTheoryContent does not touch rung, next_review, or your_answer", () => {
+  saveTheoryContent(db, 1, "Q", "A");
+  reviewTheoryConcept(db, 1, "correct", TODAY);
+  saveTheoryAnswer(db, 1, "my draft");
+  const cleared = clearTheoryContent(db, 1)!;
+  expect(cleared.rung).toBe(0);
+  expect(cleared.next_review).toBe(addDays(TODAY, 3));
+  expect(cleared.your_answer).toBe("my draft");
+});
+
+test("clearTheoryContent on an unknown concept_day returns null", () => {
+  expect(clearTheoryContent(db, 9999)).toBeNull();
+});
+
+test("a cleared concept drops out of the due list, same as never-filled content", () => {
+  for (let day = 1; day <= 5; day++) saveTheoryContent(db, day, `Q${day}`, `A${day}`);
+  clearTheoryContent(db, 3);
+  const due = listDueTheory(db, TODAY);
+  expect(due.map((c) => c.concept_day)).toEqual([1, 2, 4, 5]);
 });
 
 test("getNextBlankConcept returns the lowest-numbered concept still missing content", () => {

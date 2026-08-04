@@ -239,6 +239,19 @@ export function saveTheoryContent(
   return getTheoryConcept(db, conceptDay);
 }
 
+// Resets a concept's curriculum content back to blank — the same state a
+// never-filled slot is in — without touching its scheduling progress
+// (rung/next_review/your_answer). Mirrors saveTheoryContent's own
+// pattern: no existence pre-check, the UPDATE simply matches nothing for
+// an unknown concept_day, and the subsequent getTheoryConcept call
+// returns null.
+export function clearTheoryContent(db: Database, conceptDay: number): TheoryProgress | null {
+  db.query(`UPDATE theory_schedule SET question = '', answer = '', answer_format = 'text' WHERE concept_day = ?`).run(
+    conceptDay,
+  );
+  return getTheoryConcept(db, conceptDay);
+}
+
 export interface NextBlankConcept {
   conceptDay: number;
   category: string;
