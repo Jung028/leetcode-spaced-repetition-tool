@@ -52,6 +52,8 @@ const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ question, answer, answerFormat }),
     }).then((r) => json<TheoryProgress>(r)),
+  deleteContent: (conceptDay: number) =>
+    fetch(`/api/theory/${conceptDay}/content`, { method: "DELETE" }).then((r) => json<TheoryProgress>(r)),
   saveAnswer: (conceptDay: number, yourAnswer: string) =>
     fetch(`/api/theory/${conceptDay}/answer`, {
       method: "POST",
@@ -313,17 +315,19 @@ const isValidUrl = (value: string) => {
 function AddTheoryContentForm({
   conceptDay,
   category,
+  initial,
   onCancel,
   onSaved,
 }: {
   conceptDay: number;
   category: string;
+  initial?: { question: string; answer: string; answerFormat: TheoryAnswerFormat };
   onCancel: () => void;
   onSaved: () => Promise<void>;
 }) {
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [format, setFormat] = useState<TheoryAnswerFormat>("text");
+  const [question, setQuestion] = useState(initial?.question ?? "");
+  const [answer, setAnswer] = useState(initial?.answer ?? "");
+  const [format, setFormat] = useState<TheoryAnswerFormat>(initial?.answerFormat ?? "text");
   const [error, setError] = useState("");
 
   return (
@@ -375,7 +379,9 @@ function AddTheoryContentForm({
       </label>
       {error && <p className="form-error">{error}</p>}
       <div className="btn-row">
-        <button type="submit" className="btn btn-primary">Save concept {conceptDay}</button>
+        <button type="submit" className="btn btn-primary">
+          {initial ? "Save changes" : `Save concept ${conceptDay}`}
+        </button>
         <button type="button" className="btn" onClick={onCancel}>Cancel</button>
       </div>
     </form>
@@ -393,6 +399,7 @@ function TheoryDetail({
   onChanged: () => void;
   onError: (message: string | null) => void;
 }) {
+  const [editing, setEditing] = useState(false);
   // Always starts blank, even if a previous answer was saved to this
   // concept — reopening is for practicing recall again, not reading back
   // what you wrote last time.
@@ -430,6 +437,36 @@ function TheoryDetail({
     onError(null);
     review(result).catch((err) => onError(errorMessage(err)));
   };
+
+  const handleDelete = () => {
+    if (!confirm("Delete this concept's content? It resets to blank and won't show up again until refilled.")) {
+      return;
+    }
+    onError(null);
+    api
+      .deleteContent(entry.concept_day)
+      .then(() => {
+        onChanged();
+        onBack();
+      })
+      .catch((err) => onError(errorMessage(err)));
+  };
+
+  if (editing) {
+    return (
+      <AddTheoryContentForm
+        conceptDay={entry.concept_day}
+        category={entry.category}
+        initial={{ question: entry.question, answer: entry.answer, answerFormat: entry.answer_format }}
+        onCancel={() => setEditing(false)}
+        onSaved={async () => {
+          setEditing(false);
+          onChanged();
+          onBack();
+        }}
+      />
+    );
+  }
 
   return (
     <article className="detail theory-card">
@@ -494,6 +531,8 @@ function TheoryDetail({
           Wrong · repeat tomorrow
         </button>
         <span className="btn-spacer" />
+        <button className="btn" onClick={() => setEditing(true)}>Edit</button>
+        <button className="btn btn-danger" onClick={handleDelete}>Delete</button>
         <button className="btn" onClick={onBack}>Back</button>
       </div>
     </article>
