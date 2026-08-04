@@ -4,7 +4,7 @@ import { Database } from "bun:sqlite";
 import { openDb, createProblem, reviewProblem } from "./db";
 import { migrateTheory, reviewTheoryConcept, saveTheoryContent } from "./theory-db";
 import { migrateGoals, createProject, createStep, toggleStep } from "./goals-db";
-import { migrateExam, gradeExamAnswer, submitExamPaper } from "./exam-db";
+import { migrateExam, gradeExamAnswer, submitExamPaper, reviewExamItem } from "./exam-db";
 import { buildExamSchedule, TOTAL_PAPERS } from "./exam-content";
 import { homeApiRoutes } from "./home-api";
 import { localToday, addDays, MAX_ACTIVE_BACKLOG } from "./scheduling";
@@ -158,6 +158,18 @@ test("GET /api/home/completed-today merges completions across all three sources"
   expect(items.some((i) => i.source === "leetcode" && i.title === "Two Sum")).toBe(true);
   expect(items.some((i) => i.source === "theory" && i.linkId === 1)).toBe(true);
   expect(items.some((i) => i.source === "goals" && i.title === "Complete signup page")).toBe(true);
+});
+
+test("GET /api/home/completed-today includes a submitted exam paper and a reviewed exam item", async () => {
+  const paper1 = buildExamSchedule().find((p) => p.paperDay === 1)!;
+  paper1.questions.forEach((_, i) => gradeExamAnswer(db, 1, i, i !== 0)); // question 0 wrong, rest correct
+  submitExamPaper(db, 1, TODAY); // creates a review item for question 0
+  reviewExamItem(db, 1, 0, "correct", TODAY);
+
+  const items: any[] = await (await fetch(`${base}/api/home/completed-today`)).json();
+  expect(items.some((i) => i.source === "exam" && i.subtitle === "Exam paper" && i.linkId === 1)).toBe(true);
+  expect(items.some((i) => i.source === "exam" && i.subtitle === "Exam review" && i.linkId === 1)).toBe(true);
+  expect(items.every((i) => i.dueDate === TODAY && i.overdueDays === 0)).toBe(true);
 });
 
 test("GET /api/home/completed-today is empty when nothing was completed today", async () => {

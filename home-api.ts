@@ -8,6 +8,8 @@ import {
   listDueExamReviewItems,
   countExamPapersSubmittedToday,
   countExamReviewsToday,
+  listExamPapersSubmittedToday,
+  listExamReviewsCompletedToday,
 } from "./exam-db";
 import { buildExamSchedule } from "./exam-content";
 import { isDue, localToday } from "./scheduling";
@@ -131,6 +133,35 @@ function goalsCompletedToday(db: Database, today: string): DueItem[] {
   }));
 }
 
+function examCompletedToday(db: Database, today: string): DueItem[] {
+  const papers = listExamPapersSubmittedToday(db, today).map((row) => {
+    const content = buildExamSchedule().find((p) => p.paperDay === row.paper_day);
+    return {
+      source: "exam" as const,
+      id: row.paper_day,
+      title: content?.title ?? `Exam paper ${row.paper_day}`,
+      subtitle: "Exam paper",
+      dueDate: today,
+      overdueDays: 0,
+      linkId: row.paper_day,
+    };
+  });
+  const reviews = listExamReviewsCompletedToday(db, today).map((item) => {
+    const content = buildExamSchedule().find((p) => p.paperDay === item.paper_day);
+    const question = content?.questions[item.question_index];
+    return {
+      source: "exam" as const,
+      id: item.paper_day * 1000 + item.question_index,
+      title: question ? question.prompt.slice(0, 80) : "Exam review",
+      subtitle: "Exam review",
+      dueDate: today,
+      overdueDays: 0,
+      linkId: item.paper_day,
+    };
+  });
+  return [...papers, ...reviews];
+}
+
 export interface HomeStats {
   dueToday: number;
   overdue: number;
@@ -176,6 +207,7 @@ export function homeApiRoutes(db: Database) {
           ...leetcodeCompletedToday(db, today),
           ...theoryCompletedToday(db, today),
           ...goalsCompletedToday(db, today),
+          ...examCompletedToday(db, today),
         ];
         items.sort((a, b) => a.source.localeCompare(b.source) || a.title.localeCompare(b.title));
         return Response.json(items);
