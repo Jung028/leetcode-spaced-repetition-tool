@@ -8,12 +8,14 @@ const SOURCE_LABEL: Record<DueSource, string> = {
   leetcode: "LeetCode",
   theory: "Theory",
   goals: "Goals",
+  exam: "Exam",
 };
 
 const SOURCE_COLOR: Record<DueSource, string> = {
   leetcode: "#ffa116",
   theory: "#00b8a3",
   goals: "#c084fc",
+  exam: "#ff375f",
 };
 
 // Same two calendars leetcode-srs already overlays elsewhere: Adam's

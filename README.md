@@ -68,6 +68,38 @@ weights, and it drops off the active board once that reaches 100%.
 Weights aren't forced to sum to 100 — the detail view just shows how much
 is allocated as a hint.
 
+## Exam tab
+
+Daily practice papers for university course content (currently INFO5995 —
+Intro to Cybersecurity). One full paper (a mix of multiple choice,
+true/false, short-answer, and scenario questions) unlocks per day, gated by
+the same backlog cap the Theory and Goals tabs use — fall behind and a few
+papers queue up, but the whole bank doesn't dump on you at once. Multiple
+choice and true/false grade themselves instantly on selection; short-answer
+and scenario questions ask you to write your own answer first, then reveal
+a model answer and self-mark Correct/Wrong, same as the Theory tab. Submit
+the paper once every question is graded to lock in a score. Any question
+marked wrong reschedules individually onto its own ladder (3 → 5 → 7 → 14 →
+30 days, `exam-scheduling.ts`) and resurfaces under "Review due" until you
+get it right — the paper itself is one-and-done, but its weak spots keep
+coming back.
+
+Content lives in `exam-content/week-<n>.ts`, one file per course week, all
+aggregated into a single day-by-day schedule by `exam-content.ts`. To add a
+new week once its materials land in the course folder:
+
+```sh
+bun scripts/generate-exam-week.ts --week 2
+```
+
+This scans that week's folder for readable material (PDFs, markdown, slides
+— video lectures are noted but not transcribed) and writes a blank scaffold
+to `exam-content/week-2.ts` in the same shape as the real content files.
+Ask Claude Code to fill in the scaffold's blanks by reading the listed
+source files directly (no PDF-parsing dependency needed — Claude's own
+Read tool handles PDFs), then add one import + array entry to
+`exam-content.ts` to bring the new week into the schedule.
+
 ## Home tab
 
 The default tab when the app loads. Shows the Google Calendar embed

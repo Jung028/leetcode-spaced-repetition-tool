@@ -7,6 +7,7 @@ import { sydneyWallClockToUtc, toGoogleUtcStamp } from "./sydneyTime";
 import TheoryApp from "./TheoryApp";
 import GoalsApp from "./GoalsApp";
 import HomeApp from "./HomeApp";
+import ExamApp from "./ExamApp";
 import "./index.css";
 
 // Opens a one-click Google Calendar "quick add" tab for a review date — no
@@ -580,12 +581,13 @@ function LeetCodeApp({
   );
 }
 
-type Tab = "home" | "leetcode" | "theory" | "goals";
+type Tab = "home" | "leetcode" | "theory" | "goals" | "exam";
 
 type DeepLink =
   | { tab: "leetcode"; problemId: number }
   | { tab: "theory"; conceptDay: number }
-  | { tab: "goals"; projectId: number };
+  | { tab: "goals"; projectId: number }
+  | { tab: "exam"; paperDay: number };
 
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
@@ -614,6 +616,12 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
       >
         Goals
       </button>
+      <button
+        className={tab === "exam" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("exam")}
+      >
+        Exam
+      </button>
     </nav>
   );
 }
@@ -622,10 +630,11 @@ function App() {
   const [tab, setTab] = useState<Tab>("home");
   const [deepLink, setDeepLink] = useState<DeepLink | null>(null);
 
-  const navigate = (item: { source: "leetcode" | "theory" | "goals"; linkId: number }) => {
+  const navigate = (item: { source: "leetcode" | "theory" | "goals" | "exam"; linkId: number }) => {
     if (item.source === "leetcode") setDeepLink({ tab: "leetcode", problemId: item.linkId });
     else if (item.source === "theory") setDeepLink({ tab: "theory", conceptDay: item.linkId });
-    else setDeepLink({ tab: "goals", projectId: item.linkId });
+    else if (item.source === "goals") setDeepLink({ tab: "goals", projectId: item.linkId });
+    else setDeepLink({ tab: "exam", paperDay: item.linkId });
     setTab(item.source);
   };
 
@@ -648,6 +657,12 @@ function App() {
       {tab === "goals" && (
         <GoalsApp
           openProjectId={deepLink?.tab === "goals" ? deepLink.projectId : null}
+          onOpened={() => setDeepLink(null)}
+        />
+      )}
+      {tab === "exam" && (
+        <ExamApp
+          openPaperDay={deepLink?.tab === "exam" ? deepLink.paperDay : null}
           onOpened={() => setDeepLink(null)}
         />
       )}
