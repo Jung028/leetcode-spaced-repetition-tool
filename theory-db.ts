@@ -217,7 +217,7 @@ export function listTheoryCompletedToday(db: Database, today: string): TheoryPro
       `SELECT DISTINCT ts.concept_day, ts.category, ts.rung, ts.next_review, ts.your_answer, ts.question, ts.answer, ts.answer_format
        FROM theory_schedule ts
        JOIN theory_reviews tr ON tr.concept_day = ts.concept_day
-       WHERE tr.reviewed_at = ?
+       WHERE tr.reviewed_at = ? AND ts.question != ''
        ORDER BY ts.concept_day`,
     )
     .all(today) as TheoryProgress[];

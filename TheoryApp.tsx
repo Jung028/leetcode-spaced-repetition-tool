@@ -44,6 +44,8 @@ const errorMessage = (err: unknown): string =>
 const api = {
   due: () =>
     fetch("/api/theory/due").then((r) => json<{ due: TheoryProgress[]; stats: Stats }>(r)),
+  getConcept: (conceptDay: number) =>
+    fetch(`/api/theory/${conceptDay}`).then((r) => json<TheoryProgress>(r)),
   nextBlank: () =>
     fetch("/api/theory/next-blank").then((r) => json<{ conceptDay: number; category: string } | null>(r)),
   saveContent: (conceptDay: number, question: string, answer: string, answerFormat: TheoryAnswerFormat) =>
@@ -389,22 +391,31 @@ function AddTheoryContentForm({
 }
 
 function TheoryDetail({
-  entry,
+  conceptDay,
   onBack,
   onChanged,
   onError,
 }: {
-  entry: TheoryProgress;
+  conceptDay: number;
   onBack: () => void;
   onChanged: () => void;
   onError: (message: string | null) => void;
 }) {
+  const [entry, setEntry] = useState<TheoryProgress | null>(null);
   const [editing, setEditing] = useState(false);
   // Always starts blank, even if a previous answer was saved to this
   // concept — reopening is for practicing recall again, not reading back
   // what you wrote last time.
   const [draft, setDraft] = useState("");
   const [revealed, setRevealed] = useState(false);
+
+  const load = () => {
+    onError(null);
+    api.getConcept(conceptDay).then(setEntry).catch((err) => onError(errorMessage(err)));
+  };
+  useEffect(() => { load(); }, [conceptDay]);
+
+  if (!entry) return <p className="board-empty">Loading…</p>;
 
   // Saving reveals the model answer immediately (so you can compare right
   // away) and clears the draft — the answer's already saved server-side,
@@ -462,7 +473,7 @@ function TheoryDetail({
         onSaved={async () => {
           setEditing(false);
           onChanged();
-          onBack();
+          load();
         }}
       />
     );
@@ -550,7 +561,6 @@ export default function TheoryApp({
   const [view, setView] = useState<View>({ name: "board" });
   const [due, setDue] = useState<TheoryProgress[]>([]);
   const [stats, setStats] = useState<Stats>({ dueCount: 0, overdueCount: 0, completedToday: 0 });
-  const [loaded, setLoaded] = useState(false);
   const [nextBlankNotice, setNextBlankNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -558,7 +568,7 @@ export default function TheoryApp({
     setError(null);
     return api
       .due()
-      .then(({ due, stats }) => { setDue(due); setStats(stats); setLoaded(true); })
+      .then(({ due, stats }) => { setDue(due); setStats(stats); })
       .catch((err) => setError(errorMessage(err)));
   };
   useEffect(() => { refresh(); }, []);
@@ -621,23 +631,14 @@ export default function TheoryApp({
         />
       )}
 
-      {view.name === "detail" && (() => {
-        if (!loaded) return <p className="board-empty">Loading…</p>;
-        const entry = due.find((d) => d.concept_day === view.conceptDay);
-        return entry ? (
-          <TheoryDetail
-            entry={entry}
-            onBack={() => setView({ name: "board" })}
-            onChanged={refresh}
-            onError={setError}
-          />
-        ) : (
-          <p className="board-empty">
-            This concept isn't due anymore.{" "}
-            <button className="btn" onClick={() => setView({ name: "board" })}>Back to board</button>
-          </p>
-        );
-      })()}
+      {view.name === "detail" && (
+        <TheoryDetail
+          conceptDay={view.conceptDay}
+          onBack={() => setView({ name: "board" })}
+          onChanged={refresh}
+          onError={setError}
+        />
+      )}
     </div>
   );
 }

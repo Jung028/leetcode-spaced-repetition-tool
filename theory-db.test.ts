@@ -225,6 +225,7 @@ test("countOverdueTheory excludes blank-content concepts even though they're rel
 });
 
 test("listTheoryCompletedToday returns concepts reviewed today, deduped, ordered by concept_day", () => {
+  saveTheoryContent(db, 1, "Q1", "A1");
   reviewTheoryConcept(db, 1, "wrong", TODAY);
   reviewTheoryConcept(db, 1, "correct", TODAY); // second review same day, shouldn't duplicate
   reviewTheoryConcept(db, 2, "correct", "2026-07-19"); // different day, shouldn't show up
@@ -234,6 +235,13 @@ test("listTheoryCompletedToday returns concepts reviewed today, deduped, ordered
 });
 
 test("listTheoryCompletedToday is empty when nothing was reviewed today", () => {
+  expect(listTheoryCompletedToday(db, TODAY)).toEqual([]);
+});
+
+test("listTheoryCompletedToday excludes a concept reviewed today but since cleared to blank", () => {
+  saveTheoryContent(db, 1, "Q1", "A1");
+  reviewTheoryConcept(db, 1, "correct", TODAY);
+  clearTheoryContent(db, 1);
   expect(listTheoryCompletedToday(db, TODAY)).toEqual([]);
 });
 

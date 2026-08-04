@@ -160,6 +160,7 @@ test("GET /api/home/completed-today merges completions across all three sources"
     addDays(TODAY, -1),
   );
   reviewProblem(db, problem.id, "pass", TODAY);
+  saveTheoryContent(db, 1, "Q1", "A1");
   reviewTheoryConcept(db, 1, "correct", TODAY);
   const project = createProject(db, "Complete tracely onboarding", addDays(TODAY, 10), TODAY);
   const step = createStep(db, project.id, "Complete signup page", 20, TODAY)!;
