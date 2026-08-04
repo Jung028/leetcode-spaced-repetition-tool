@@ -842,3 +842,46 @@ a.btn {
   flex-shrink: 0;
   accent-color: var(--orange);
 }
+
+/* Exam tab */
+.exam-question {
+  border-top: 1px solid var(--line);
+  padding: 1.25rem 0;
+}
+
+.exam-prompt {
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+}
+
+.exam-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.exam-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.exam-option-correct {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 12%, transparent);
+}
+
+.exam-option-wrong {
+  border-color: var(--red);
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+}
+
+.exam-explanation {
+  margin-top: 0.75rem;
+  color: var(--dim);
+}
