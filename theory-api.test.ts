@@ -210,3 +210,40 @@ test("PUT /api/theory/:day/content silently defaults an unrecognized answerForma
   const updated: any = await res.json();
   expect(updated.answer_format).toBe("text");
 });
+
+test("DELETE /api/theory/:day/content clears question, answer, and answer_format to blank", async () => {
+  await putContent(1, "Q", "https://example.com/pic.png", "image");
+  const res = await fetch(`${base}/api/theory/1/content`, { method: "DELETE" });
+  expect(res.status).toBe(200);
+  const cleared: any = await res.json();
+  expect(cleared.question).toBe("");
+  expect(cleared.answer).toBe("");
+  expect(cleared.answer_format).toBe("text");
+});
+
+test("DELETE /api/theory/:day/content leaves scheduling state untouched", async () => {
+  await putContent(1, "Q", "A");
+  await fetch(`${base}/api/theory/1/review`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ result: "correct" }),
+  });
+  const res = await fetch(`${base}/api/theory/1/content`, { method: "DELETE" });
+  const cleared: any = await res.json();
+  expect(cleared.rung).toBe(0);
+  expect(cleared.next_review).toBe(addDays(localToday(), 3));
+});
+
+test("DELETE /api/theory/:day/content removes the concept from the due list", async () => {
+  await putContent(1, "Q", "A");
+  await fetch(`${base}/api/theory/1/content`, { method: "DELETE" });
+  const due: any = await (await fetch(`${base}/api/theory/due`)).json();
+  expect(due.due.map((d: any) => d.concept_day)).not.toContain(1);
+});
+
+test("DELETE /api/theory/:day/content on an out-of-range day is rejected with 400", async () => {
+  for (const bad of ["0", "151", "abc"]) {
+    const res = await fetch(`${base}/api/theory/${bad}/content`, { method: "DELETE" });
+    expect(res.status).toBe(400);
+  }
+});

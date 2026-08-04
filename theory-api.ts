@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import {
+  clearTheoryContent,
   countOverdueTheory,
   countTheoryReviewsToday,
   getNextBlankConcept,
@@ -92,6 +93,12 @@ export function theoryApiRoutes(db: Database) {
           }
         }
         const updated = saveTheoryContent(db, day, question, answer, answerFormat);
+        return updated ? json(updated) : json({ error: "not found" }, 404);
+      },
+      DELETE: (req: Request & { params: { day: string } }) => {
+        const day = parseConceptDay(req.params.day);
+        if (day === null) return json({ error: `day must be between 1 and ${TOTAL_DAYS}` }, 400);
+        const updated = clearTheoryContent(db, day);
         return updated ? json(updated) : json({ error: "not found" }, 404);
       },
     },
