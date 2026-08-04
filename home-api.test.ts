@@ -4,10 +4,15 @@ import { Database } from "bun:sqlite";
 import { openDb, createProblem, reviewProblem } from "./db";
 import { migrateTheory, reviewTheoryConcept, saveTheoryContent } from "./theory-db";
 import { migrateGoals, createProject, createStep, toggleStep } from "./goals-db";
+import { migrateExam, gradeExamAnswer, submitExamPaper } from "./exam-db";
+import { buildExamSchedule, TOTAL_PAPERS } from "./exam-content";
 import { homeApiRoutes } from "./home-api";
-import { localToday, addDays } from "./scheduling";
+import { localToday, addDays, MAX_ACTIVE_BACKLOG } from "./scheduling";
 
 const TODAY = localToday();
+// migrateExam releases papers up to the backlog cap immediately, so a fresh
+// db already has this many exam papers due today before any test acts.
+const EXAM_DUE_ON_MIGRATE = Math.min(MAX_ACTIVE_BACKLOG, TOTAL_PAPERS);
 let db: Database;
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
@@ -16,6 +21,7 @@ beforeEach(() => {
   db = openDb(":memory:");
   migrateTheory(db, TODAY);
   migrateGoals(db, TODAY);
+  migrateExam(db, TODAY);
   server = Bun.serve({ port: 0, routes: homeApiRoutes(db) });
   base = server.url.origin;
 });
@@ -59,6 +65,13 @@ test("GET /api/home/due excludes a Goals step that isn't due yet", async () => {
   expect(items.some((i) => i.source === "goals")).toBe(false);
 });
 
+test("GET /api/home/due includes today's exam paper", async () => {
+  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  const examItems = items.filter((i) => i.source === "exam");
+  expect(examItems.length).toBeGreaterThan(0);
+  expect(examItems[0]!.linkId).toBe(1);
+});
+
 test("GET /api/home/due sorts all sources together by due date ascending", async () => {
   const project = createProject(db, "Complete tracely onboarding", addDays(TODAY, 10), addDays(TODAY, -5));
   createStep(db, project.id, "Overdue step", 20, addDays(TODAY, -5));
@@ -68,15 +81,15 @@ test("GET /api/home/due sorts all sources together by due date ascending", async
   expect(items[0]!.source).toBe("goals");
 });
 
-test("GET /api/home/stats starts with 0 due when theory concepts are all blank", async () => {
+test("GET /api/home/stats starts with 0 due (besides exam) when theory concepts are all blank", async () => {
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats).toEqual({ dueToday: 0, overdue: 0, completedToday: 0 });
+  expect(stats).toEqual({ dueToday: EXAM_DUE_ON_MIGRATE, overdue: 0, completedToday: 0 });
 });
 
 test("GET /api/home/stats counts theory concepts once they have content, up to the released cap", async () => {
   for (let day = 1; day <= 5; day++) saveTheoryContent(db, day, `Q${day}`, `A${day}`);
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats).toEqual({ dueToday: 5, overdue: 0, completedToday: 0 });
+  expect(stats).toEqual({ dueToday: 5 + EXAM_DUE_ON_MIGRATE, overdue: 0, completedToday: 0 });
 });
 
 test("GET /api/home/stats counts dueToday and overdue across all three sources", async () => {
@@ -90,7 +103,7 @@ test("GET /api/home/stats counts dueToday and overdue across all three sources",
   createStep(db, overdueProject.id, "Overdue step", 20, addDays(TODAY, -3)); // overdue
 
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats.dueToday).toBe(6); // leetcode problem + 5 theory concepts (now with content)
+  expect(stats.dueToday).toBe(6 + EXAM_DUE_ON_MIGRATE); // leetcode problem + 5 theory concepts (now with content) + exam papers
   expect(stats.overdue).toBe(1); // the goals step
 });
 
@@ -108,6 +121,22 @@ test("GET /api/home/stats counts completedToday across all three sources", async
 
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
   expect(stats.completedToday).toBe(3);
+});
+
+test("GET /api/home/stats counts a submitted exam paper as completed today", async () => {
+  const before: any = await (await fetch(`${base}/api/home/stats`)).json();
+  expect(before.completedToday).toBe(0);
+
+  // home-api.test.ts doesn't mount exam routes (only homeApiRoutes), so grade
+  // and submit directly via exam-db against the same db instance, mirroring
+  // how the goals/theory completions above are set up through their own db
+  // layers rather than through HTTP.
+  const paper1 = buildExamSchedule().find((p) => p.paperDay === 1)!;
+  paper1.questions.forEach((_, i) => gradeExamAnswer(db, 1, i, true));
+  submitExamPaper(db, 1, TODAY);
+
+  const after: any = await (await fetch(`${base}/api/home/stats`)).json();
+  expect(after.completedToday).toBe(1);
 });
 
 test("GET /api/home/completed-today merges completions across all three sources", async () => {
