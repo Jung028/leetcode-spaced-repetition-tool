@@ -52,7 +52,7 @@ test("generateWeekFile refuses to overwrite an existing scaffold without force",
   const outPath = join(outDir, "week-1.ts");
   writeFileSync(outPath, "existing content");
 
-  const result = generateWeekFile({ week: 1, weekDir: dir, outPath });
+  const result = await generateWeekFile({ week: 1, weekDir: dir, outPath });
   expect(result.written).toBe(false);
   expect(result.reason).toContain("already exists");
   expect(await Bun.file(outPath).text()).toBe("existing content");
@@ -67,7 +67,7 @@ test("generateWeekFile overwrites when force is true", async () => {
   const outPath = join(outDir, "week-1.ts");
   writeFileSync(outPath, "existing content");
 
-  const result = generateWeekFile({ week: 1, weekDir: dir, outPath, force: true });
+  const result = await generateWeekFile({ week: 1, weekDir: dir, outPath, force: true });
   expect(result.written).toBe(true);
   const text = await Bun.file(outPath).text();
   expect(text).toContain("WEEK_1_PAPERS");
@@ -76,8 +76,8 @@ test("generateWeekFile overwrites when force is true", async () => {
   rmSync(outDir, { recursive: true, force: true });
 });
 
-test("generateWeekFile errors clearly when the week folder doesn't exist", () => {
-  const result = generateWeekFile({ week: 99, weekDir: "/nonexistent/week-99", outPath: "/tmp/whatever-99.ts" });
+test("generateWeekFile errors clearly when the week folder doesn't exist", async () => {
+  const result = await generateWeekFile({ week: 99, weekDir: "/nonexistent/week-99", outPath: "/tmp/whatever-99.ts" });
   expect(result.written).toBe(false);
   expect(result.reason).toContain("not found");
 });

@@ -101,7 +101,7 @@ export interface GenerateResult {
 
 // The testable core: real FS reads/writes, but no argv parsing — the CLI
 // entrypoint below is the only part that touches process.argv.
-export function generateWeekFile(options: GenerateOptions): GenerateResult {
+export async function generateWeekFile(options: GenerateOptions): Promise<GenerateResult> {
   const { week, weekDir, outPath, paperCount = 3, force = false } = options;
   if (!existsSync(weekDir)) {
     return { written: false, reason: `Week folder not found: ${weekDir}`, path: outPath };
@@ -112,7 +112,7 @@ export function generateWeekFile(options: GenerateOptions): GenerateResult {
   const { materials, videos } = scanWeekFolder(weekDir);
   const papers = buildScaffold(week, paperCount, materials);
   const source = renderScaffoldModule(week, papers, videos);
-  Bun.write(outPath, source);
+  await Bun.write(outPath, source);
   return { written: true, path: outPath };
 }
 
@@ -143,7 +143,7 @@ if (import.meta.main) {
   const { week, courseDir, papers, force } = parseArgs(process.argv.slice(2));
   const weekDir = join(courseDir ?? DEFAULT_COURSE_DIR, `Week ${week}`);
   const outPath = join(import.meta.dir, "..", "exam-content", `week-${week}.ts`);
-  const result = generateWeekFile({ week, weekDir, outPath, paperCount: papers, force });
+  const result = await generateWeekFile({ week, weekDir, outPath, paperCount: papers, force });
   if (!result.written) {
     console.error(result.reason);
     process.exit(1);
