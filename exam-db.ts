@@ -1,9 +1,10 @@
 import type { Database } from "bun:sqlite";
-import { buildExamSchedule, TOTAL_PAPERS } from "./exam-content";
+import { buildExamSchedule, totalPapersForCourse } from "./exam-content";
 import { addDays, releaseCount } from "./scheduling";
 import { applyExamReview, type ExamReviewResult } from "./exam-scheduling";
 
 export interface ExamPaperRow {
+  course: string;
   paper_day: number;
   next_review: string;
   submitted_at: string | null;
@@ -12,6 +13,7 @@ export interface ExamPaperRow {
 }
 
 export interface ExamAnswerRow {
+  course: string;
   paper_day: number;
   question_index: number;
   your_answer: string;
@@ -20,6 +22,7 @@ export interface ExamAnswerRow {
 
 export interface ExamReviewItemRow {
   id: number;
+  course: string;
   paper_day: number;
   question_index: number;
   rung: number;
@@ -29,117 +32,223 @@ export interface ExamReviewItemRow {
 export function migrateExam(db: Database, today: string): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS exam_papers (
-      paper_day INTEGER PRIMARY KEY,
+      course TEXT NOT NULL,
+      paper_day INTEGER NOT NULL,
       next_review TEXT NOT NULL,
       submitted_at TEXT,
       score_correct INTEGER,
-      score_total INTEGER
+      score_total INTEGER,
+      PRIMARY KEY (course, paper_day)
     );
     CREATE TABLE IF NOT EXISTS exam_answers (
+      course TEXT NOT NULL,
       paper_day INTEGER NOT NULL,
       question_index INTEGER NOT NULL,
       your_answer TEXT NOT NULL DEFAULT '',
       correct INTEGER,
-      PRIMARY KEY (paper_day, question_index)
+      PRIMARY KEY (course, paper_day, question_index)
     );
     CREATE TABLE IF NOT EXISTS exam_review_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      course TEXT NOT NULL,
       paper_day INTEGER NOT NULL,
       question_index INTEGER NOT NULL,
       rung INTEGER NOT NULL DEFAULT -1,
       next_review TEXT NOT NULL,
-      UNIQUE(paper_day, question_index)
+      UNIQUE(course, paper_day, question_index)
     );
     CREATE TABLE IF NOT EXISTS exam_review_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      course TEXT NOT NULL,
       paper_day INTEGER NOT NULL,
       question_index INTEGER NOT NULL,
       reviewed_at TEXT NOT NULL,
       result TEXT NOT NULL CHECK (result IN ('correct','wrong'))
     );
     CREATE TABLE IF NOT EXISTS exam_state (
+      course TEXT PRIMARY KEY,
       released_up_to INTEGER NOT NULL DEFAULT 0
     );
   `);
 
-  const { stateCount } = db.query(`SELECT COUNT(*) AS stateCount FROM exam_state`).get() as {
-    stateCount: number;
-  };
-  if (stateCount === 0) {
-    db.query(`INSERT INTO exam_state (released_up_to) VALUES (0)`).run();
-  }
+  migrateLegacySingleCourseShape(db);
 
-  seedNewPapers(db, today);
-  runExamReleaseGate(db, today);
+  const courses = new Set(buildExamSchedule().map((p) => p.course));
+  for (const course of courses) {
+    ensureExamStateRow(db, course);
+    seedNewPapers(db, course, today);
+    runExamReleaseGate(db, course, today);
+  }
+}
+
+// One-time upgrade of a pre-existing single-course db (every exam_* table
+// keyed without a `course` column) into the multi-course shape, backfilling
+// course = 'INFO5995' — the only course that has ever existed before this
+// migration, so every pre-existing paper_day value is already correctly
+// "1-based within INFO5995" with no renumbering needed. SQLite can't ALTER
+// a primary key, so this recreates each table and copies rows across.
+function migrateLegacySingleCourseShape(db: Database): void {
+  const columns = db.query(`PRAGMA table_info(exam_papers)`).all() as { name: string }[];
+  const isLegacy = columns.length > 0 && !columns.some((c) => c.name === "course");
+  if (!isLegacy) return;
+
+  db.exec("BEGIN");
+  try {
+    db.exec(`
+    CREATE TABLE exam_papers_new (
+      course TEXT NOT NULL,
+      paper_day INTEGER NOT NULL,
+      next_review TEXT NOT NULL,
+      submitted_at TEXT,
+      score_correct INTEGER,
+      score_total INTEGER,
+      PRIMARY KEY (course, paper_day)
+    );
+    INSERT INTO exam_papers_new (course, paper_day, next_review, submitted_at, score_correct, score_total)
+      SELECT 'INFO5995', paper_day, next_review, submitted_at, score_correct, score_total FROM exam_papers;
+    DROP TABLE exam_papers;
+    ALTER TABLE exam_papers_new RENAME TO exam_papers;
+
+    CREATE TABLE exam_answers_new (
+      course TEXT NOT NULL,
+      paper_day INTEGER NOT NULL,
+      question_index INTEGER NOT NULL,
+      your_answer TEXT NOT NULL DEFAULT '',
+      correct INTEGER,
+      PRIMARY KEY (course, paper_day, question_index)
+    );
+    INSERT INTO exam_answers_new (course, paper_day, question_index, your_answer, correct)
+      SELECT 'INFO5995', paper_day, question_index, your_answer, correct FROM exam_answers;
+    DROP TABLE exam_answers;
+    ALTER TABLE exam_answers_new RENAME TO exam_answers;
+
+    CREATE TABLE exam_review_items_new (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      course TEXT NOT NULL,
+      paper_day INTEGER NOT NULL,
+      question_index INTEGER NOT NULL,
+      rung INTEGER NOT NULL DEFAULT -1,
+      next_review TEXT NOT NULL,
+      UNIQUE(course, paper_day, question_index)
+    );
+    INSERT INTO exam_review_items_new (id, course, paper_day, question_index, rung, next_review)
+      SELECT id, 'INFO5995', paper_day, question_index, rung, next_review FROM exam_review_items;
+    DROP TABLE exam_review_items;
+    ALTER TABLE exam_review_items_new RENAME TO exam_review_items;
+
+    CREATE TABLE exam_review_log_new (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      course TEXT NOT NULL,
+      paper_day INTEGER NOT NULL,
+      question_index INTEGER NOT NULL,
+      reviewed_at TEXT NOT NULL,
+      result TEXT NOT NULL CHECK (result IN ('correct','wrong'))
+    );
+    INSERT INTO exam_review_log_new (id, course, paper_day, question_index, reviewed_at, result)
+      SELECT id, 'INFO5995', paper_day, question_index, reviewed_at, result FROM exam_review_log;
+    DROP TABLE exam_review_log;
+    ALTER TABLE exam_review_log_new RENAME TO exam_review_log;
+
+    CREATE TABLE exam_state_new (
+      course TEXT PRIMARY KEY,
+      released_up_to INTEGER NOT NULL DEFAULT 0
+    );
+    INSERT INTO exam_state_new (course, released_up_to)
+      SELECT 'INFO5995', released_up_to FROM exam_state;
+    DROP TABLE exam_state;
+    ALTER TABLE exam_state_new RENAME TO exam_state;
+  `);
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+}
+
+function ensureExamStateRow(db: Database, course: string): void {
+  const { n } = db.query(`SELECT COUNT(*) AS n FROM exam_state WHERE course = ?`).get(course) as { n: number };
+  if (n === 0) db.query(`INSERT INTO exam_state (course, released_up_to) VALUES (?, 0)`).run(course);
 }
 
 // Inserts any paper introduced since the last run (e.g. a new week's content
-// was added and TOTAL_PAPERS grew) without touching existing rows — placed
-// far out on the calendar; the release gate below pulls each one forward
-// once backlog clears, exactly like a paper that existed from day one.
-function seedNewPapers(db: Database, today: string): void {
-  const { maxDay } = db.query(`SELECT COALESCE(MAX(paper_day), 0) AS maxDay FROM exam_papers`).get() as {
-    maxDay: number;
-  };
-  const insert = db.query(`INSERT INTO exam_papers (paper_day, next_review) VALUES (?, ?)`);
+// was added for this course) without touching existing rows — placed far
+// out on the calendar; the release gate below pulls each one forward once
+// backlog clears, exactly like a paper that existed from day one.
+function seedNewPapers(db: Database, course: string, today: string): void {
+  const { maxDay } = db
+    .query(`SELECT COALESCE(MAX(paper_day), 0) AS maxDay FROM exam_papers WHERE course = ?`)
+    .get(course) as { maxDay: number };
+  const insert = db.query(`INSERT INTO exam_papers (course, paper_day, next_review) VALUES (?, ?, ?)`);
   for (const paper of buildExamSchedule()) {
+    if (paper.course !== course) continue;
     if (paper.paperDay <= maxDay) continue;
-    insert.run(paper.paperDay, addDays(today, paper.paperDay));
+    insert.run(course, paper.paperDay, addDays(today, paper.paperDay));
   }
 }
 
-function runExamReleaseGate(db: Database, today: string): void {
-  const { released_up_to } = db.query(`SELECT released_up_to FROM exam_state`).get() as {
+function runExamReleaseGate(db: Database, course: string, today: string): void {
+  const row = db.query(`SELECT released_up_to FROM exam_state WHERE course = ?`).get(course) as {
     released_up_to: number;
-  };
+  } | null;
+  if (!row) return;
+  const { released_up_to } = row;
   const { n: backlog } = db
     .query(
-      `SELECT COUNT(*) AS n FROM exam_papers WHERE paper_day <= ? AND next_review <= ? AND submitted_at IS NULL`,
+      `SELECT COUNT(*) AS n FROM exam_papers WHERE course = ? AND paper_day <= ? AND next_review <= ? AND submitted_at IS NULL`,
     )
-    .get(released_up_to, today) as { n: number };
-  const remaining = TOTAL_PAPERS - released_up_to;
+    .get(course, released_up_to, today) as { n: number };
+  const remaining = totalPapersForCourse(course) - released_up_to;
   const toRelease = releaseCount(backlog, remaining);
   if (toRelease === 0) return;
 
   const newUpTo = released_up_to + toRelease;
-  db.query(`UPDATE exam_papers SET next_review = ? WHERE paper_day > ? AND paper_day <= ?`).run(
+  db.query(`UPDATE exam_papers SET next_review = ? WHERE course = ? AND paper_day > ? AND paper_day <= ?`).run(
     today,
+    course,
     released_up_to,
     newUpTo,
   );
-  db.query(`UPDATE exam_state SET released_up_to = ?`).run(newUpTo);
+  db.query(`UPDATE exam_state SET released_up_to = ? WHERE course = ?`).run(newUpTo, course);
 }
 
-export function listDueExamPapers(db: Database, today: string): ExamPaperRow[] {
-  runExamReleaseGate(db, today);
+export function listDueExamPapers(db: Database, course: string, today: string): ExamPaperRow[] {
+  runExamReleaseGate(db, course, today);
   return db
     .query(
-      `SELECT paper_day, next_review, submitted_at, score_correct, score_total FROM exam_papers
-       WHERE paper_day <= (SELECT released_up_to FROM exam_state) AND next_review <= ? AND submitted_at IS NULL
+      `SELECT course, paper_day, next_review, submitted_at, score_correct, score_total FROM exam_papers
+       WHERE course = ? AND paper_day <= (SELECT released_up_to FROM exam_state WHERE course = ?) AND next_review <= ? AND submitted_at IS NULL
        ORDER BY next_review, paper_day`,
     )
-    .all(today) as ExamPaperRow[];
+    .all(course, course, today) as ExamPaperRow[];
 }
 
-export function getExamPaperRow(db: Database, paperDay: number): ExamPaperRow | null {
+export function getExamPaperRow(db: Database, course: string, paperDay: number): ExamPaperRow | null {
   return db
     .query(
-      `SELECT paper_day, next_review, submitted_at, score_correct, score_total FROM exam_papers WHERE paper_day = ?`,
+      `SELECT course, paper_day, next_review, submitted_at, score_correct, score_total FROM exam_papers WHERE course = ? AND paper_day = ?`,
     )
-    .get(paperDay) as ExamPaperRow | null;
+    .get(course, paperDay) as ExamPaperRow | null;
 }
 
-export function listExamAnswers(db: Database, paperDay: number): ExamAnswerRow[] {
+export function listExamAnswers(db: Database, course: string, paperDay: number): ExamAnswerRow[] {
   return db
-    .query(`SELECT paper_day, question_index, your_answer, correct FROM exam_answers WHERE paper_day = ?`)
-    .all(paperDay) as ExamAnswerRow[];
+    .query(
+      `SELECT course, paper_day, question_index, your_answer, correct FROM exam_answers WHERE course = ? AND paper_day = ?`,
+    )
+    .all(course, paperDay) as ExamAnswerRow[];
 }
 
-export function saveExamAnswer(db: Database, paperDay: number, questionIndex: number, yourAnswer: string): void {
+export function saveExamAnswer(
+  db: Database,
+  course: string,
+  paperDay: number,
+  questionIndex: number,
+  yourAnswer: string,
+): void {
   db.query(
-    `INSERT INTO exam_answers (paper_day, question_index, your_answer) VALUES (?, ?, ?)
-     ON CONFLICT (paper_day, question_index) DO UPDATE SET your_answer = excluded.your_answer`,
-  ).run(paperDay, questionIndex, yourAnswer);
+    `INSERT INTO exam_answers (course, paper_day, question_index, your_answer) VALUES (?, ?, ?, ?)
+     ON CONFLICT (course, paper_day, question_index) DO UPDATE SET your_answer = excluded.your_answer`,
+  ).run(course, paperDay, questionIndex, yourAnswer);
 }
 
 // yourAnswer is optional: mcq/truefalse grade themselves on selection and
@@ -148,6 +257,7 @@ export function saveExamAnswer(db: Database, paperDay: number, questionIndex: nu
 // call this once, with the self-reported verdict.
 export function gradeExamAnswer(
   db: Database,
+  course: string,
   paperDay: number,
   questionIndex: number,
   correct: boolean,
@@ -155,14 +265,14 @@ export function gradeExamAnswer(
 ): void {
   if (yourAnswer !== undefined) {
     db.query(
-      `INSERT INTO exam_answers (paper_day, question_index, your_answer, correct) VALUES (?, ?, ?, ?)
-       ON CONFLICT (paper_day, question_index) DO UPDATE SET your_answer = excluded.your_answer, correct = excluded.correct`,
-    ).run(paperDay, questionIndex, yourAnswer, correct ? 1 : 0);
+      `INSERT INTO exam_answers (course, paper_day, question_index, your_answer, correct) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (course, paper_day, question_index) DO UPDATE SET your_answer = excluded.your_answer, correct = excluded.correct`,
+    ).run(course, paperDay, questionIndex, yourAnswer, correct ? 1 : 0);
   } else {
     db.query(
-      `INSERT INTO exam_answers (paper_day, question_index, your_answer, correct) VALUES (?, ?, '', ?)
-       ON CONFLICT (paper_day, question_index) DO UPDATE SET correct = excluded.correct`,
-    ).run(paperDay, questionIndex, correct ? 1 : 0);
+      `INSERT INTO exam_answers (course, paper_day, question_index, your_answer, correct) VALUES (?, ?, ?, '', ?)
+       ON CONFLICT (course, paper_day, question_index) DO UPDATE SET correct = excluded.correct`,
+    ).run(course, paperDay, questionIndex, correct ? 1 : 0);
   }
 }
 
@@ -170,15 +280,15 @@ export type SubmitExamResult =
   | { ok: true; scoreCorrect: number; scoreTotal: number }
   | { ok: false; reason: "not_found" | "already_submitted" | "incomplete" };
 
-export function submitExamPaper(db: Database, paperDay: number, today: string): SubmitExamResult {
-  const paper = getExamPaperRow(db, paperDay);
+export function submitExamPaper(db: Database, course: string, paperDay: number, today: string): SubmitExamResult {
+  const paper = getExamPaperRow(db, course, paperDay);
   if (!paper) return { ok: false, reason: "not_found" };
   if (paper.submitted_at) return { ok: false, reason: "already_submitted" };
 
-  const content = buildExamSchedule().find((p) => p.paperDay === paperDay);
+  const content = buildExamSchedule().find((p) => p.course === course && p.paperDay === paperDay);
   if (!content) return { ok: false, reason: "not_found" };
 
-  const answers = listExamAnswers(db, paperDay);
+  const answers = listExamAnswers(db, course, paperDay);
   const gradedByIndex = new Map(answers.map((a) => [a.question_index, a.correct]));
   for (let i = 0; i < content.questions.length; i++) {
     const c = gradedByIndex.get(i);
@@ -187,81 +297,82 @@ export function submitExamPaper(db: Database, paperDay: number, today: string): 
 
   const scoreCorrect = answers.filter((a) => a.correct === 1).length;
   const scoreTotal = content.questions.length;
-  db.query(`UPDATE exam_papers SET submitted_at = ?, score_correct = ?, score_total = ? WHERE paper_day = ?`).run(
-    today,
-    scoreCorrect,
-    scoreTotal,
-    paperDay,
-  );
+  db.query(
+    `UPDATE exam_papers SET submitted_at = ?, score_correct = ?, score_total = ? WHERE course = ? AND paper_day = ?`,
+  ).run(today, scoreCorrect, scoreTotal, course, paperDay);
 
   const insertReview = db.query(
-    `INSERT INTO exam_review_items (paper_day, question_index, rung, next_review) VALUES (?, ?, -1, ?)
-     ON CONFLICT (paper_day, question_index) DO NOTHING`,
+    `INSERT INTO exam_review_items (course, paper_day, question_index, rung, next_review) VALUES (?, ?, ?, -1, ?)
+     ON CONFLICT (course, paper_day, question_index) DO NOTHING`,
   );
   for (const a of answers) {
-    if (a.correct === 0) insertReview.run(paperDay, a.question_index, addDays(today, 1));
+    if (a.correct === 0) insertReview.run(course, paperDay, a.question_index, addDays(today, 1));
   }
 
   return { ok: true, scoreCorrect, scoreTotal };
 }
 
-export function countOverdueExamPapers(db: Database, today: string): number {
-  runExamReleaseGate(db, today);
+export function countOverdueExamPapers(db: Database, course: string, today: string): number {
+  runExamReleaseGate(db, course, today);
   const row = db
     .query(
       `SELECT COUNT(*) AS n FROM exam_papers
-       WHERE paper_day <= (SELECT released_up_to FROM exam_state) AND next_review < ? AND submitted_at IS NULL`,
+       WHERE course = ? AND paper_day <= (SELECT released_up_to FROM exam_state WHERE course = ?) AND next_review < ? AND submitted_at IS NULL`,
     )
-    .get(today) as { n: number };
+    .get(course, course, today) as { n: number };
   return row.n;
 }
 
-export function countExamPapersSubmittedToday(db: Database, today: string): number {
-  const row = db.query(`SELECT COUNT(*) AS n FROM exam_papers WHERE submitted_at = ?`).get(today) as { n: number };
+export function countExamPapersSubmittedToday(db: Database, course: string, today: string): number {
+  const row = db
+    .query(`SELECT COUNT(*) AS n FROM exam_papers WHERE course = ? AND submitted_at = ?`)
+    .get(course, today) as { n: number };
   return row.n;
 }
 
-export function listExamPapersSubmittedToday(db: Database, today: string): ExamPaperRow[] {
+export function listExamPapersSubmittedToday(db: Database, course: string, today: string): ExamPaperRow[] {
   return db
     .query(
-      `SELECT paper_day, next_review, submitted_at, score_correct, score_total FROM exam_papers WHERE submitted_at = ? ORDER BY paper_day`,
+      `SELECT course, paper_day, next_review, submitted_at, score_correct, score_total FROM exam_papers WHERE course = ? AND submitted_at = ? ORDER BY paper_day`,
     )
-    .all(today) as ExamPaperRow[];
+    .all(course, today) as ExamPaperRow[];
 }
 
-export function listDueExamReviewItems(db: Database, today: string): ExamReviewItemRow[] {
+export function listDueExamReviewItems(db: Database, course: string, today: string): ExamReviewItemRow[] {
   return db
     .query(
-      `SELECT id, paper_day, question_index, rung, next_review FROM exam_review_items WHERE next_review <= ? ORDER BY next_review, id`,
+      `SELECT id, course, paper_day, question_index, rung, next_review FROM exam_review_items WHERE course = ? AND next_review <= ? ORDER BY next_review, id`,
     )
-    .all(today) as ExamReviewItemRow[];
+    .all(course, today) as ExamReviewItemRow[];
 }
 
-export function countOverdueExamReviewItems(db: Database, today: string): number {
-  const row = db.query(`SELECT COUNT(*) AS n FROM exam_review_items WHERE next_review < ?`).get(today) as {
-    n: number;
-  };
+export function countOverdueExamReviewItems(db: Database, course: string, today: string): number {
+  const row = db
+    .query(`SELECT COUNT(*) AS n FROM exam_review_items WHERE course = ? AND next_review < ?`)
+    .get(course, today) as { n: number };
   return row.n;
 }
 
-export function countExamReviewsToday(db: Database, today: string): number {
-  const row = db.query(`SELECT COUNT(*) AS n FROM exam_review_log WHERE reviewed_at = ?`).get(today) as {
-    n: number;
-  };
+export function countExamReviewsToday(db: Database, course: string, today: string): number {
+  const row = db
+    .query(`SELECT COUNT(*) AS n FROM exam_review_log WHERE course = ? AND reviewed_at = ?`)
+    .get(course, today) as { n: number };
   return row.n;
 }
 
 export function listExamReviewsCompletedToday(
   db: Database,
+  course: string,
   today: string,
 ): { paper_day: number; question_index: number }[] {
   return db
-    .query(`SELECT paper_day, question_index FROM exam_review_log WHERE reviewed_at = ?`)
-    .all(today) as { paper_day: number; question_index: number }[];
+    .query(`SELECT paper_day, question_index FROM exam_review_log WHERE course = ? AND reviewed_at = ?`)
+    .all(course, today) as { paper_day: number; question_index: number }[];
 }
 
 export function reviewExamItem(
   db: Database,
+  course: string,
   paperDay: number,
   questionIndex: number,
   result: ExamReviewResult,
@@ -269,17 +380,14 @@ export function reviewExamItem(
 ): ExamReviewItemRow | null {
   const current = db
     .query(
-      `SELECT id, paper_day, question_index, rung, next_review FROM exam_review_items WHERE paper_day = ? AND question_index = ?`,
+      `SELECT id, course, paper_day, question_index, rung, next_review FROM exam_review_items WHERE course = ? AND paper_day = ? AND question_index = ?`,
     )
-    .get(paperDay, questionIndex) as ExamReviewItemRow | null;
+    .get(course, paperDay, questionIndex) as ExamReviewItemRow | null;
   if (!current) return null;
 
-  db.query(`INSERT INTO exam_review_log (paper_day, question_index, reviewed_at, result) VALUES (?, ?, ?, ?)`).run(
-    paperDay,
-    questionIndex,
-    today,
-    result,
-  );
+  db.query(
+    `INSERT INTO exam_review_log (course, paper_day, question_index, reviewed_at, result) VALUES (?, ?, ?, ?, ?)`,
+  ).run(course, paperDay, questionIndex, today, result);
 
   const { rung, nextReview } = applyExamReview(current.rung, result, today);
   db.query(`UPDATE exam_review_items SET rung = ?, next_review = ? WHERE id = ?`).run(rung, nextReview, current.id);

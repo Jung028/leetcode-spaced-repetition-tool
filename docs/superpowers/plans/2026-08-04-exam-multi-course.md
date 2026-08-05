@@ -803,26 +803,37 @@ test("reviewExamItem returns null for an item that isn't in the review queue", (
   expect(reviewExamItem(db, COURSE, 1, 5, "correct", TODAY)).toBeNull();
 });
 
-test("two different courses' backlogs and paper_day sequences are independent", () => {
-  // COMP5348 has no real content yet, so seed two synthetic papers directly
-  // to exercise the per-course SQL filtering the db layer is responsible for.
-  db.query(`INSERT INTO exam_state (course, released_up_to) VALUES ('COMP5348', 2)`).run();
+test("two different courses' backlogs are independent — course scoping partitions rows correctly", () => {
+  // COMP5348 has no real content yet (totalPapersForCourse === 0), so the
+  // release gate — which sizes "remaining" against totalPapersForCourse —
+  // can't be exercised for a synthetic second course without violating its
+  // own invariant (released_up_to must never exceed a course's real paper
+  // count; runExamReleaseGate only ever advances it that far). This proves
+  // independence via the non-gated, purely course-scoped functions instead —
+  // the same `WHERE course = ?` filtering every gated function also relies
+  // on — plus one real gated function (listDueExamPapers) on the one course
+  // that actually has content.
   db.query(`INSERT INTO exam_papers (course, paper_day, next_review) VALUES ('COMP5348', 1, ?)`).run(TODAY);
   db.query(`INSERT INTO exam_papers (course, paper_day, next_review) VALUES ('COMP5348', 2, ?)`).run(TODAY);
 
-  const comp5348Due = listDueExamPapers(db, "COMP5348", TODAY);
-  expect(comp5348Due.length).toBe(2);
-  expect(comp5348Due.every((p) => p.course === "COMP5348")).toBe(true);
+  expect(getExamPaperRow(db, "COMP5348", 1)!.course).toBe("COMP5348");
+  expect(getExamPaperRow(db, COURSE, 1)!.course).toBe(COURSE);
 
+  saveExamAnswer(db, "COMP5348", 1, 0, "comp draft");
+  saveExamAnswer(db, COURSE, 1, 0, "info draft");
+  expect(listExamAnswers(db, "COMP5348", 1)[0]!.your_answer).toBe("comp draft");
+  expect(listExamAnswers(db, COURSE, 1)[0]!.your_answer).toBe("info draft");
+
+  // Submitting every INFO5995 due paper does not touch COMP5348's rows.
   const info5995Due = listDueExamPapers(db, COURSE, TODAY);
-  // Submitting every INFO5995 due paper does not touch COMP5348's due count.
   for (const p of info5995Due) {
     const content = buildExamSchedule().find((c) => c.course === COURSE && c.paperDay === p.paper_day)!;
     content.questions.forEach((_, i) => gradeExamAnswer(db, COURSE, p.paper_day, i, true));
     submitExamPaper(db, COURSE, p.paper_day, TODAY);
   }
   expect(listDueExamPapers(db, COURSE, TODAY).length).toBe(0);
-  expect(listDueExamPapers(db, "COMP5348", TODAY).length).toBe(2);
+  expect(getExamPaperRow(db, "COMP5348", 1)!.submitted_at).toBeNull();
+  expect(getExamPaperRow(db, "COMP5348", 2)!.submitted_at).toBeNull();
 });
 
 test("migrateExam upgrades a pre-existing single-course db, backfilling course = 'INFO5995'", () => {
@@ -2049,7 +2060,7 @@ export default function ExamApp({
   if (!course) {
     return (
       <div className="theory">
-        <p className="board-empty">Loading…</p>
+        {error ? <p className="form-error">{error}</p> : <p className="board-empty">Loading…</p>}
       </div>
     );
   }
@@ -2230,6 +2241,223 @@ Report back what you observed; this step has no automated test (consistent with 
 ```bash
 git add ExamApp.tsx frontend.tsx
 git commit -m "feat: add a course selector to the Exam tab and thread it through deep links"
+```
+
+---
+
+### Task 6: Course-aware content scaffold generator
+
+**Added mid-implementation:** Task 1 made `course: string` a required field on
+`ExamPaperSeed`, but `scripts/generate-exam-week.ts` — the scaffold generator
+that produces a new week's blank content file — constructs `ExamPaperSeed`
+objects too, and was never updated. This left the repo failing
+`bunx tsc --noEmit`, which the Final Verification section below requires to
+be clean. This task closes that gap: minimal, scoped only to making this one
+script (and its test) compile and stay genuinely usable per-course.
+
+**Files:**
+- Modify: `scripts/generate-exam-week.ts`
+- Modify: `scripts/generate-exam-week.test.ts`
+
+**Interfaces:**
+- Consumes: `ExamPaperSeed` (now requires `course: string`, from Task 1).
+- Produces: `buildScaffold(course: string, week: number, paperCount: number, materials: string[]): ExamPaperSeed[]` (gains a leading `course` parameter); `GenerateOptions` gains a required `course: string` field. No other file in the repo calls these — this script is invoked standalone via its CLI entrypoint, not imported elsewhere.
+
+- [ ] **Step 1: Update `buildScaffold` and `GenerateOptions` to require `course`**
+
+In `scripts/generate-exam-week.ts`, change the `GenerateOptions` interface:
+
+```ts
+export interface GenerateOptions {
+  week: number;
+  weekDir: string;
+  outPath: string;
+  course: string;
+  paperCount?: number;
+  force?: boolean;
+}
+```
+
+Change `buildScaffold`'s signature and the object it pushes:
+
+```ts
+export function buildScaffold(course: string, week: number, paperCount: number, materials: string[]): ExamPaperSeed[] {
+  const papers: ExamPaperSeed[] = [];
+  for (let n = 1; n <= paperCount; n++) {
+    papers.push({
+      course,
+      week,
+      paperNumber: n,
+      title: `Week ${week} Practice Paper ${n}`,
+      topics: "",
+      sourceFiles: materials,
+      questions: [
+        ...Array.from({ length: 8 }, () => ({
+          type: "mcq" as const,
+          prompt: "",
+          options: ["", "", "", ""],
+          correctIndex: 0,
+          modelAnswer: "",
+        })),
+        ...Array.from({ length: 4 }, () => ({ type: "short" as const, prompt: "", modelAnswer: "" })),
+        ...Array.from({ length: 2 }, () => ({ type: "scenario" as const, prompt: "", modelAnswer: "" })),
+      ],
+    });
+  }
+  return papers;
+}
+```
+
+Change `generateWeekFile` to destructure and pass `course` through:
+
+```ts
+export async function generateWeekFile(options: GenerateOptions): Promise<GenerateResult> {
+  const { week, weekDir, outPath, course, paperCount = 3, force = false } = options;
+  if (!existsSync(weekDir)) {
+    return { written: false, reason: `Week folder not found: ${weekDir}`, path: outPath };
+  }
+  if (existsSync(outPath) && !force) {
+    return { written: false, reason: `${outPath} already exists — pass force to overwrite`, path: outPath };
+  }
+  const { materials, videos } = scanWeekFolder(weekDir);
+  const papers = buildScaffold(course, week, paperCount, materials);
+  const source = renderScaffoldModule(week, papers, videos);
+  await Bun.write(outPath, source);
+  return { written: true, path: outPath };
+}
+```
+
+`scanWeekFolder` and `renderScaffoldModule` are unchanged — neither constructs an `ExamPaperSeed` literal.
+
+- [ ] **Step 2: Update the CLI entrypoint to accept `--course` and write into that course's folder**
+
+Change `parseArgs`'s return type and body:
+
+```ts
+function parseArgs(argv: string[]): { week: number; course: string; courseDir?: string; papers: number; force: boolean } {
+  const get = (flag: string) => {
+    const i = argv.indexOf(flag);
+    return i === -1 ? undefined : argv[i + 1];
+  };
+  const week = Number(get("--week"));
+  if (!Number.isInteger(week) || week < 1) {
+    throw new Error(
+      "Usage: bun scripts/generate-exam-week.ts --week <n> [--course <code>] [--course-dir <path>] [--papers <n>] [--force]",
+    );
+  }
+  const papersArg = get("--papers");
+  return {
+    week,
+    course: get("--course") ?? "INFO5995",
+    courseDir: get("--course-dir"),
+    papers: papersArg ? Number(papersArg) : 3,
+    force: argv.includes("--force"),
+  };
+}
+```
+
+Change the `if (import.meta.main)` block so `outPath` nests under the course's own subfolder (matching Task 1's `exam-content/info5995/week-1.ts` layout), and `course` is threaded into `generateWeekFile`:
+
+```ts
+if (import.meta.main) {
+  const { week, course, courseDir, papers, force } = parseArgs(process.argv.slice(2));
+  const weekDir = join(courseDir ?? DEFAULT_COURSE_DIR, `Week ${week}`);
+  const outPath = join(import.meta.dir, "..", "exam-content", course.toLowerCase(), `week-${week}.ts`);
+  const result = await generateWeekFile({ week, weekDir, outPath, course, paperCount: papers, force });
+  if (!result.written) {
+    console.error(result.reason);
+    process.exit(1);
+  }
+  console.log(`Wrote scaffold to ${result.path} — ask Claude Code to fill it in from ${weekDir}`);
+}
+```
+
+`DEFAULT_COURSE_DIR` stays as-is (still INFO5995's real folder path) — `--course` defaults to `"INFO5995"` so today's one-command usage (`bun scripts/generate-exam-week.ts --week 2`) keeps working unchanged; generating for a different course requires passing both `--course <code>` and `--course-dir <path>` explicitly, since no course→folder-name lookup table exists yet (out of scope — this script has always taken an explicit `--course-dir` override for exactly this reason).
+
+- [ ] **Step 3: Update the test file for the new `course` parameter**
+
+In `scripts/generate-exam-week.test.ts`, apply these edits:
+
+Edit 1 — old:
+```ts
+test("buildScaffold produces the requested number of blank papers, each with an 8/4/2 question mix", () => {
+  const papers = buildScaffold(1, 2, ["notes.md"]);
+  expect(papers.length).toBe(2);
+```
+new:
+```ts
+test("buildScaffold produces the requested number of blank papers, each with an 8/4/2 question mix", () => {
+  const papers = buildScaffold("INFO5995", 1, 2, ["notes.md"]);
+  expect(papers.length).toBe(2);
+  expect(papers[0]!.course).toBe("INFO5995");
+```
+
+Edit 2 — old:
+```ts
+test("renderScaffoldModule emits a module exporting WEEK_<n>_PAPERS", () => {
+  const papers = buildScaffold(3, 1, ["notes.md"]);
+```
+new:
+```ts
+test("renderScaffoldModule emits a module exporting WEEK_<n>_PAPERS", () => {
+  const papers = buildScaffold("INFO5995", 3, 1, ["notes.md"]);
+```
+
+Edit 3 — old:
+```ts
+  const result = await generateWeekFile({ week: 1, weekDir: dir, outPath });
+  expect(result.written).toBe(false);
+  expect(result.reason).toContain("already exists");
+```
+new:
+```ts
+  const result = await generateWeekFile({ week: 1, weekDir: dir, outPath, course: "INFO5995" });
+  expect(result.written).toBe(false);
+  expect(result.reason).toContain("already exists");
+```
+
+Edit 4 — old:
+```ts
+  const result = await generateWeekFile({ week: 1, weekDir: dir, outPath, force: true });
+  expect(result.written).toBe(true);
+```
+new:
+```ts
+  const result = await generateWeekFile({ week: 1, weekDir: dir, outPath, course: "INFO5995", force: true });
+  expect(result.written).toBe(true);
+```
+
+Edit 5 — old:
+```ts
+  const result = await generateWeekFile({ week: 99, weekDir: "/nonexistent/week-99", outPath: "/tmp/whatever-99.ts" });
+  expect(result.written).toBe(false);
+  expect(result.reason).toContain("not found");
+```
+new:
+```ts
+  const result = await generateWeekFile({ week: 99, weekDir: "/nonexistent/week-99", outPath: "/tmp/whatever-99.ts", course: "INFO5995" });
+  expect(result.written).toBe(false);
+  expect(result.reason).toContain("not found");
+```
+
+- [ ] **Step 4: Run the test file**
+
+Run: `bun test scripts/generate-exam-week.test.ts`
+Expected: All tests PASS (7 tests).
+
+- [ ] **Step 5: Type-check and run the full suite**
+
+Run: `bunx tsc --noEmit`
+Expected: No errors anywhere in the repo.
+
+Run: `bun test`
+Expected: Every test in the repo passes.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add scripts/generate-exam-week.ts scripts/generate-exam-week.test.ts
+git commit -m "fix: make the exam scaffold generator course-aware"
 ```
 
 ---
