@@ -9,6 +9,11 @@ interface Stats {
   completedToday: number;
 }
 
+interface ExamCourse {
+  code: string;
+  name: string;
+}
+
 type Result = "correct" | "wrong";
 type View = { name: "board" } | { name: "paper" } | { name: "review"; item: ExamReviewView };
 
@@ -23,29 +28,31 @@ async function json<T>(res: Response): Promise<T> {
 const errorMessage = (err: unknown): string => (err instanceof Error ? err.message : "Something went wrong.");
 
 const api = {
-  due: () =>
-    fetch("/api/exam/due").then((r) =>
+  courses: () => fetch("/api/exam/courses").then((r) => json<ExamCourse[]>(r)),
+  due: (course: string) =>
+    fetch(`/api/exam/${course}/due`).then((r) =>
       json<{ paper: ExamPaperView | null; reviewDue: ExamReviewView[]; stats: Stats }>(r),
     ),
-  completedToday: () => fetch("/api/exam/completed-today").then((r) => json<{ papers: ExamPaperView[] }>(r)),
-  saveAnswer: (paperDay: number, questionIndex: number, yourAnswer: string) =>
-    fetch(`/api/exam/${paperDay}/answer`, {
+  completedToday: (course: string) =>
+    fetch(`/api/exam/${course}/completed-today`).then((r) => json<{ papers: ExamPaperView[] }>(r)),
+  saveAnswer: (course: string, paperDay: number, questionIndex: number, yourAnswer: string) =>
+    fetch(`/api/exam/${course}/${paperDay}/answer`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ questionIndex, yourAnswer }),
     }).then((r) => json<ExamPaperView>(r)),
-  grade: (paperDay: number, questionIndex: number, correct: boolean, yourAnswer?: string) =>
-    fetch(`/api/exam/${paperDay}/${questionIndex}/grade`, {
+  grade: (course: string, paperDay: number, questionIndex: number, correct: boolean, yourAnswer?: string) =>
+    fetch(`/api/exam/${course}/${paperDay}/${questionIndex}/grade`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ correct, ...(yourAnswer !== undefined ? { yourAnswer } : {}) }),
     }).then((r) => json<ExamPaperView>(r)),
-  submit: (paperDay: number) =>
-    fetch(`/api/exam/${paperDay}/submit`, { method: "POST" }).then((r) =>
+  submit: (course: string, paperDay: number) =>
+    fetch(`/api/exam/${course}/${paperDay}/submit`, { method: "POST" }).then((r) =>
       json<{ scoreCorrect: number; scoreTotal: number }>(r),
     ),
-  reviewItem: (paperDay: number, questionIndex: number, result: Result) =>
-    fetch(`/api/exam/review/${paperDay}/${questionIndex}`, {
+  reviewItem: (course: string, paperDay: number, questionIndex: number, result: Result) =>
+    fetch(`/api/exam/review/${course}/${paperDay}/${questionIndex}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ result }),
@@ -71,13 +78,35 @@ function ExamStats({ stats, onOpenCompleted }: { stats: Stats; onOpenCompleted: 
   );
 }
 
+function CourseSelector({
+  courses,
+  selected,
+  onSelect,
+}: {
+  courses: ExamCourse[];
+  selected: string;
+  onSelect: (code: string) => void;
+}) {
+  return (
+    <nav className="tabs" aria-label="Courses" style={{ marginBottom: "1rem" }}>
+      {courses.map((c) => (
+        <button key={c.code} className={c.code === selected ? "tab tab-active" : "tab"} onClick={() => onSelect(c.code)}>
+          {c.name}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
 function McqQuestion({
   question,
+  course,
   paperDay,
   onGraded,
   onError,
 }: {
   question: ExamQuestionView;
+  course: string;
   paperDay: number;
   onGraded: (updated: ExamPaperView) => void;
   onError: (message: string | null) => void;
@@ -88,7 +117,7 @@ function McqQuestion({
     if (graded) return;
     onError(null);
     try {
-      const updated = await api.grade(paperDay, question.index, i === question.correctIndex, String(i));
+      const updated = await api.grade(course, paperDay, question.index, i === question.correctIndex, String(i));
       onGraded(updated);
     } catch (err) {
       onError(errorMessage(err));
@@ -129,11 +158,13 @@ function McqQuestion({
 
 function ShortOrScenarioQuestion({
   question,
+  course,
   paperDay,
   onGraded,
   onError,
 }: {
   question: ExamQuestionView;
+  course: string;
   paperDay: number;
   onGraded: (updated: ExamPaperView) => void;
   onError: (message: string | null) => void;
@@ -145,7 +176,7 @@ function ShortOrScenarioQuestion({
   const saveAndReveal = async () => {
     onError(null);
     try {
-      await api.saveAnswer(paperDay, question.index, draft);
+      await api.saveAnswer(course, paperDay, question.index, draft);
       setRevealed(true);
     } catch (err) {
       onError(errorMessage(err));
@@ -155,7 +186,7 @@ function ShortOrScenarioQuestion({
   const grade = async (correct: boolean) => {
     onError(null);
     try {
-      const updated = await api.grade(paperDay, question.index, correct);
+      const updated = await api.grade(course, paperDay, question.index, correct);
       onGraded(updated);
     } catch (err) {
       onError(errorMessage(err));
@@ -196,11 +227,13 @@ function ShortOrScenarioQuestion({
 
 function PaperView({
   paper,
+  course,
   onBack,
   onChanged,
   onError,
 }: {
   paper: ExamPaperView;
+  course: string;
   onBack: () => void;
   onChanged: () => void;
   onError: (message: string | null) => void;
@@ -211,7 +244,7 @@ function PaperView({
   const submit = async () => {
     onError(null);
     try {
-      await api.submit(paper.paperDay);
+      await api.submit(course, paper.paperDay);
       onChanged();
       onBack();
     } catch (err) {
@@ -227,11 +260,12 @@ function PaperView({
       </header>
       {current.questions.map((q) =>
         q.type === "mcq" || q.type === "truefalse" ? (
-          <McqQuestion key={q.index} question={q} paperDay={paper.paperDay} onGraded={setCurrent} onError={onError} />
+          <McqQuestion key={q.index} question={q} course={course} paperDay={paper.paperDay} onGraded={setCurrent} onError={onError} />
         ) : (
           <ShortOrScenarioQuestion
             key={q.index}
             question={q}
+            course={course}
             paperDay={paper.paperDay}
             onGraded={setCurrent}
             onError={onError}
@@ -255,11 +289,13 @@ function PaperView({
 
 function ReviewDetail({
   item,
+  course,
   onBack,
   onChanged,
   onError,
 }: {
   item: ExamReviewView;
+  course: string;
   onBack: () => void;
   onChanged: () => void;
   onError: (message: string | null) => void;
@@ -269,7 +305,7 @@ function ReviewDetail({
   const review = async (result: Result) => {
     onError(null);
     try {
-      await api.reviewItem(item.paperDay, item.questionIndex, result);
+      await api.reviewItem(course, item.paperDay, item.questionIndex, result);
       onChanged();
       onBack();
     } catch (err) {
@@ -320,13 +356,17 @@ function ReviewDetail({
 }
 
 export default function ExamApp({
+  openCourse,
   openPaperDay,
   onOpened,
 }: {
+  openCourse?: string | null;
   openPaperDay?: number | null;
   onOpened?: () => void;
 } = {}) {
   const [view, setView] = useState<View>({ name: "board" });
+  const [courses, setCourses] = useState<ExamCourse[]>([]);
+  const [course, setCourse] = useState<string | null>(null);
   const [paper, setPaper] = useState<ExamPaperView | null>(null);
   const [reviewDue, setReviewDue] = useState<ExamReviewView[]>([]);
   const [stats, setStats] = useState<Stats>({ dueCount: 0, overdueCount: 0, completedToday: 0 });
@@ -334,10 +374,20 @@ export default function ExamApp({
   const [showCompleted, setShowCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = () => {
+  useEffect(() => {
+    api
+      .courses()
+      .then((list) => {
+        setCourses(list);
+        if (list.length > 0) setCourse((current) => current ?? list[0]!.code);
+      })
+      .catch((err) => setError(errorMessage(err)));
+  }, []);
+
+  const refresh = (activeCourse: string) => {
     setError(null);
     return api
-      .due()
+      .due(activeCourse)
       .then(({ paper, reviewDue, stats }) => {
         setPaper(paper);
         setReviewDue(reviewDue);
@@ -345,30 +395,47 @@ export default function ExamApp({
       })
       .catch((err) => setError(errorMessage(err)));
   };
-  useEffect(() => { refresh(); }, []);
+
+  useEffect(() => {
+    if (course) {
+      setView({ name: "board" });
+      setCompletedPapers(null);
+      refresh(course);
+    }
+  }, [course]);
 
   // Today's paper is the only exam deep-link target — a Home-tab review-item
   // click still lands here (same paperDay) but opens the board, since a
   // single missed question doesn't have its own drill-down view outside the
-  // review-due list.
+  // review-due list. openCourse additionally switches to the right course.
   useEffect(() => {
-    if (openPaperDay != null) {
+    if (openCourse != null || openPaperDay != null) {
+      if (openCourse != null) setCourse(openCourse);
       onOpened?.();
     }
-  }, [openPaperDay]);
+  }, [openCourse, openPaperDay]);
 
   const openCompleted = () => {
     setShowCompleted(true);
-    if (completedPapers === null) {
+    if (completedPapers === null && course) {
       api
-        .completedToday()
+        .completedToday(course)
         .then((r) => setCompletedPapers(r.papers))
         .catch((err) => setError(errorMessage(err)));
     }
   };
 
+  if (!course) {
+    return (
+      <div className="theory">
+        <p className="board-empty">Loading…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="theory">
+      <CourseSelector courses={courses} selected={course} onSelect={setCourse} />
       <ExamStats stats={stats} onOpenCompleted={openCompleted} />
       {error && <p className="form-error">{error}</p>}
       <p className="rule-note">
@@ -439,11 +506,23 @@ export default function ExamApp({
       )}
 
       {view.name === "paper" && paper && (
-        <PaperView paper={paper} onBack={() => setView({ name: "board" })} onChanged={refresh} onError={setError} />
+        <PaperView
+          paper={paper}
+          course={course}
+          onBack={() => setView({ name: "board" })}
+          onChanged={() => refresh(course)}
+          onError={setError}
+        />
       )}
 
       {view.name === "review" && (
-        <ReviewDetail item={view.item} onBack={() => setView({ name: "board" })} onChanged={refresh} onError={setError} />
+        <ReviewDetail
+          item={view.item}
+          course={course}
+          onBack={() => setView({ name: "board" })}
+          onChanged={() => refresh(course)}
+          onError={setError}
+        />
       )}
     </div>
   );
