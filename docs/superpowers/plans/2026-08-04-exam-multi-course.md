@@ -803,26 +803,37 @@ test("reviewExamItem returns null for an item that isn't in the review queue", (
   expect(reviewExamItem(db, COURSE, 1, 5, "correct", TODAY)).toBeNull();
 });
 
-test("two different courses' backlogs and paper_day sequences are independent", () => {
-  // COMP5348 has no real content yet, so seed two synthetic papers directly
-  // to exercise the per-course SQL filtering the db layer is responsible for.
-  db.query(`INSERT INTO exam_state (course, released_up_to) VALUES ('COMP5348', 2)`).run();
+test("two different courses' backlogs are independent — course scoping partitions rows correctly", () => {
+  // COMP5348 has no real content yet (totalPapersForCourse === 0), so the
+  // release gate — which sizes "remaining" against totalPapersForCourse —
+  // can't be exercised for a synthetic second course without violating its
+  // own invariant (released_up_to must never exceed a course's real paper
+  // count; runExamReleaseGate only ever advances it that far). This proves
+  // independence via the non-gated, purely course-scoped functions instead —
+  // the same `WHERE course = ?` filtering every gated function also relies
+  // on — plus one real gated function (listDueExamPapers) on the one course
+  // that actually has content.
   db.query(`INSERT INTO exam_papers (course, paper_day, next_review) VALUES ('COMP5348', 1, ?)`).run(TODAY);
   db.query(`INSERT INTO exam_papers (course, paper_day, next_review) VALUES ('COMP5348', 2, ?)`).run(TODAY);
 
-  const comp5348Due = listDueExamPapers(db, "COMP5348", TODAY);
-  expect(comp5348Due.length).toBe(2);
-  expect(comp5348Due.every((p) => p.course === "COMP5348")).toBe(true);
+  expect(getExamPaperRow(db, "COMP5348", 1)!.course).toBe("COMP5348");
+  expect(getExamPaperRow(db, COURSE, 1)!.course).toBe(COURSE);
 
+  saveExamAnswer(db, "COMP5348", 1, 0, "comp draft");
+  saveExamAnswer(db, COURSE, 1, 0, "info draft");
+  expect(listExamAnswers(db, "COMP5348", 1)[0]!.your_answer).toBe("comp draft");
+  expect(listExamAnswers(db, COURSE, 1)[0]!.your_answer).toBe("info draft");
+
+  // Submitting every INFO5995 due paper does not touch COMP5348's rows.
   const info5995Due = listDueExamPapers(db, COURSE, TODAY);
-  // Submitting every INFO5995 due paper does not touch COMP5348's due count.
   for (const p of info5995Due) {
     const content = buildExamSchedule().find((c) => c.course === COURSE && c.paperDay === p.paper_day)!;
     content.questions.forEach((_, i) => gradeExamAnswer(db, COURSE, p.paper_day, i, true));
     submitExamPaper(db, COURSE, p.paper_day, TODAY);
   }
   expect(listDueExamPapers(db, COURSE, TODAY).length).toBe(0);
-  expect(listDueExamPapers(db, "COMP5348", TODAY).length).toBe(2);
+  expect(getExamPaperRow(db, "COMP5348", 1)!.submitted_at).toBeNull();
+  expect(getExamPaperRow(db, "COMP5348", 2)!.submitted_at).toBeNull();
 });
 
 test("migrateExam upgrades a pre-existing single-course db, backfilling course = 'INFO5995'", () => {
