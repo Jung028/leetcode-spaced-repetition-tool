@@ -11,7 +11,7 @@ import {
   listExamPapersSubmittedToday,
   listExamReviewsCompletedToday,
 } from "./exam-db";
-import { buildExamSchedule } from "./exam-content";
+import { buildExamSchedule, listExamCourses } from "./exam-content";
 import { isDue, localToday } from "./scheduling";
 
 export type DueSource = "leetcode" | "theory" | "goals" | "exam";
@@ -24,6 +24,7 @@ export interface DueItem {
   dueDate: string;
   overdueDays: number;
   linkId: number;
+  course?: string;
 }
 
 function overdueDays(dueDate: string, today: string): number {
@@ -69,32 +70,38 @@ function goalsDue(db: Database, today: string): DueItem[] {
 }
 
 function examDue(db: Database, today: string): DueItem[] {
-  const papers = listDueExamPapers(db, today).map((row) => {
-    const content = buildExamSchedule().find((p) => p.paperDay === row.paper_day);
-    return {
-      source: "exam" as const,
-      id: row.paper_day,
-      title: content?.title ?? `Exam paper ${row.paper_day}`,
-      subtitle: "Exam paper",
-      dueDate: row.next_review,
-      overdueDays: overdueDays(row.next_review, today),
-      linkId: row.paper_day,
-    };
-  });
-  const reviews = listDueExamReviewItems(db, today).map((item) => {
-    const content = buildExamSchedule().find((p) => p.paperDay === item.paper_day);
-    const question = content?.questions[item.question_index];
-    return {
-      source: "exam" as const,
-      id: item.paper_day * 1000 + item.question_index,
-      title: question ? question.prompt.slice(0, 80) : "Exam review",
-      subtitle: "Exam review",
-      dueDate: item.next_review,
-      overdueDays: overdueDays(item.next_review, today),
-      linkId: item.paper_day,
-    };
-  });
-  return [...papers, ...reviews];
+  const items: DueItem[] = [];
+  for (const { code, name } of listExamCourses()) {
+    const papers = listDueExamPapers(db, code, today).map((row) => {
+      const content = buildExamSchedule().find((p) => p.course === code && p.paperDay === row.paper_day);
+      return {
+        source: "exam" as const,
+        id: row.paper_day,
+        title: content?.title ?? `Exam paper ${row.paper_day}`,
+        subtitle: name,
+        dueDate: row.next_review,
+        overdueDays: overdueDays(row.next_review, today),
+        linkId: row.paper_day,
+        course: code,
+      };
+    });
+    const reviews = listDueExamReviewItems(db, code, today).map((item) => {
+      const content = buildExamSchedule().find((p) => p.course === code && p.paperDay === item.paper_day);
+      const question = content?.questions[item.question_index];
+      return {
+        source: "exam" as const,
+        id: item.paper_day * 1000 + item.question_index,
+        title: question ? question.prompt.slice(0, 80) : "Exam review",
+        subtitle: name,
+        dueDate: item.next_review,
+        overdueDays: overdueDays(item.next_review, today),
+        linkId: item.paper_day,
+        course: code,
+      };
+    });
+    items.push(...papers, ...reviews);
+  }
+  return items;
 }
 
 function leetcodeCompletedToday(db: Database, today: string): DueItem[] {
@@ -134,32 +141,38 @@ function goalsCompletedToday(db: Database, today: string): DueItem[] {
 }
 
 function examCompletedToday(db: Database, today: string): DueItem[] {
-  const papers = listExamPapersSubmittedToday(db, today).map((row) => {
-    const content = buildExamSchedule().find((p) => p.paperDay === row.paper_day);
-    return {
-      source: "exam" as const,
-      id: row.paper_day,
-      title: content?.title ?? `Exam paper ${row.paper_day}`,
-      subtitle: "Exam paper",
-      dueDate: today,
-      overdueDays: 0,
-      linkId: row.paper_day,
-    };
-  });
-  const reviews = listExamReviewsCompletedToday(db, today).map((item) => {
-    const content = buildExamSchedule().find((p) => p.paperDay === item.paper_day);
-    const question = content?.questions[item.question_index];
-    return {
-      source: "exam" as const,
-      id: item.paper_day * 1000 + item.question_index,
-      title: question ? question.prompt.slice(0, 80) : "Exam review",
-      subtitle: "Exam review",
-      dueDate: today,
-      overdueDays: 0,
-      linkId: item.paper_day,
-    };
-  });
-  return [...papers, ...reviews];
+  const items: DueItem[] = [];
+  for (const { code, name } of listExamCourses()) {
+    const papers = listExamPapersSubmittedToday(db, code, today).map((row) => {
+      const content = buildExamSchedule().find((p) => p.course === code && p.paperDay === row.paper_day);
+      return {
+        source: "exam" as const,
+        id: row.paper_day,
+        title: content?.title ?? `Exam paper ${row.paper_day}`,
+        subtitle: name,
+        dueDate: today,
+        overdueDays: 0,
+        linkId: row.paper_day,
+        course: code,
+      };
+    });
+    const reviews = listExamReviewsCompletedToday(db, code, today).map((item) => {
+      const content = buildExamSchedule().find((p) => p.course === code && p.paperDay === item.paper_day);
+      const question = content?.questions[item.question_index];
+      return {
+        source: "exam" as const,
+        id: item.paper_day * 1000 + item.question_index,
+        title: question ? question.prompt.slice(0, 80) : "Exam review",
+        subtitle: name,
+        dueDate: today,
+        overdueDays: 0,
+        linkId: item.paper_day,
+        course: code,
+      };
+    });
+    items.push(...papers, ...reviews);
+  }
+  return items;
 }
 
 export interface HomeStats {
@@ -170,15 +183,16 @@ export interface HomeStats {
 
 function homeStats(db: Database, today: string): HomeStats {
   const items = [...leetcodeDue(db, today), ...theoryDue(db, today), ...goalsDue(db, today), ...examDue(db, today)];
+  const examSubmittedToday = listExamCourses().reduce(
+    (sum, { code }) => sum + countExamPapersSubmittedToday(db, code, today),
+    0,
+  );
+  const examReviewsToday = listExamCourses().reduce((sum, { code }) => sum + countExamReviewsToday(db, code, today), 0);
   return {
     dueToday: items.filter((i) => i.overdueDays === 0).length,
     overdue: items.filter((i) => i.overdueDays > 0).length,
     completedToday:
-      countReviewsToday(db, today) +
-      countTheoryReviewsToday(db, today) +
-      countStepsCompletedToday(db, today) +
-      countExamPapersSubmittedToday(db, today) +
-      countExamReviewsToday(db, today),
+      countReviewsToday(db, today) + countTheoryReviewsToday(db, today) + countStepsCompletedToday(db, today) + examSubmittedToday + examReviewsToday,
   };
 }
 
