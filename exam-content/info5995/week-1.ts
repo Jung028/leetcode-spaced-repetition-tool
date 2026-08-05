@@ -1,4 +1,4 @@
-import type { ExamPaperSeed } from "./types";
+import type { ExamPaperSeed } from "../types";
 
 const SOURCE_FILES = [
   "INFO5995 Week 1 - Exam Practice Questions.md",
@@ -7,6 +7,7 @@ const SOURCE_FILES = [
 ];
 
 const PAPER_1: ExamPaperSeed = {
+  course: "INFO5995",
   week: 1,
   paperNumber: 1,
   title: "Week 1 Practice Paper 1",
@@ -236,6 +237,7 @@ const PAPER_1: ExamPaperSeed = {
 };
 
 const PAPER_2: ExamPaperSeed = {
+  course: "INFO5995",
   week: 1,
   paperNumber: 2,
   title: "Week 1 Practice Paper 2",
@@ -367,6 +369,7 @@ const PAPER_2: ExamPaperSeed = {
 };
 
 const PAPER_3: ExamPaperSeed = {
+  course: "INFO5995",
   week: 1,
   paperNumber: 3,
   title: "Week 1 Practice Paper 3",

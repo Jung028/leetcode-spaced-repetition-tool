@@ -13,6 +13,7 @@ export interface ExamQuestionSeed {
 }
 
 export interface ExamPaperSeed {
+  course: string;
   week: number;
   paperNumber: number; // 1-based within the week
   title: string;
