@@ -92,7 +92,9 @@ function migrateLegacySingleCourseShape(db: Database): void {
   const isLegacy = columns.length > 0 && !columns.some((c) => c.name === "course");
   if (!isLegacy) return;
 
-  db.exec(`
+  db.exec("BEGIN");
+  try {
+    db.exec(`
     CREATE TABLE exam_papers_new (
       course TEXT NOT NULL,
       paper_day INTEGER NOT NULL,
@@ -156,6 +158,11 @@ function migrateLegacySingleCourseShape(db: Database): void {
     DROP TABLE exam_state;
     ALTER TABLE exam_state_new RENAME TO exam_state;
   `);
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
 }
 
 function ensureExamStateRow(db: Database, course: string): void {
@@ -180,9 +187,11 @@ function seedNewPapers(db: Database, course: string, today: string): void {
 }
 
 function runExamReleaseGate(db: Database, course: string, today: string): void {
-  const { released_up_to } = db
-    .query(`SELECT released_up_to FROM exam_state WHERE course = ?`)
-    .get(course) as { released_up_to: number };
+  const row = db.query(`SELECT released_up_to FROM exam_state WHERE course = ?`).get(course) as {
+    released_up_to: number;
+  } | null;
+  if (!row) return;
+  const { released_up_to } = row;
   const { n: backlog } = db
     .query(
       `SELECT COUNT(*) AS n FROM exam_papers WHERE course = ? AND paper_day <= ? AND next_review <= ? AND submitted_at IS NULL`,

@@ -84,21 +84,26 @@ marked wrong reschedules individually onto its own ladder (3 → 5 → 7 → 14 
 get it right — the paper itself is one-and-done, but its weak spots keep
 coming back.
 
-Content lives in `exam-content/week-<n>.ts`, one file per course week, all
-aggregated into a single day-by-day schedule by `exam-content.ts`. To add a
-new week once its materials land in the course folder:
+Content lives in `exam-content/<course>/week-<n>.ts`, one file per course
+week, all aggregated into a single per-course schedule by `exam-content.ts`.
+Each course paces its own daily paper release independently. To add a new
+week once its materials land in the course folder:
 
 ```sh
-bun scripts/generate-exam-week.ts --week 2
+bun scripts/generate-exam-week.ts --week 2 --course INFO5995
 ```
 
-This scans that week's folder for readable material (PDFs, markdown, slides
-— video lectures are noted but not transcribed) and writes a blank scaffold
-to `exam-content/week-2.ts` in the same shape as the real content files.
-Ask Claude Code to fill in the scaffold's blanks by reading the listed
-source files directly (no PDF-parsing dependency needed — Claude's own
-Read tool handles PDFs), then add one import + array entry to
-`exam-content.ts` to bring the new week into the schedule.
+`--course` defaults to `INFO5995` if omitted, matching today's one-command
+usage. This scans that week's folder for readable material (PDFs, markdown,
+slides — video lectures are noted but not transcribed) and writes a blank
+scaffold to `exam-content/<course-lowercase>/week-2.ts` in the same shape as
+the real content files. Generating for a course other than INFO5995 also
+requires `--course-dir <path>` pointing at that course's own material
+folder — there's no built-in course→folder lookup yet. Ask Claude Code to
+fill in the scaffold's blanks by reading the listed source files directly
+(no PDF-parsing dependency needed — Claude's own Read tool handles PDFs),
+then add one import + array entry to `exam-content.ts` to bring the new
+week into the schedule.
 
 ## Home tab
 
