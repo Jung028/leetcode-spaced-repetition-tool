@@ -5,14 +5,14 @@ import { openDb, createProblem, reviewProblem } from "./db";
 import { migrateTheory, reviewTheoryConcept, saveTheoryContent } from "./theory-db";
 import { migrateGoals, createProject, createStep, toggleStep } from "./goals-db";
 import { migrateExam, gradeExamAnswer, submitExamPaper, reviewExamItem } from "./exam-db";
-import { buildExamSchedule, TOTAL_PAPERS } from "./exam-content";
+import { buildExamSchedule, totalPapersForCourse } from "./exam-content";
 import { homeApiRoutes } from "./home-api";
 import { localToday, addDays, MAX_ACTIVE_BACKLOG } from "./scheduling";
 
 const TODAY = localToday();
 // migrateExam releases papers up to the backlog cap immediately, so a fresh
 // db already has this many exam papers due today before any test acts.
-const EXAM_DUE_ON_MIGRATE = Math.min(MAX_ACTIVE_BACKLOG, TOTAL_PAPERS);
+const EXAM_DUE_ON_MIGRATE = Math.min(MAX_ACTIVE_BACKLOG, totalPapersForCourse("INFO5995"));
 let db: Database;
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
@@ -73,13 +73,15 @@ test("GET /api/home/due includes today's exam paper", async () => {
 });
 
 test("GET /api/home/due gives exam papers and exam review items collision-free ids", async () => {
-  const paper1 = buildExamSchedule().find((p) => p.paperDay === 1)!;
-  paper1.questions.forEach((_, i) => gradeExamAnswer(db, 1, i, i !== 0)); // question 0 wrong, rest correct
-  submitExamPaper(db, 1, addDays(TODAY, -1)); // review item's next_review lands on TODAY, while paper 2/3 are still due
+  const paper1 = buildExamSchedule().find((p) => p.course === "INFO5995" && p.paperDay === 1)!;
+  paper1.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, i, i !== 0)); // question 0 wrong, rest correct
+  submitExamPaper(db, "INFO5995", 1, addDays(TODAY, -1)); // review item's next_review lands on TODAY, while paper 2/3 are still due
 
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   const examItems = items.filter((i) => i.source === "exam");
-  const reviewItem = examItems.find((i) => i.subtitle === "Exam review")!;
+  // subtitle is now the course display name (not "Exam review"), so identify the
+  // review item by its id shape instead: paper_day * 1000 + question_index.
+  const reviewItem = examItems.find((i) => i.id === 1000)!;
   expect(reviewItem).toBeTruthy();
   expect(reviewItem.id).toBe(1000); // synthetic id: paper_day * 1000 + question_index, not the row's autoincrement PK
   const ids = examItems.map((i) => i.id);
@@ -145,9 +147,9 @@ test("GET /api/home/stats counts a submitted exam paper as completed today", asy
   // and submit directly via exam-db against the same db instance, mirroring
   // how the goals/theory completions above are set up through their own db
   // layers rather than through HTTP.
-  const paper1 = buildExamSchedule().find((p) => p.paperDay === 1)!;
-  paper1.questions.forEach((_, i) => gradeExamAnswer(db, 1, i, true));
-  submitExamPaper(db, 1, TODAY);
+  const paper1 = buildExamSchedule().find((p) => p.course === "INFO5995" && p.paperDay === 1)!;
+  paper1.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, i, true));
+  submitExamPaper(db, "INFO5995", 1, TODAY);
 
   const after: any = await (await fetch(`${base}/api/home/stats`)).json();
   expect(after.completedToday).toBe(1);
@@ -176,14 +178,17 @@ test("GET /api/home/completed-today merges completions across all three sources"
 });
 
 test("GET /api/home/completed-today includes a submitted exam paper and a reviewed exam item", async () => {
-  const paper1 = buildExamSchedule().find((p) => p.paperDay === 1)!;
-  paper1.questions.forEach((_, i) => gradeExamAnswer(db, 1, i, i !== 0)); // question 0 wrong, rest correct
-  submitExamPaper(db, 1, TODAY); // creates a review item for question 0
-  reviewExamItem(db, 1, 0, "correct", TODAY);
+  const paper1 = buildExamSchedule().find((p) => p.course === "INFO5995" && p.paperDay === 1)!;
+  paper1.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, i, i !== 0)); // question 0 wrong, rest correct
+  submitExamPaper(db, "INFO5995", 1, TODAY); // creates a review item for question 0
+  reviewExamItem(db, "INFO5995", 1, 0, "correct", TODAY);
 
   const items: any[] = await (await fetch(`${base}/api/home/completed-today`)).json();
-  expect(items.some((i) => i.source === "exam" && i.subtitle === "Exam paper" && i.linkId === 1)).toBe(true);
-  expect(items.some((i) => i.source === "exam" && i.subtitle === "Exam review" && i.linkId === 1)).toBe(true);
+  // subtitle is now the course display name (not "Exam paper"/"Exam review"), so
+  // distinguish the paper item from the review item by their id shapes instead:
+  // paper id === paper_day, review id === paper_day * 1000 + question_index.
+  expect(items.some((i) => i.source === "exam" && i.id === 1 && i.subtitle === "Intro to Cybersecurity")).toBe(true);
+  expect(items.some((i) => i.source === "exam" && i.id === 1000 && i.subtitle === "Intro to Cybersecurity")).toBe(true);
   expect(items.every((i) => i.dueDate === TODAY && i.overdueDays === 0)).toBe(true);
 });
 
