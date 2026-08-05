@@ -154,6 +154,13 @@ test("migrateExam upgrades a pre-existing paper_day-keyed db, recovering (week, 
       question_index INTEGER NOT NULL, reviewed_at TEXT NOT NULL,
       result TEXT NOT NULL CHECK (result IN ('correct','wrong'))
     );
+    -- The real running srs.db already went through the multi-course migration,
+    -- so it has this table (course, released_up_to) sitting alongside the
+    -- course+paper_day exam_papers shape — this fixture matches that exactly.
+    CREATE TABLE exam_state (
+      course TEXT PRIMARY KEY,
+      released_up_to INTEGER NOT NULL DEFAULT 0
+    );
   `);
   // paper_day 2 = INFO5995's 2nd paper in content order = (week 1, paperNumber 2)
   legacyDb
@@ -170,6 +177,7 @@ test("migrateExam upgrades a pre-existing paper_day-keyed db, recovering (week, 
   legacyDb
     .query(`INSERT INTO exam_review_log (course, paper_day, question_index, reviewed_at, result) VALUES ('INFO5995', 2, 3, ?, 'correct')`)
     .run(TODAY);
+  legacyDb.query(`INSERT INTO exam_state (course, released_up_to) VALUES ('INFO5995', 3)`).run();
 
   migrateExam(legacyDb, TODAY);
 
@@ -188,6 +196,62 @@ test("migrateExam upgrades a pre-existing paper_day-keyed db, recovering (week, 
 
   // The other two papers (1 and 3) were seeded fresh by migrateExam's seedNewPapers step.
   expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(3);
+
+  // exam_state has no successor in the weekly-pacing schema. This is the
+  // exact shape (course+paper_day, exam_state already present) the real
+  // running srs.db is in — it must not survive migration here.
+  const tables = legacyDb.query(`SELECT name FROM sqlite_master WHERE type = 'table'`).all() as { name: string }[];
+  expect(tables.some((t) => t.name === "exam_state")).toBe(false);
+});
+
+test("migrateExam cascades a genuinely ancient no-course-column db through both legacy tiers in one call", () => {
+  const ancientDb = new Database(":memory:");
+  ancientDb.exec(`
+    CREATE TABLE exam_papers (
+      paper_day INTEGER PRIMARY KEY, next_review TEXT NOT NULL,
+      submitted_at TEXT, score_correct INTEGER, score_total INTEGER
+    );
+    CREATE TABLE exam_answers (
+      paper_day INTEGER NOT NULL, question_index INTEGER NOT NULL,
+      your_answer TEXT NOT NULL DEFAULT '', correct INTEGER,
+      PRIMARY KEY (paper_day, question_index)
+    );
+    CREATE TABLE exam_review_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, paper_day INTEGER NOT NULL,
+      question_index INTEGER NOT NULL, rung INTEGER NOT NULL DEFAULT -1, next_review TEXT NOT NULL,
+      UNIQUE(paper_day, question_index)
+    );
+    CREATE TABLE exam_review_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, paper_day INTEGER NOT NULL,
+      question_index INTEGER NOT NULL, reviewed_at TEXT NOT NULL,
+      result TEXT NOT NULL CHECK (result IN ('correct','wrong'))
+    );
+    CREATE TABLE exam_state (
+      released_up_to INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+  // paper_day 1 = INFO5995's 1st paper in content order = (week 1, paperNumber 1)
+  ancientDb
+    .query(
+      `INSERT INTO exam_papers (paper_day, next_review, submitted_at, score_correct, score_total) VALUES (1, ?, ?, 24, 26)`,
+    )
+    .run(TODAY, TODAY);
+  ancientDb
+    .query(`INSERT INTO exam_answers (paper_day, question_index, your_answer, correct) VALUES (1, 0, 'ancient answer', 1)`)
+    .run();
+  ancientDb.query(`INSERT INTO exam_state (released_up_to) VALUES (3)`).run();
+
+  migrateExam(ancientDb, TODAY);
+
+  // Cascaded through both tiers in one migrateExam call: no-course -> course+paper_day -> week/paperNumber.
+  const paper = getExamPaperRow(ancientDb, "INFO5995", 1, 1)!;
+  expect(paper).not.toBeNull();
+  expect(paper.submitted_at).toBe(TODAY);
+  expect(paper.score_correct).toBe(24);
+  expect(listExamAnswers(ancientDb, "INFO5995", 1, 1)[0]!.your_answer).toBe("ancient answer");
+
+  const tables = ancientDb.query(`SELECT name FROM sqlite_master WHERE type = 'table'`).all() as { name: string }[];
+  expect(tables.some((t) => t.name === "exam_state")).toBe(false);
 });
 
 test("a migration failure rolls back cleanly, leaving the original paper_day-shaped tables intact", () => {

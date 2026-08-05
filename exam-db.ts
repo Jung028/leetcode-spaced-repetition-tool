@@ -74,6 +74,14 @@ export function migrateExam(db: Database, today: string): void {
 
   migrateLegacySingleCourseShape(db);
   migrateFromPaperDayShape(db);
+  // exam_state has no successor in the weekly-pacing schema — the backlog
+  // gate it tracked is gone. Drop it unconditionally rather than nesting
+  // this inside either migration tier: the real running srs.db already
+  // has a course column (it went through the multi-course migration
+  // already), so migrateLegacySingleCourseShape's isLegacy check is false
+  // and never fires there — an exam_state drop nested only inside that
+  // tier would leave the table behind forever on exactly that database.
+  db.exec(`DROP TABLE IF EXISTS exam_state;`);
   seedNewPapers(db);
 }
 
@@ -144,8 +152,6 @@ function migrateLegacySingleCourseShape(db: Database): void {
         SELECT id, 'INFO5995', paper_day, question_index, reviewed_at, result FROM exam_review_log;
       DROP TABLE exam_review_log;
       ALTER TABLE exam_review_log_new RENAME TO exam_review_log;
-
-      DROP TABLE IF EXISTS exam_state;
     `);
     db.exec("COMMIT");
   } catch (err) {
