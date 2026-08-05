@@ -3,8 +3,9 @@ import { Database } from "bun:sqlite";
 import { migrateExam } from "./exam-db";
 import { examApiRoutes } from "./exam-api";
 import { localToday, addDays } from "./scheduling";
-import { TOTAL_PAPERS } from "./exam-content";
+import { totalPapersForCourse } from "./exam-content";
 
+const COURSE = "INFO5995";
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
 
@@ -17,8 +18,14 @@ beforeEach(() => {
 
 afterEach(() => server.stop(true));
 
-test("GET /api/exam/due returns today's paper with full question content", async () => {
-  const body: any = await (await fetch(`${base}/api/exam/due`)).json();
+test("GET /api/exam/courses lists courses that have at least one paper", async () => {
+  const body: any = await (await fetch(`${base}/api/exam/courses`)).json();
+  expect(body.some((c: any) => c.code === "INFO5995")).toBe(true);
+  expect(body.some((c: any) => c.code === "INFO5990")).toBe(false);
+});
+
+test("GET /api/exam/:course/due returns today's paper with full question content", async () => {
+  const body: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
   expect(body.paper.paperDay).toBe(1);
   expect(body.paper.questions.length).toBeGreaterThan(0);
   expect(body.paper.questions[0].modelAnswer.length).toBeGreaterThan(0);
@@ -26,8 +33,13 @@ test("GET /api/exam/due returns today's paper with full question content", async
   expect(body.stats.completedToday).toBe(0);
 });
 
-test("POST /api/exam/:day/answer saves a draft without grading", async () => {
-  const res = await fetch(`${base}/api/exam/1/answer`, {
+test("GET /api/exam/:course/due with an unknown course returns 400", async () => {
+  const res = await fetch(`${base}/api/exam/UNKNOWN123/due`);
+  expect(res.status).toBe(400);
+});
+
+test("POST /api/exam/:course/:day/answer saves a draft without grading", async () => {
+  const res = await fetch(`${base}/api/exam/${COURSE}/1/answer`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ questionIndex: 0, yourAnswer: "draft" }),
@@ -37,8 +49,8 @@ test("POST /api/exam/:day/answer saves a draft without grading", async () => {
   expect(updated.questions[0].correct).toBeNull();
 });
 
-test("POST /api/exam/:day/:questionIndex/grade records a verdict, and mcq can pass yourAnswer in the same call", async () => {
-  const res = await fetch(`${base}/api/exam/1/0/grade`, {
+test("POST /api/exam/:course/:day/:questionIndex/grade records a verdict, and mcq can pass yourAnswer in the same call", async () => {
+  const res = await fetch(`${base}/api/exam/${COURSE}/1/0/grade`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ correct: true, yourAnswer: "1" }),
@@ -48,21 +60,21 @@ test("POST /api/exam/:day/:questionIndex/grade records a verdict, and mcq can pa
   expect(updated.questions[0].yourAnswer).toBe("1");
 });
 
-test("POST /api/exam/:day/submit fails while any question is ungraded, then succeeds once all are", async () => {
-  const dueRes: any = await (await fetch(`${base}/api/exam/due`)).json();
+test("POST /api/exam/:course/:day/submit fails while any question is ungraded, then succeeds once all are", async () => {
+  const dueRes: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
   const count = dueRes.paper.questions.length;
 
-  const incomplete = await fetch(`${base}/api/exam/1/submit`, { method: "POST" });
+  const incomplete = await fetch(`${base}/api/exam/${COURSE}/1/submit`, { method: "POST" });
   expect(incomplete.status).toBe(400);
 
   for (let i = 0; i < count; i++) {
-    await fetch(`${base}/api/exam/1/${i}/grade`, {
+    await fetch(`${base}/api/exam/${COURSE}/1/${i}/grade`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ correct: i !== 0 }),
     });
   }
-  const submitRes = await fetch(`${base}/api/exam/1/submit`, { method: "POST" });
+  const submitRes = await fetch(`${base}/api/exam/${COURSE}/1/submit`, { method: "POST" });
   expect(submitRes.status).toBe(200);
   const result: any = await submitRes.json();
   expect(result.scoreTotal).toBe(count);
@@ -70,33 +82,33 @@ test("POST /api/exam/:day/submit fails while any question is ungraded, then succ
 });
 
 test("submitting the same paper twice returns 400", async () => {
-  const dueRes: any = await (await fetch(`${base}/api/exam/due`)).json();
+  const dueRes: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
   const count = dueRes.paper.questions.length;
   for (let i = 0; i < count; i++) {
-    await fetch(`${base}/api/exam/1/${i}/grade`, {
+    await fetch(`${base}/api/exam/${COURSE}/1/${i}/grade`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ correct: true }),
     });
   }
-  await fetch(`${base}/api/exam/1/submit`, { method: "POST" });
-  const second = await fetch(`${base}/api/exam/1/submit`, { method: "POST" });
+  await fetch(`${base}/api/exam/${COURSE}/1/submit`, { method: "POST" });
+  const second = await fetch(`${base}/api/exam/${COURSE}/1/submit`, { method: "POST" });
   expect(second.status).toBe(400);
 });
 
 test("after submitting with one wrong answer, that question shows up as a review item tomorrow", async () => {
-  const dueRes: any = await (await fetch(`${base}/api/exam/due`)).json();
+  const dueRes: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
   const count = dueRes.paper.questions.length;
   for (let i = 0; i < count; i++) {
-    await fetch(`${base}/api/exam/1/${i}/grade`, {
+    await fetch(`${base}/api/exam/${COURSE}/1/${i}/grade`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ correct: i !== 0 }),
     });
   }
-  await fetch(`${base}/api/exam/1/submit`, { method: "POST" });
+  await fetch(`${base}/api/exam/${COURSE}/1/submit`, { method: "POST" });
 
-  const reviewRes = await fetch(`${base}/api/exam/review/1/0`, {
+  const reviewRes = await fetch(`${base}/api/exam/review/${COURSE}/1/0`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ result: "correct" }),
@@ -108,7 +120,7 @@ test("after submitting with one wrong answer, that question shows up as a review
 });
 
 test("review rejects a bad result value", async () => {
-  const res = await fetch(`${base}/api/exam/review/1/0`, {
+  const res = await fetch(`${base}/api/exam/review/${COURSE}/1/0`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ result: "meh" }),
@@ -117,8 +129,9 @@ test("review rejects a bad result value", async () => {
 });
 
 test("day out of range is rejected with 400", async () => {
-  for (const bad of ["0", String(TOTAL_PAPERS + 1), "abc"]) {
-    const res = await fetch(`${base}/api/exam/${bad}/answer`, {
+  const total = totalPapersForCourse(COURSE);
+  for (const bad of ["0", String(total + 1), "abc"]) {
+    const res = await fetch(`${base}/api/exam/${COURSE}/${bad}/answer`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ questionIndex: 0, yourAnswer: "x" }),
@@ -128,7 +141,7 @@ test("day out of range is rejected with 400", async () => {
 });
 
 test("questionIndex out of range is rejected with 400", async () => {
-  const res = await fetch(`${base}/api/exam/1/answer`, {
+  const res = await fetch(`${base}/api/exam/${COURSE}/1/answer`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ questionIndex: 999, yourAnswer: "x" }),
@@ -137,7 +150,7 @@ test("questionIndex out of range is rejected with 400", async () => {
 });
 
 test("a missing questionIndex on /answer is rejected with 400, not silently treated as index 0", async () => {
-  const res = await fetch(`${base}/api/exam/1/answer`, {
+  const res = await fetch(`${base}/api/exam/${COURSE}/1/answer`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ yourAnswer: "x" }),
@@ -145,19 +158,19 @@ test("a missing questionIndex on /answer is rejected with 400, not silently trea
   expect(res.status).toBe(400);
 });
 
-test("GET /api/exam/completed-today lists papers submitted today", async () => {
-  const dueRes: any = await (await fetch(`${base}/api/exam/due`)).json();
+test("GET /api/exam/:course/completed-today lists papers submitted today", async () => {
+  const dueRes: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
   const count = dueRes.paper.questions.length;
   for (let i = 0; i < count; i++) {
-    await fetch(`${base}/api/exam/1/${i}/grade`, {
+    await fetch(`${base}/api/exam/${COURSE}/1/${i}/grade`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ correct: true }),
     });
   }
-  await fetch(`${base}/api/exam/1/submit`, { method: "POST" });
+  await fetch(`${base}/api/exam/${COURSE}/1/submit`, { method: "POST" });
 
-  const completed: any = await (await fetch(`${base}/api/exam/completed-today`)).json();
+  const completed: any = await (await fetch(`${base}/api/exam/${COURSE}/completed-today`)).json();
   expect(completed.papers.length).toBe(1);
   expect(completed.papers[0].scoreCorrect).toBe(count);
 });
