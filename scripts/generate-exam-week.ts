@@ -37,10 +37,11 @@ export function scanWeekFolder(weekDir: string): ScannedWeek {
 // at every material file found (Claude reads all of them once, then writes
 // content for every paper) with a fixed 8 mcq/truefalse + 4 short + 2
 // scenario mix per paper — a ~14-question, ~20 minute daily set.
-export function buildScaffold(week: number, paperCount: number, materials: string[]): ExamPaperSeed[] {
+export function buildScaffold(course: string, week: number, paperCount: number, materials: string[]): ExamPaperSeed[] {
   const papers: ExamPaperSeed[] = [];
   for (let n = 1; n <= paperCount; n++) {
     papers.push({
+      course,
       week,
       paperNumber: n,
       title: `Week ${week} Practice Paper ${n}`,
@@ -88,6 +89,7 @@ export interface GenerateOptions {
   week: number;
   weekDir: string;
   outPath: string;
+  course: string;
   paperCount?: number;
   force?: boolean;
 }
@@ -101,7 +103,7 @@ export interface GenerateResult {
 // The testable core: real FS reads/writes, but no argv parsing — the CLI
 // entrypoint below is the only part that touches process.argv.
 export async function generateWeekFile(options: GenerateOptions): Promise<GenerateResult> {
-  const { week, weekDir, outPath, paperCount = 3, force = false } = options;
+  const { week, weekDir, outPath, course, paperCount = 3, force = false } = options;
   if (!existsSync(weekDir)) {
     return { written: false, reason: `Week folder not found: ${weekDir}`, path: outPath };
   }
@@ -109,13 +111,13 @@ export async function generateWeekFile(options: GenerateOptions): Promise<Genera
     return { written: false, reason: `${outPath} already exists — pass force to overwrite`, path: outPath };
   }
   const { materials, videos } = scanWeekFolder(weekDir);
-  const papers = buildScaffold(week, paperCount, materials);
+  const papers = buildScaffold(course, week, paperCount, materials);
   const source = renderScaffoldModule(week, papers, videos);
   await Bun.write(outPath, source);
   return { written: true, path: outPath };
 }
 
-function parseArgs(argv: string[]): { week: number; courseDir?: string; papers: number; force: boolean } {
+function parseArgs(argv: string[]): { week: number; course: string; courseDir?: string; papers: number; force: boolean } {
   const get = (flag: string) => {
     const i = argv.indexOf(flag);
     return i === -1 ? undefined : argv[i + 1];
@@ -123,12 +125,13 @@ function parseArgs(argv: string[]): { week: number; courseDir?: string; papers: 
   const week = Number(get("--week"));
   if (!Number.isInteger(week) || week < 1) {
     throw new Error(
-      "Usage: bun scripts/generate-exam-week.ts --week <n> [--course-dir <path>] [--papers <n>] [--force]",
+      "Usage: bun scripts/generate-exam-week.ts --week <n> [--course <code>] [--course-dir <path>] [--papers <n>] [--force]",
     );
   }
   const papersArg = get("--papers");
   return {
     week,
+    course: get("--course") ?? "INFO5995",
     courseDir: get("--course-dir"),
     papers: papersArg ? Number(papersArg) : 3,
     force: argv.includes("--force"),
@@ -139,10 +142,10 @@ const DEFAULT_COURSE_DIR =
   "/Users/adam/Desktop/USYD/Semester 2 (Aug-Nov 2026)/INFO5995 Intro To Cybersecurity";
 
 if (import.meta.main) {
-  const { week, courseDir, papers, force } = parseArgs(process.argv.slice(2));
+  const { week, course, courseDir, papers, force } = parseArgs(process.argv.slice(2));
   const weekDir = join(courseDir ?? DEFAULT_COURSE_DIR, `Week ${week}`);
-  const outPath = join(import.meta.dir, "..", "exam-content", `week-${week}.ts`);
-  const result = await generateWeekFile({ week, weekDir, outPath, paperCount: papers, force });
+  const outPath = join(import.meta.dir, "..", "exam-content", course.toLowerCase(), `week-${week}.ts`);
+  const result = await generateWeekFile({ week, weekDir, outPath, course, paperCount: papers, force });
   if (!result.written) {
     console.error(result.reason);
     process.exit(1);
