@@ -38,6 +38,7 @@ test("renderScaffoldModule emits a module exporting WEEK_<n>_PAPERS", () => {
   const papers = buildScaffold("INFO5995", 3, 1, ["notes.md"]);
   const source = renderScaffoldModule(3, papers, []);
   expect(source).toContain("export const WEEK_3_PAPERS: ExamPaperSeed[] =");
+  expect(source).toContain('import type { ExamPaperSeed } from "../types"');
   expect(source).not.toContain("Video lectures found");
 });
 

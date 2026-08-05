@@ -79,7 +79,7 @@ export function renderScaffoldModule(week: number, papers: ExamPaperSeed[], vide
 // that folder. Aim for realistic INFO5995-style questions: mcq/truefalse
 // need a correctIndex into options; short/scenario need a modelAnswer to
 // reveal instead. Keep each paper's mix roughly 8 mcq / 4 short / 2 scenario.
-${videoNote}import type { ExamPaperSeed } from "../exam-content/types";
+${videoNote}import type { ExamPaperSeed } from "../types";
 
 export const WEEK_${week}_PAPERS: ExamPaperSeed[] = ${JSON.stringify(papers, null, 2)};
 `;
