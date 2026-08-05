@@ -428,7 +428,7 @@ export default function ExamApp({
   if (!course) {
     return (
       <div className="theory">
-        <p className="board-empty">Loading…</p>
+        {error ? <p className="form-error">{error}</p> : <p className="board-empty">Loading…</p>}
       </div>
     );
   }
