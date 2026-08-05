@@ -419,9 +419,14 @@ function Detail({
   const review = async (result: "pass" | "fail") => {
     const res = await api.review(id, result);
     const updated: ProblemSummary = await res.json();
-    openCalendarQuickAdd(updated.title, updated.url, updated.next_review);
+    // Update and navigate away BEFORE opening the calendar tab: window.open
+    // backgrounds this tab, and a backgrounded tab can sit on its last
+    // painted frame (still showing the revealed solution) until it regains
+    // focus — so the board/removal transition must already be committed
+    // first, or reopening this tab briefly re-shows the old revealed answer.
     onChanged();
     onBack();
+    openCalendarQuickAdd(updated.title, updated.url, updated.next_review);
   };
 
   return (
