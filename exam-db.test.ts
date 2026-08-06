@@ -27,9 +27,9 @@ beforeEach(() => {
 
 test("seeds every paper for the course, unsubmitted", () => {
   const rows = listExamPaperRows(db, COURSE);
-  expect(rows.length).toBe(3); // INFO5995 Week 1's 3 papers
+  expect(rows.length).toBe(1); // INFO5995 Week 1's combined paper
   expect(rows.every((r) => r.submitted_at === null)).toBe(true);
-  expect(rows.map((r) => r.paper_number).sort()).toEqual([1, 2, 3]);
+  expect(rows.map((r) => r.paper_number).sort()).toEqual([1]);
 });
 
 test("migrateExam does not reseed or reset progress on a second call", () => {
@@ -86,15 +86,6 @@ test("submitExamPaper rejects a second submission of the same paper", () => {
   if (!second.ok) expect(second.reason).toBe("already_submitted");
 });
 
-test("other papers in the same week are untouched by submitting one paper", () => {
-  const paper1 = buildExamSchedule().find((p) => p.course === COURSE && p.week === 1 && p.paperNumber === 1)!;
-  paper1.questions.forEach((_, i) => gradeExamAnswer(db, COURSE, 1, 1, i, true));
-  submitExamPaper(db, COURSE, 1, 1, TODAY);
-
-  expect(getExamPaperRow(db, COURSE, 1, 2)!.submitted_at).toBeNull();
-  expect(getExamPaperRow(db, COURSE, 1, 3)!.submitted_at).toBeNull();
-});
-
 test("countExamPapersSubmittedToday counts submitted papers for the day", () => {
   expect(countExamPapersSubmittedToday(db, COURSE, TODAY)).toBe(0);
   const paper1 = buildExamSchedule().find((p) => p.course === COURSE && p.week === 1 && p.paperNumber === 1)!;
@@ -130,7 +121,7 @@ test("two different courses' rows are independent — course scoping partitions 
   expect(listExamAnswers(db, COURSE, 1, 1)[0]!.your_answer).toBe("info draft");
   expect(getExamPaperRow(db, "OTHERCOURSE", 1, 1)!.course).toBe("OTHERCOURSE");
   expect(listExamPaperRows(db, "OTHERCOURSE").length).toBe(1);
-  expect(listExamPaperRows(db, COURSE).length).toBe(3); // unaffected by OTHERCOURSE's row
+  expect(listExamPaperRows(db, COURSE).length).toBe(1); // unaffected by OTHERCOURSE's row
 });
 
 test("migrateExam upgrades a pre-existing paper_day-keyed db, recovering (week, paperNumber) by content position", () => {
@@ -164,40 +155,41 @@ test("migrateExam upgrades a pre-existing paper_day-keyed db, recovering (week, 
       released_up_to INTEGER NOT NULL DEFAULT 0
     );
   `);
-  // paper_day 2 = INFO5995's 2nd paper in content order = (week 1, paperNumber 2)
+  // paper_day 1 = INFO5995's only paper in content order = (week 1, paperNumber 1)
   legacyDb
     .query(
-      `INSERT INTO exam_papers (course, paper_day, next_review, submitted_at, score_correct, score_total) VALUES ('INFO5995', 2, ?, ?, 20, 26)`,
+      `INSERT INTO exam_papers (course, paper_day, next_review, submitted_at, score_correct, score_total) VALUES ('INFO5995', 1, ?, ?, 20, 26)`,
     )
     .run(TODAY, TODAY);
   legacyDb
-    .query(`INSERT INTO exam_answers (course, paper_day, question_index, your_answer, correct) VALUES ('INFO5995', 2, 0, 'my answer', 1)`)
+    .query(`INSERT INTO exam_answers (course, paper_day, question_index, your_answer, correct) VALUES ('INFO5995', 1, 0, 'my answer', 1)`)
     .run();
   legacyDb
-    .query(`INSERT INTO exam_review_items (course, paper_day, question_index, rung, next_review) VALUES ('INFO5995', 2, 3, 0, ?)`)
+    .query(`INSERT INTO exam_review_items (course, paper_day, question_index, rung, next_review) VALUES ('INFO5995', 1, 3, 0, ?)`)
     .run(TODAY);
   legacyDb
-    .query(`INSERT INTO exam_review_log (course, paper_day, question_index, reviewed_at, result) VALUES ('INFO5995', 2, 3, ?, 'correct')`)
+    .query(`INSERT INTO exam_review_log (course, paper_day, question_index, reviewed_at, result) VALUES ('INFO5995', 1, 3, ?, 'correct')`)
     .run(TODAY);
   legacyDb.query(`INSERT INTO exam_state (course, released_up_to) VALUES ('INFO5995', 3)`).run();
 
   migrateExam(legacyDb, TODAY);
 
-  const paper = getExamPaperRow(legacyDb, "INFO5995", 1, 2)!;
+  const paper = getExamPaperRow(legacyDb, "INFO5995", 1, 1)!;
   expect(paper).not.toBeNull();
   expect(paper.submitted_at).toBe(TODAY);
   expect(paper.score_correct).toBe(20);
 
-  const answers = listExamAnswers(legacyDb, "INFO5995", 1, 2);
+  const answers = listExamAnswers(legacyDb, "INFO5995", 1, 1);
   expect(answers[0]!.your_answer).toBe("my answer");
 
   const dueReviews = listDueExamReviewItems(legacyDb, "INFO5995", TODAY);
-  expect(dueReviews.some((r) => r.week === 1 && r.paper_number === 2 && r.question_index === 3)).toBe(true);
+  expect(dueReviews.some((r) => r.week === 1 && r.paper_number === 1 && r.question_index === 3)).toBe(true);
 
   expect(countExamReviewsToday(legacyDb, "INFO5995", TODAY)).toBe(1);
 
-  // The other two papers (1 and 3) were seeded fresh by migrateExam's seedNewPapers step.
-  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(3);
+  // INFO5995 now has just this one paper, so nothing is left for
+  // migrateExam's seedNewPapers step to fresh-seed.
+  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(1);
 
   // exam_state has no successor in the weekly-pacing schema. This is the
   // exact shape (course+paper_day, exam_state already present) the real
@@ -297,5 +289,5 @@ test("a migration failure rolls back cleanly, leaving the original paper_day-sha
   // The valid row (paper_day 1) migrated; the out-of-range row (999) was
   // dropped rather than crashing the whole migration or corrupting state.
   expect(getExamPaperRow(legacyDb, "INFO5995", 1, 1)).not.toBeNull();
-  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(3); // 1 migrated + 2 fresh-seeded
+  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(1); // just the migrated row — INFO5995 only has 1 paper now
 });

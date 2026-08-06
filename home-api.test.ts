@@ -82,6 +82,15 @@ test("GET /api/home/due includes this week's exam item", async () => {
 });
 
 test("GET /api/home/due gives the week item and exam review items collision-free ids", async () => {
+  // Every real week is a single combined paper now, so a submitted week's
+  // item disappears entirely. To get a week item and a review item
+  // coexisting under the same course/week without depending on a second
+  // week's real-calendar visibility date, manually seed a synthetic second
+  // paper row for INFO5995's week 1 — groupExamPapersByWeek falls back to a
+  // generic title for rows without matching content, so this doesn't need
+  // real multi-paper content to exist.
+  db.query(`INSERT INTO exam_papers (course, week, paper_number) VALUES ('INFO5995', 1, 2)`).run();
+
   const paper1 = buildExamSchedule().find((p) => p.course === "INFO5995" && p.week === 1 && p.paperNumber === 1)!;
   paper1.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, i !== 0)); // question 0 wrong, rest correct
   submitExamPaper(db, "INFO5995", 1, 1, addDays(TODAY, -1)); // review item's next_review lands on TODAY
@@ -89,25 +98,21 @@ test("GET /api/home/due gives the week item and exam review items collision-free
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   const examItems = items.filter((i) => i.source === "exam");
   const info5995Items = examItems.filter((i) => i.course === "INFO5995");
-  // INFO5995's week item (papers 2/3 still unsubmitted) and review item (paper 1's wrong question) coexist distinctly.
+  // The week item (synthetic paper 2 still unsubmitted) and review item (paper 1's wrong question) coexist distinctly.
   expect(info5995Items.length).toBe(2);
   const weekItem = info5995Items.find((i) => i.title.startsWith("Week "));
   const reviewItem = info5995Items.find((i) => !i.title.startsWith("Week "));
   expect(weekItem).toBeTruthy();
-  expect(weekItem.title).toBe("Week 1 (1/3 submitted)");
+  expect(weekItem.title).toBe("Week 1 (1/2 submitted)");
   expect(reviewItem).toBeTruthy();
   const ids = examItems.map((i) => i.id);
   expect(new Set(ids).size).toBe(ids.length); // no id collisions across any course's items
 });
 
 test("GET /api/home/due drops the week item once every paper in it is submitted", async () => {
-  for (const paperNumber of [1, 2, 3] as const) {
-    const paper = buildExamSchedule().find(
-      (p) => p.course === "INFO5995" && p.week === 1 && p.paperNumber === paperNumber,
-    )!;
-    paper.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, paperNumber, i, true));
-    submitExamPaper(db, "INFO5995", 1, paperNumber, TODAY);
-  }
+  const paper = buildExamSchedule().find((p) => p.course === "INFO5995" && p.week === 1 && p.paperNumber === 1)!;
+  paper.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, true));
+  submitExamPaper(db, "INFO5995", 1, 1, TODAY);
 
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   expect(items.some((i) => i.source === "exam" && i.course === "INFO5995")).toBe(false);

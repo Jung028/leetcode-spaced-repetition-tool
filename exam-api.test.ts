@@ -34,14 +34,14 @@ test("GET /api/exam/sync returns a pending list (shape check — content depends
   }
 });
 
-test("GET /api/exam/:course/due groups Week 1's 3 papers into one weeksDue entry", async () => {
+test("GET /api/exam/:course/due groups Week 1's combined paper into one weeksDue entry", async () => {
   const body: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
   expect(body.weeksDue.length).toBe(1);
   expect(body.weeksDue[0].week).toBe(1);
-  expect(body.weeksDue[0].papers.length).toBe(3);
+  expect(body.weeksDue[0].papers.length).toBe(1);
   expect(body.weeksDue[0].papers.every((p: any) => !p.submitted)).toBe(true);
   expect(body.reviewDue).toEqual([]);
-  expect(body.stats.dueCount).toBe(1); // 1 due week, matching how Home groups the same state — not 3 individual papers
+  expect(body.stats.dueCount).toBe(1); // 1 due week, matching how Home groups the same state
 });
 
 test("GET /api/exam/:course/due hides a week whose start date hasn't arrived yet", async () => {
@@ -57,7 +57,7 @@ test("GET /api/exam/:course/due hides a week whose start date hasn't arrived yet
 });
 
 test("GET /api/exam/:course/due drops a week once every paper in it is submitted", async () => {
-  for (const paperNumber of [1, 2, 3]) {
+  for (const paperNumber of [1]) {
     const paperRes: any = await (await fetch(`${base}/api/exam/${COURSE}/1/${paperNumber}`)).json();
     const count = paperRes.questions.length;
     for (let i = 0; i < count; i++) {
