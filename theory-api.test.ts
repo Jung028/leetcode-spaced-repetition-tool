@@ -90,6 +90,7 @@ test("review rejects a bad result value", async () => {
 test("GET /api/theory/completed-today lists concepts reviewed today only", async () => {
   expect(await (await fetch(`${base}/api/theory/completed-today`)).json()).toEqual([]);
 
+  await putContent(1, "Q1", "A1");
   await fetch(`${base}/api/theory/1/review`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -98,6 +99,38 @@ test("GET /api/theory/completed-today lists concepts reviewed today only", async
   const completed: any = await (await fetch(`${base}/api/theory/completed-today`)).json();
   expect(completed.length).toBe(1);
   expect(completed[0].concept_day).toBe(1);
+});
+
+test("GET /api/theory/:day returns the concept regardless of due status", async () => {
+  await putContent(1, "Q1", "A1");
+  const res = await fetch(`${base}/api/theory/1`);
+  expect(res.status).toBe(200);
+  const concept: any = await res.json();
+  expect(concept.concept_day).toBe(1);
+  expect(concept.question).toBe("Q1");
+});
+
+test("GET /api/theory/:day works even for a concept that is not currently due", async () => {
+  await putContent(1, "Q1", "A1");
+  await fetch(`${base}/api/theory/1/review`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ result: "correct" }),
+  });
+  // Concept 1 is now scheduled 3 days out, so it's no longer in the due list —
+  // but it must still be directly fetchable.
+  const res = await fetch(`${base}/api/theory/1`);
+  expect(res.status).toBe(200);
+  const concept: any = await res.json();
+  expect(concept.question).toBe("Q1");
+  expect(concept.rung).toBe(0);
+});
+
+test("GET /api/theory/:day rejects an out-of-range day with 400", async () => {
+  for (const bad of ["0", "151", "abc"]) {
+    const res = await fetch(`${base}/api/theory/${bad}`);
+    expect(res.status).toBe(400);
+  }
 });
 
 test("day out of range (0, 151, non-numeric) is rejected with 400 on all per-day routes", async () => {
@@ -209,4 +242,41 @@ test("PUT /api/theory/:day/content silently defaults an unrecognized answerForma
   expect(res.status).toBe(200);
   const updated: any = await res.json();
   expect(updated.answer_format).toBe("text");
+});
+
+test("DELETE /api/theory/:day/content clears question, answer, and answer_format to blank", async () => {
+  await putContent(1, "Q", "https://example.com/pic.png", "image");
+  const res = await fetch(`${base}/api/theory/1/content`, { method: "DELETE" });
+  expect(res.status).toBe(200);
+  const cleared: any = await res.json();
+  expect(cleared.question).toBe("");
+  expect(cleared.answer).toBe("");
+  expect(cleared.answer_format).toBe("text");
+});
+
+test("DELETE /api/theory/:day/content leaves scheduling state untouched", async () => {
+  await putContent(1, "Q", "A");
+  await fetch(`${base}/api/theory/1/review`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ result: "correct" }),
+  });
+  const res = await fetch(`${base}/api/theory/1/content`, { method: "DELETE" });
+  const cleared: any = await res.json();
+  expect(cleared.rung).toBe(0);
+  expect(cleared.next_review).toBe(addDays(localToday(), 3));
+});
+
+test("DELETE /api/theory/:day/content removes the concept from the due list", async () => {
+  await putContent(1, "Q", "A");
+  await fetch(`${base}/api/theory/1/content`, { method: "DELETE" });
+  const due: any = await (await fetch(`${base}/api/theory/due`)).json();
+  expect(due.due.map((d: any) => d.concept_day)).not.toContain(1);
+});
+
+test("DELETE /api/theory/:day/content on an out-of-range day is rejected with 400", async () => {
+  for (const bad of ["0", "151", "abc"]) {
+    const res = await fetch(`${base}/api/theory/${bad}/content`, { method: "DELETE" });
+    expect(res.status).toBe(400);
+  }
 });

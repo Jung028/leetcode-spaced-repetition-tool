@@ -419,9 +419,14 @@ function Detail({
   const review = async (result: "pass" | "fail") => {
     const res = await api.review(id, result);
     const updated: ProblemSummary = await res.json();
-    openCalendarQuickAdd(updated.title, updated.url, updated.next_review);
+    // Update and navigate away BEFORE opening the calendar tab: window.open
+    // backgrounds this tab, and a backgrounded tab can sit on its last
+    // painted frame (still showing the revealed solution) until it regains
+    // focus — so the board/removal transition must already be committed
+    // first, or reopening this tab briefly re-shows the old revealed answer.
     onChanged();
     onBack();
+    openCalendarQuickAdd(updated.title, updated.url, updated.next_review);
   };
 
   return (
@@ -587,7 +592,7 @@ type DeepLink =
   | { tab: "leetcode"; problemId: number }
   | { tab: "theory"; conceptDay: number }
   | { tab: "goals"; projectId: number }
-  | { tab: "exam"; paperDay: number };
+  | { tab: "exam"; course: string; week: number };
 
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
@@ -630,11 +635,11 @@ function App() {
   const [tab, setTab] = useState<Tab>("home");
   const [deepLink, setDeepLink] = useState<DeepLink | null>(null);
 
-  const navigate = (item: { source: "leetcode" | "theory" | "goals" | "exam"; linkId: number }) => {
+  const navigate = (item: { source: "leetcode" | "theory" | "goals" | "exam"; linkId: number; course?: string }) => {
     if (item.source === "leetcode") setDeepLink({ tab: "leetcode", problemId: item.linkId });
     else if (item.source === "theory") setDeepLink({ tab: "theory", conceptDay: item.linkId });
     else if (item.source === "goals") setDeepLink({ tab: "goals", projectId: item.linkId });
-    else setDeepLink({ tab: "exam", paperDay: item.linkId });
+    else setDeepLink({ tab: "exam", course: item.course!, week: item.linkId });
     setTab(item.source);
   };
 
@@ -662,7 +667,8 @@ function App() {
       )}
       {tab === "exam" && (
         <ExamApp
-          openPaperDay={deepLink?.tab === "exam" ? deepLink.paperDay : null}
+          openCourse={deepLink?.tab === "exam" ? deepLink.course : null}
+          openWeek={deepLink?.tab === "exam" ? deepLink.week : null}
           onOpened={() => setDeepLink(null)}
         />
       )}

@@ -4,14 +4,14 @@ import { listProblems, countReviewsToday, listCompletedToday } from "./db";
 import { listDueTheory, countTheoryReviewsToday, listTheoryCompletedToday } from "./theory-db";
 import { listDueSteps, countStepsCompletedToday, listStepsCompletedOn } from "./goals-db";
 import {
-  listDueExamPapers,
+  listExamPaperRows,
   listDueExamReviewItems,
   countExamPapersSubmittedToday,
   countExamReviewsToday,
   listExamPapersSubmittedToday,
   listExamReviewsCompletedToday,
 } from "./exam-db";
-import { buildExamSchedule } from "./exam-content";
+import { buildExamSchedule, listExamCourses, COURSES, weekStartDate, groupExamPapersByWeek } from "./exam-content";
 import { isDue, localToday } from "./scheduling";
 
 export type DueSource = "leetcode" | "theory" | "goals" | "exam";
@@ -24,10 +24,19 @@ export interface DueItem {
   dueDate: string;
   overdueDays: number;
   linkId: number;
+  course?: string;
 }
 
 function overdueDays(dueDate: string, today: string): number {
   return Math.max(0, Math.round((Date.parse(today) - Date.parse(dueDate)) / 86_400_000));
+}
+
+// Every exam id below folds in a course-derived offset so two different
+// courses' items (e.g. both having a "Week 1") never collide once flattened
+// into one cross-course due list — COURSES has at most a handful of entries,
+// so a wide fixed stride leaves plenty of headroom under each course's slot.
+function courseOffset(course: string): number {
+  return COURSES.findIndex((c) => c.code === course) * 100_000_000;
 }
 
 function leetcodeDue(db: Database, today: string): DueItem[] {
@@ -69,32 +78,42 @@ function goalsDue(db: Database, today: string): DueItem[] {
 }
 
 function examDue(db: Database, today: string): DueItem[] {
-  const papers = listDueExamPapers(db, today).map((row) => {
-    const content = buildExamSchedule().find((p) => p.paperDay === row.paper_day);
-    return {
-      source: "exam" as const,
-      id: row.paper_day,
-      title: content?.title ?? `Exam paper ${row.paper_day}`,
-      subtitle: "Exam paper",
-      dueDate: row.next_review,
-      overdueDays: overdueDays(row.next_review, today),
-      linkId: row.paper_day,
-    };
-  });
-  const reviews = listDueExamReviewItems(db, today).map((item) => {
-    const content = buildExamSchedule().find((p) => p.paperDay === item.paper_day);
-    const question = content?.questions[item.question_index];
-    return {
-      source: "exam" as const,
-      id: item.paper_day * 1000 + item.question_index,
-      title: question ? question.prompt.slice(0, 80) : "Exam review",
-      subtitle: "Exam review",
-      dueDate: item.next_review,
-      overdueDays: overdueDays(item.next_review, today),
-      linkId: item.paper_day,
-    };
-  });
-  return [...papers, ...reviews];
+  const items: DueItem[] = [];
+  for (const { code, name } of listExamCourses()) {
+    const visibleRows = listExamPaperRows(db, code).filter((r) => weekStartDate(r.week) <= today);
+    const weeks = groupExamPapersByWeek(code, visibleRows, today).filter((w) => w.papers.some((p) => !p.submitted));
+    for (const week of weeks) {
+      const submittedCount = week.papers.filter((p) => p.submitted).length;
+      items.push({
+        source: "exam" as const,
+        id: courseOffset(code) + week.week,
+        title: `Week ${week.week} (${submittedCount}/${week.papers.length} submitted)`,
+        subtitle: name,
+        dueDate: week.dueDate,
+        overdueDays: overdueDays(week.dueDate, today),
+        linkId: week.week,
+        course: code,
+      });
+    }
+    const reviews = listDueExamReviewItems(db, code, today).map((item) => {
+      const content = buildExamSchedule().find(
+        (p) => p.course === code && p.week === item.week && p.paperNumber === item.paper_number,
+      );
+      const question = content?.questions[item.question_index];
+      return {
+        source: "exam" as const,
+        id: courseOffset(code) + item.week * 1_000_000 + item.paper_number * 1000 + item.question_index,
+        title: question ? question.prompt.slice(0, 80) : "Exam review",
+        subtitle: name,
+        dueDate: item.next_review,
+        overdueDays: overdueDays(item.next_review, today),
+        linkId: item.week,
+        course: code,
+      };
+    });
+    items.push(...reviews);
+  }
+  return items;
 }
 
 function leetcodeCompletedToday(db: Database, today: string): DueItem[] {
@@ -134,32 +153,42 @@ function goalsCompletedToday(db: Database, today: string): DueItem[] {
 }
 
 function examCompletedToday(db: Database, today: string): DueItem[] {
-  const papers = listExamPapersSubmittedToday(db, today).map((row) => {
-    const content = buildExamSchedule().find((p) => p.paperDay === row.paper_day);
-    return {
-      source: "exam" as const,
-      id: row.paper_day,
-      title: content?.title ?? `Exam paper ${row.paper_day}`,
-      subtitle: "Exam paper",
-      dueDate: today,
-      overdueDays: 0,
-      linkId: row.paper_day,
-    };
-  });
-  const reviews = listExamReviewsCompletedToday(db, today).map((item) => {
-    const content = buildExamSchedule().find((p) => p.paperDay === item.paper_day);
-    const question = content?.questions[item.question_index];
-    return {
-      source: "exam" as const,
-      id: item.paper_day * 1000 + item.question_index,
-      title: question ? question.prompt.slice(0, 80) : "Exam review",
-      subtitle: "Exam review",
-      dueDate: today,
-      overdueDays: 0,
-      linkId: item.paper_day,
-    };
-  });
-  return [...papers, ...reviews];
+  const items: DueItem[] = [];
+  for (const { code, name } of listExamCourses()) {
+    const papers = listExamPapersSubmittedToday(db, code, today).map((row) => {
+      const content = buildExamSchedule().find(
+        (p) => p.course === code && p.week === row.week && p.paperNumber === row.paper_number,
+      );
+      return {
+        source: "exam" as const,
+        id: courseOffset(code) + row.week * 1000 + row.paper_number,
+        title: content?.title ?? `Week ${row.week} Paper ${row.paper_number}`,
+        subtitle: name,
+        dueDate: today,
+        overdueDays: 0,
+        linkId: row.week,
+        course: code,
+      };
+    });
+    const reviews = listExamReviewsCompletedToday(db, code, today).map((item) => {
+      const content = buildExamSchedule().find(
+        (p) => p.course === code && p.week === item.week && p.paperNumber === item.paper_number,
+      );
+      const question = content?.questions[item.question_index];
+      return {
+        source: "exam" as const,
+        id: courseOffset(code) + item.week * 1_000_000 + item.paper_number * 1000 + item.question_index,
+        title: question ? question.prompt.slice(0, 80) : "Exam review",
+        subtitle: name,
+        dueDate: today,
+        overdueDays: 0,
+        linkId: item.week,
+        course: code,
+      };
+    });
+    items.push(...papers, ...reviews);
+  }
+  return items;
 }
 
 export interface HomeStats {
@@ -170,15 +199,16 @@ export interface HomeStats {
 
 function homeStats(db: Database, today: string): HomeStats {
   const items = [...leetcodeDue(db, today), ...theoryDue(db, today), ...goalsDue(db, today), ...examDue(db, today)];
+  const examSubmittedToday = listExamCourses().reduce(
+    (sum, { code }) => sum + countExamPapersSubmittedToday(db, code, today),
+    0,
+  );
+  const examReviewsToday = listExamCourses().reduce((sum, { code }) => sum + countExamReviewsToday(db, code, today), 0);
   return {
     dueToday: items.filter((i) => i.overdueDays === 0).length,
     overdue: items.filter((i) => i.overdueDays > 0).length,
     completedToday:
-      countReviewsToday(db, today) +
-      countTheoryReviewsToday(db, today) +
-      countStepsCompletedToday(db, today) +
-      countExamPapersSubmittedToday(db, today) +
-      countExamReviewsToday(db, today),
+      countReviewsToday(db, today) + countTheoryReviewsToday(db, today) + countStepsCompletedToday(db, today) + examSubmittedToday + examReviewsToday,
   };
 }
 

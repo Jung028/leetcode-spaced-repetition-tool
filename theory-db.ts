@@ -217,7 +217,7 @@ export function listTheoryCompletedToday(db: Database, today: string): TheoryPro
       `SELECT DISTINCT ts.concept_day, ts.category, ts.rung, ts.next_review, ts.your_answer, ts.question, ts.answer, ts.answer_format
        FROM theory_schedule ts
        JOIN theory_reviews tr ON tr.concept_day = ts.concept_day
-       WHERE tr.reviewed_at = ?
+       WHERE tr.reviewed_at = ? AND ts.question != ''
        ORDER BY ts.concept_day`,
     )
     .all(today) as TheoryProgress[];
@@ -234,6 +234,19 @@ export function saveTheoryContent(
     question,
     answer,
     answerFormat,
+    conceptDay,
+  );
+  return getTheoryConcept(db, conceptDay);
+}
+
+// Resets a concept's curriculum content back to blank — the same state a
+// never-filled slot is in — without touching its scheduling progress
+// (rung/next_review/your_answer). Mirrors saveTheoryContent's own
+// pattern: no existence pre-check, the UPDATE simply matches nothing for
+// an unknown concept_day, and the subsequent getTheoryConcept call
+// returns null.
+export function clearTheoryContent(db: Database, conceptDay: number): TheoryProgress | null {
+  db.query(`UPDATE theory_schedule SET question = '', answer = '', answer_format = 'text' WHERE concept_day = ?`).run(
     conceptDay,
   );
   return getTheoryConcept(db, conceptDay);

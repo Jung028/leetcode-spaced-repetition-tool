@@ -23,8 +23,9 @@ test("scanWeekFolder finds material files and video files separately, skipping d
 });
 
 test("buildScaffold produces the requested number of blank papers, each with an 8/4/2 question mix", () => {
-  const papers = buildScaffold(1, 2, ["notes.md"]);
+  const papers = buildScaffold("INFO5995", 1, 2, ["notes.md"]);
   expect(papers.length).toBe(2);
+  expect(papers[0]!.course).toBe("INFO5995");
   expect(papers[0]!.paperNumber).toBe(1);
   expect(papers[1]!.paperNumber).toBe(2);
   expect(papers[0]!.questions.filter((q) => q.type === "mcq").length).toBe(8);
@@ -34,9 +35,10 @@ test("buildScaffold produces the requested number of blank papers, each with an 
 });
 
 test("renderScaffoldModule emits a module exporting WEEK_<n>_PAPERS", () => {
-  const papers = buildScaffold(3, 1, ["notes.md"]);
+  const papers = buildScaffold("INFO5995", 3, 1, ["notes.md"]);
   const source = renderScaffoldModule(3, papers, []);
   expect(source).toContain("export const WEEK_3_PAPERS: ExamPaperSeed[] =");
+  expect(source).toContain('import type { ExamPaperSeed } from "../types"');
   expect(source).not.toContain("Video lectures found");
 });
 
@@ -52,7 +54,7 @@ test("generateWeekFile refuses to overwrite an existing scaffold without force",
   const outPath = join(outDir, "week-1.ts");
   writeFileSync(outPath, "existing content");
 
-  const result = await generateWeekFile({ week: 1, weekDir: dir, outPath });
+  const result = await generateWeekFile({ week: 1, weekDir: dir, outPath, course: "INFO5995" });
   expect(result.written).toBe(false);
   expect(result.reason).toContain("already exists");
   expect(await Bun.file(outPath).text()).toBe("existing content");
@@ -67,7 +69,7 @@ test("generateWeekFile overwrites when force is true", async () => {
   const outPath = join(outDir, "week-1.ts");
   writeFileSync(outPath, "existing content");
 
-  const result = await generateWeekFile({ week: 1, weekDir: dir, outPath, force: true });
+  const result = await generateWeekFile({ week: 1, weekDir: dir, outPath, course: "INFO5995", force: true });
   expect(result.written).toBe(true);
   const text = await Bun.file(outPath).text();
   expect(text).toContain("WEEK_1_PAPERS");
@@ -77,7 +79,7 @@ test("generateWeekFile overwrites when force is true", async () => {
 });
 
 test("generateWeekFile errors clearly when the week folder doesn't exist", async () => {
-  const result = await generateWeekFile({ week: 99, weekDir: "/nonexistent/week-99", outPath: "/tmp/whatever-99.ts" });
+  const result = await generateWeekFile({ week: 99, weekDir: "/nonexistent/week-99", outPath: "/tmp/whatever-99.ts", course: "INFO5995" });
   expect(result.written).toBe(false);
   expect(result.reason).toContain("not found");
 });

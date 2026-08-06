@@ -1,12 +1,11 @@
 import type { Database } from "bun:sqlite";
 import {
-  listDueExamPapers,
+  listExamPaperRows,
   getExamPaperRow,
   listExamAnswers,
   saveExamAnswer,
   gradeExamAnswer,
   submitExamPaper,
-  countOverdueExamPapers,
   countExamPapersSubmittedToday,
   listExamPapersSubmittedToday,
   listDueExamReviewItems,
@@ -16,20 +15,38 @@ import {
   type ExamPaperRow,
   type ExamReviewItemRow,
 } from "./exam-db";
-import { buildExamSchedule, TOTAL_PAPERS } from "./exam-content";
+import {
+  buildExamSchedule,
+  listExamCourses,
+  weekStartDate,
+  weekDueDate,
+  groupExamPapersByWeek,
+  type ExamWeekView,
+} from "./exam-content";
 import type { ExamQuestionType } from "./exam-content/types";
 import { localToday } from "./scheduling";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 
-function parsePaperDay(raw: string): number | null {
-  const day = Number(raw);
-  if (!Number.isInteger(day) || day < 1 || day > TOTAL_PAPERS) return null;
-  return day;
+function isKnownCourse(course: string): boolean {
+  return listExamCourses().some((c) => c.code === course);
 }
 
-function parseQuestionIndex(raw: string, paperDay: number): number | null {
-  const content = buildExamSchedule().find((p) => p.paperDay === paperDay);
+function parseWeek(raw: string): number | null {
+  const week = Number(raw);
+  if (!Number.isInteger(week) || week < 1) return null;
+  return week;
+}
+
+function parsePaperNumber(raw: string, course: string, week: number): number | null {
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1) return null;
+  const exists = buildExamSchedule().some((p) => p.course === course && p.week === week && p.paperNumber === n);
+  return exists ? n : null;
+}
+
+function parseQuestionIndex(raw: string, course: string, week: number, paperNumber: number): number | null {
+  const content = buildExamSchedule().find((p) => p.course === course && p.week === week && p.paperNumber === paperNumber);
   if (!content) return null;
   const index = Number(raw);
   if (!Number.isInteger(index) || index < 0 || index >= content.questions.length) return null;
@@ -48,29 +65,27 @@ export interface ExamQuestionView {
 }
 
 export interface ExamPaperView {
-  paperDay: number;
   week: number;
   paperNumber: number;
   title: string;
   topics: string;
-  nextReview: string;
+  dueDate: string;
   submittedAt: string | null;
   scoreCorrect: number | null;
   scoreTotal: number | null;
   questions: ExamQuestionView[];
 }
 
-function paperView(db: Database, row: ExamPaperRow): ExamPaperView | null {
-  const content = buildExamSchedule().find((p) => p.paperDay === row.paper_day);
+function paperView(db: Database, course: string, row: ExamPaperRow): ExamPaperView | null {
+  const content = buildExamSchedule().find((p) => p.course === course && p.week === row.week && p.paperNumber === row.paper_number);
   if (!content) return null;
-  const answers = new Map(listExamAnswers(db, row.paper_day).map((a) => [a.question_index, a]));
+  const answers = new Map(listExamAnswers(db, course, row.week, row.paper_number).map((a) => [a.question_index, a]));
   return {
-    paperDay: row.paper_day,
-    week: content.week,
-    paperNumber: content.paperNumber,
+    week: row.week,
+    paperNumber: row.paper_number,
     title: content.title,
     topics: content.topics,
-    nextReview: row.next_review,
+    dueDate: weekDueDate(row.week),
     submittedAt: row.submitted_at,
     scoreCorrect: row.score_correct,
     scoreTotal: row.score_total,
@@ -88,7 +103,8 @@ function paperView(db: Database, row: ExamPaperRow): ExamPaperView | null {
 }
 
 export interface ExamReviewView {
-  paperDay: number;
+  week: number;
+  paperNumber: number;
   questionIndex: number;
   rung: number;
   nextReview: string;
@@ -98,12 +114,13 @@ export interface ExamReviewView {
   correctIndex: number | null;
 }
 
-function reviewView(item: ExamReviewItemRow): ExamReviewView | null {
-  const content = buildExamSchedule().find((p) => p.paperDay === item.paper_day);
+function reviewView(course: string, item: ExamReviewItemRow): ExamReviewView | null {
+  const content = buildExamSchedule().find((p) => p.course === course && p.week === item.week && p.paperNumber === item.paper_number);
   const question = content?.questions[item.question_index];
   if (!content || !question) return null;
   return {
-    paperDay: item.paper_day,
+    week: item.week,
+    paperNumber: item.paper_number,
     questionIndex: item.question_index,
     rung: item.rung,
     nextReview: item.next_review,
@@ -116,37 +133,67 @@ function reviewView(item: ExamReviewItemRow): ExamReviewView | null {
 
 export function examApiRoutes(db: Database) {
   return {
-    "/api/exam/due": {
-      GET: () => {
+    "/api/exam/courses": {
+      GET: () => json(listExamCourses()),
+    },
+    "/api/exam/:course/due": {
+      GET: (req: Request & { params: { course: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
         const today = localToday();
-        const papers = listDueExamPapers(db, today);
-        const reviewItems = listDueExamReviewItems(db, today);
-        const paper = papers.length > 0 ? paperView(db, papers[0]!) : null;
-        const reviewDue = reviewItems.map(reviewView).filter((r): r is ExamReviewView => r !== null);
+        const visibleRows = listExamPaperRows(db, course).filter((r) => weekStartDate(r.week) <= today);
+        const weeksDue: ExamWeekView[] = groupExamPapersByWeek(course, visibleRows, today).filter((w) =>
+          w.papers.some((p) => !p.submitted),
+        );
+        const reviewItems = listDueExamReviewItems(db, course, today);
+        const reviewDue = reviewItems
+          .map((item) => reviewView(course, item))
+          .filter((r): r is ExamReviewView => r !== null);
+        const dueWeekCount = weeksDue.filter((w) => !w.overdue).length;
+        const overdueWeekCount = weeksDue.filter((w) => w.overdue).length;
         return json({
-          paper,
+          weeksDue,
           reviewDue,
           stats: {
-            dueCount: papers.length + reviewItems.length,
-            overdueCount: countOverdueExamPapers(db, today) + countOverdueExamReviewItems(db, today),
-            completedToday: countExamPapersSubmittedToday(db, today) + countExamReviewsToday(db, today),
+            dueCount: dueWeekCount + reviewItems.length,
+            overdueCount: overdueWeekCount + countOverdueExamReviewItems(db, course, today),
+            completedToday: countExamPapersSubmittedToday(db, course, today) + countExamReviewsToday(db, course, today),
           },
         });
       },
     },
-    "/api/exam/completed-today": {
-      GET: () => {
+    "/api/exam/:course/completed-today": {
+      GET: (req: Request & { params: { course: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
         const today = localToday();
-        const papers = listExamPapersSubmittedToday(db, today)
-          .map((row) => paperView(db, row))
+        const papers = listExamPapersSubmittedToday(db, course, today)
+          .map((row) => paperView(db, course, row))
           .filter((p): p is ExamPaperView => p !== null);
         return json({ papers });
       },
     },
-    "/api/exam/:day/answer": {
-      POST: async (req: Request & { params: { day: string } }) => {
-        const day = parsePaperDay(req.params.day);
-        if (day === null) return json({ error: `day must be between 1 and ${TOTAL_PAPERS}` }, 400);
+    "/api/exam/:course/:week/:paperNumber": {
+      GET: (req: Request & { params: { course: string; week: string; paperNumber: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const week = parseWeek(req.params.week);
+        if (week === null) return json({ error: "invalid week" }, 400);
+        const paperNumber = parsePaperNumber(req.params.paperNumber, course, week);
+        if (paperNumber === null) return json({ error: "paper not found" }, 404);
+        const row = getExamPaperRow(db, course, week, paperNumber);
+        if (!row) return json({ error: "not found" }, 404);
+        return json(paperView(db, course, row));
+      },
+    },
+    "/api/exam/:course/:week/:paperNumber/answer": {
+      POST: async (req: Request & { params: { course: string; week: string; paperNumber: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const week = parseWeek(req.params.week);
+        if (week === null) return json({ error: "invalid week" }, 400);
+        const paperNumber = parsePaperNumber(req.params.paperNumber, course, week);
+        if (paperNumber === null) return json({ error: "paper not found" }, 404);
         const body = (await req.json().catch(() => null)) as
           | { questionIndex?: unknown; yourAnswer?: unknown }
           | null;
@@ -154,33 +201,45 @@ export function examApiRoutes(db: Database) {
         // parseQuestionIndex on a missing/non-numeric questionIndex would
         // silently accept it as index 0 instead of rejecting it.
         const questionIndex =
-          typeof body?.questionIndex === "number" ? parseQuestionIndex(String(body.questionIndex), day) : null;
+          typeof body?.questionIndex === "number"
+            ? parseQuestionIndex(String(body.questionIndex), course, week, paperNumber)
+            : null;
         if (questionIndex === null) return json({ error: "questionIndex out of range" }, 400);
         const yourAnswer = typeof body?.yourAnswer === "string" ? body.yourAnswer : "";
-        saveExamAnswer(db, day, questionIndex, yourAnswer);
-        return json(paperView(db, getExamPaperRow(db, day)!));
+        saveExamAnswer(db, course, week, paperNumber, questionIndex, yourAnswer);
+        return json(paperView(db, course, getExamPaperRow(db, course, week, paperNumber)!));
       },
     },
-    "/api/exam/:day/:questionIndex/grade": {
-      POST: async (req: Request & { params: { day: string; questionIndex: string } }) => {
-        const day = parsePaperDay(req.params.day);
-        if (day === null) return json({ error: `day must be between 1 and ${TOTAL_PAPERS}` }, 400);
-        const questionIndex = parseQuestionIndex(req.params.questionIndex, day);
+    "/api/exam/:course/:week/:paperNumber/:questionIndex/grade": {
+      POST: async (
+        req: Request & { params: { course: string; week: string; paperNumber: string; questionIndex: string } },
+      ) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const week = parseWeek(req.params.week);
+        if (week === null) return json({ error: "invalid week" }, 400);
+        const paperNumber = parsePaperNumber(req.params.paperNumber, course, week);
+        if (paperNumber === null) return json({ error: "paper not found" }, 404);
+        const questionIndex = parseQuestionIndex(req.params.questionIndex, course, week, paperNumber);
         if (questionIndex === null) return json({ error: "questionIndex out of range" }, 400);
         const body = (await req.json().catch(() => null)) as
           | { correct?: unknown; yourAnswer?: unknown }
           | null;
         if (typeof body?.correct !== "boolean") return json({ error: "correct must be a boolean" }, 400);
         const yourAnswer = typeof body?.yourAnswer === "string" ? body.yourAnswer : undefined;
-        gradeExamAnswer(db, day, questionIndex, body.correct, yourAnswer);
-        return json(paperView(db, getExamPaperRow(db, day)!));
+        gradeExamAnswer(db, course, week, paperNumber, questionIndex, body.correct, yourAnswer);
+        return json(paperView(db, course, getExamPaperRow(db, course, week, paperNumber)!));
       },
     },
-    "/api/exam/:day/submit": {
-      POST: (req: Request & { params: { day: string } }) => {
-        const day = parsePaperDay(req.params.day);
-        if (day === null) return json({ error: `day must be between 1 and ${TOTAL_PAPERS}` }, 400);
-        const result = submitExamPaper(db, day, localToday());
+    "/api/exam/:course/:week/:paperNumber/submit": {
+      POST: (req: Request & { params: { course: string; week: string; paperNumber: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const week = parseWeek(req.params.week);
+        if (week === null) return json({ error: "invalid week" }, 400);
+        const paperNumber = parsePaperNumber(req.params.paperNumber, course, week);
+        if (paperNumber === null) return json({ error: "paper not found" }, 404);
+        const result = submitExamPaper(db, course, week, paperNumber, localToday());
         if (!result.ok) {
           const status = result.reason === "not_found" ? 404 : 400;
           const message =
@@ -194,17 +253,23 @@ export function examApiRoutes(db: Database) {
         return json({ scoreCorrect: result.scoreCorrect, scoreTotal: result.scoreTotal });
       },
     },
-    "/api/exam/review/:day/:questionIndex": {
-      POST: async (req: Request & { params: { day: string; questionIndex: string } }) => {
-        const day = parsePaperDay(req.params.day);
-        if (day === null) return json({ error: `day must be between 1 and ${TOTAL_PAPERS}` }, 400);
-        const questionIndex = parseQuestionIndex(req.params.questionIndex, day);
+    "/api/exam/review/:course/:week/:paperNumber/:questionIndex": {
+      POST: async (
+        req: Request & { params: { course: string; week: string; paperNumber: string; questionIndex: string } },
+      ) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const week = parseWeek(req.params.week);
+        if (week === null) return json({ error: "invalid week" }, 400);
+        const paperNumber = parsePaperNumber(req.params.paperNumber, course, week);
+        if (paperNumber === null) return json({ error: "paper not found" }, 404);
+        const questionIndex = parseQuestionIndex(req.params.questionIndex, course, week, paperNumber);
         if (questionIndex === null) return json({ error: "questionIndex out of range" }, 400);
         const body = (await req.json().catch(() => null)) as { result?: string } | null;
         if (body?.result !== "correct" && body?.result !== "wrong") {
           return json({ error: "result must be 'correct' or 'wrong'" }, 400);
         }
-        const updated = reviewExamItem(db, day, questionIndex, body.result, localToday());
+        const updated = reviewExamItem(db, course, week, paperNumber, questionIndex, body.result, localToday());
         return updated ? json(updated) : json({ error: "not found" }, 404);
       },
     },

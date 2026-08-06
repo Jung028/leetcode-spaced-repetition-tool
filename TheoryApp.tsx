@@ -44,6 +44,8 @@ const errorMessage = (err: unknown): string =>
 const api = {
   due: () =>
     fetch("/api/theory/due").then((r) => json<{ due: TheoryProgress[]; stats: Stats }>(r)),
+  getConcept: (conceptDay: number) =>
+    fetch(`/api/theory/${conceptDay}`).then((r) => json<TheoryProgress>(r)),
   nextBlank: () =>
     fetch("/api/theory/next-blank").then((r) => json<{ conceptDay: number; category: string } | null>(r)),
   saveContent: (conceptDay: number, question: string, answer: string, answerFormat: TheoryAnswerFormat) =>
@@ -52,6 +54,8 @@ const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ question, answer, answerFormat }),
     }).then((r) => json<TheoryProgress>(r)),
+  deleteContent: (conceptDay: number) =>
+    fetch(`/api/theory/${conceptDay}/content`, { method: "DELETE" }).then((r) => json<TheoryProgress>(r)),
   saveAnswer: (conceptDay: number, yourAnswer: string) =>
     fetch(`/api/theory/${conceptDay}/answer`, {
       method: "POST",
@@ -313,17 +317,19 @@ const isValidUrl = (value: string) => {
 function AddTheoryContentForm({
   conceptDay,
   category,
+  initial,
   onCancel,
   onSaved,
 }: {
   conceptDay: number;
   category: string;
+  initial?: { question: string; answer: string; answerFormat: TheoryAnswerFormat };
   onCancel: () => void;
   onSaved: () => Promise<void>;
 }) {
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [format, setFormat] = useState<TheoryAnswerFormat>("text");
+  const [question, setQuestion] = useState(initial?.question ?? "");
+  const [answer, setAnswer] = useState(initial?.answer ?? "");
+  const [format, setFormat] = useState<TheoryAnswerFormat>(initial?.answerFormat ?? "text");
   const [error, setError] = useState("");
 
   return (
@@ -375,7 +381,9 @@ function AddTheoryContentForm({
       </label>
       {error && <p className="form-error">{error}</p>}
       <div className="btn-row">
-        <button type="submit" className="btn btn-primary">Save concept {conceptDay}</button>
+        <button type="submit" className="btn btn-primary">
+          {initial ? "Save changes" : `Save concept ${conceptDay}`}
+        </button>
         <button type="button" className="btn" onClick={onCancel}>Cancel</button>
       </div>
     </form>
@@ -383,21 +391,31 @@ function AddTheoryContentForm({
 }
 
 function TheoryDetail({
-  entry,
+  conceptDay,
   onBack,
   onChanged,
   onError,
 }: {
-  entry: TheoryProgress;
+  conceptDay: number;
   onBack: () => void;
   onChanged: () => void;
   onError: (message: string | null) => void;
 }) {
+  const [entry, setEntry] = useState<TheoryProgress | null>(null);
+  const [editing, setEditing] = useState(false);
   // Always starts blank, even if a previous answer was saved to this
   // concept — reopening is for practicing recall again, not reading back
   // what you wrote last time.
   const [draft, setDraft] = useState("");
   const [revealed, setRevealed] = useState(false);
+
+  const load = () => {
+    onError(null);
+    api.getConcept(conceptDay).then(setEntry).catch((err) => onError(errorMessage(err)));
+  };
+  useEffect(() => { load(); }, [conceptDay]);
+
+  if (!entry) return <p className="board-empty">Loading…</p>;
 
   // Saving reveals the model answer immediately (so you can compare right
   // away) and clears the draft — the answer's already saved server-side,
@@ -430,6 +448,36 @@ function TheoryDetail({
     onError(null);
     review(result).catch((err) => onError(errorMessage(err)));
   };
+
+  const handleDelete = () => {
+    if (!confirm("Delete this concept's content? It resets to blank and won't show up again until refilled.")) {
+      return;
+    }
+    onError(null);
+    api
+      .deleteContent(entry.concept_day)
+      .then(() => {
+        onChanged();
+        onBack();
+      })
+      .catch((err) => onError(errorMessage(err)));
+  };
+
+  if (editing) {
+    return (
+      <AddTheoryContentForm
+        conceptDay={entry.concept_day}
+        category={entry.category}
+        initial={{ question: entry.question, answer: entry.answer, answerFormat: entry.answer_format }}
+        onCancel={() => setEditing(false)}
+        onSaved={async () => {
+          setEditing(false);
+          onChanged();
+          load();
+        }}
+      />
+    );
+  }
 
   return (
     <article className="detail theory-card">
@@ -494,6 +542,8 @@ function TheoryDetail({
           Wrong · repeat tomorrow
         </button>
         <span className="btn-spacer" />
+        <button className="btn" onClick={() => setEditing(true)}>Edit</button>
+        <button className="btn btn-danger" onClick={handleDelete}>Delete</button>
         <button className="btn" onClick={onBack}>Back</button>
       </div>
     </article>
@@ -511,7 +561,6 @@ export default function TheoryApp({
   const [view, setView] = useState<View>({ name: "board" });
   const [due, setDue] = useState<TheoryProgress[]>([]);
   const [stats, setStats] = useState<Stats>({ dueCount: 0, overdueCount: 0, completedToday: 0 });
-  const [loaded, setLoaded] = useState(false);
   const [nextBlankNotice, setNextBlankNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -519,7 +568,7 @@ export default function TheoryApp({
     setError(null);
     return api
       .due()
-      .then(({ due, stats }) => { setDue(due); setStats(stats); setLoaded(true); })
+      .then(({ due, stats }) => { setDue(due); setStats(stats); })
       .catch((err) => setError(errorMessage(err)));
   };
   useEffect(() => { refresh(); }, []);
@@ -582,23 +631,14 @@ export default function TheoryApp({
         />
       )}
 
-      {view.name === "detail" && (() => {
-        if (!loaded) return <p className="board-empty">Loading…</p>;
-        const entry = due.find((d) => d.concept_day === view.conceptDay);
-        return entry ? (
-          <TheoryDetail
-            entry={entry}
-            onBack={() => setView({ name: "board" })}
-            onChanged={refresh}
-            onError={setError}
-          />
-        ) : (
-          <p className="board-empty">
-            This concept isn't due anymore.{" "}
-            <button className="btn" onClick={() => setView({ name: "board" })}>Back to board</button>
-          </p>
-        );
-      })()}
+      {view.name === "detail" && (
+        <TheoryDetail
+          conceptDay={view.conceptDay}
+          onBack={() => setView({ name: "board" })}
+          onChanged={refresh}
+          onError={setError}
+        />
+      )}
     </div>
   );
 }

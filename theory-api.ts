@@ -1,8 +1,10 @@
 import type { Database } from "bun:sqlite";
 import {
+  clearTheoryContent,
   countOverdueTheory,
   countTheoryReviewsToday,
   getNextBlankConcept,
+  getTheoryConcept,
   listDueTheory,
   listTheoryCompletedToday,
   reviewTheoryConcept,
@@ -39,6 +41,14 @@ export function theoryApiRoutes(db: Database) {
     },
     "/api/theory/completed-today": {
       GET: () => json(listTheoryCompletedToday(db, localToday())),
+    },
+    "/api/theory/:day": {
+      GET: (req: Request & { params: { day: string } }) => {
+        const day = parseConceptDay(req.params.day);
+        if (day === null) return json({ error: `day must be between 1 and ${TOTAL_DAYS}` }, 400);
+        const concept = getTheoryConcept(db, day);
+        return concept ? json(concept) : json({ error: "not found" }, 404);
+      },
     },
     "/api/theory/:day/answer": {
       POST: async (req: Request & { params: { day: string } }) => {
@@ -92,6 +102,12 @@ export function theoryApiRoutes(db: Database) {
           }
         }
         const updated = saveTheoryContent(db, day, question, answer, answerFormat);
+        return updated ? json(updated) : json({ error: "not found" }, 404);
+      },
+      DELETE: (req: Request & { params: { day: string } }) => {
+        const day = parseConceptDay(req.params.day);
+        if (day === null) return json({ error: `day must be between 1 and ${TOTAL_DAYS}` }, 400);
+        const updated = clearTheoryContent(db, day);
         return updated ? json(updated) : json({ error: "not found" }, 404);
       },
     },
