@@ -33,7 +33,7 @@ export function getCurrentLeetcode150(db: Database): Leetcode150Item | null {
 
   const solvedSlugs = new Set(
     listProblems(db)
-      .map((p) => slugFromUrl(p.url))
+      .map((p) => slugFromUrl(p.url)?.toLowerCase() ?? null)
       .filter((s): s is string => s !== null),
   );
 

@@ -106,7 +106,7 @@ export const LEETCODE_150: Leetcode150Item[] = [
   { position: 77, number: 129, title: "Sum Root to Leaf Numbers", topic: "Binary Tree General", difficulty: "Medium" },
   { position: 78, number: 124, title: "Binary Tree Maximum Path Sum", topic: "Binary Tree General", difficulty: "Hard" },
   { position: 79, number: 173, title: "Binary Search Tree Iterator", topic: "Binary Tree General", difficulty: "Medium" },
-  { position: 80, number: 222, title: "Count Complete Tree Nodes", topic: "Binary Tree General", difficulty: "Medium" },
+  { position: 80, number: 222, title: "Count Complete Tree Nodes", topic: "Binary Tree General", difficulty: "Easy" },
   { position: 81, number: 236, title: "Lowest Common Ancestor of a Binary Tree", topic: "Binary Tree General", difficulty: "Medium" },
 
   // Binary Tree BFS

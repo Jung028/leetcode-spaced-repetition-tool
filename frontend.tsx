@@ -359,7 +359,7 @@ function NextProblemBanner() {
           <span className="board-title">
             {current.number}. {current.title}
           </span>
-          <span className="lang-tag">{current.topic}</span>
+          <span className="lang-tag">{current.topic} · {current.difficulty}</span>
         </button>
       </div>
     </section>

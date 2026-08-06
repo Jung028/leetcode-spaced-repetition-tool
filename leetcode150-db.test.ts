@@ -2,7 +2,7 @@ import { test, expect } from "bun:test";
 import { openDb, createProblem } from "./db";
 import { localToday } from "./scheduling";
 import { migrateLeetcode150, getCurrentLeetcode150 } from "./leetcode150-db";
-import { LEETCODE_150, leetcode150Url } from "./leetcode150-content";
+import { LEETCODE_150, leetcode150Url, slugify } from "./leetcode150-content";
 
 test("fresh db seeds completed_count at 29, so position 30 is current", () => {
   const db = openDb(":memory:");
@@ -48,6 +48,16 @@ test("solving a future (non-current) problem does not advance the pointer", () =
   createProblem(db, { title: LEETCODE_150[50]!.title, url: leetcode150Url(LEETCODE_150[50]!), solution: "x" }, localToday());
   const current = getCurrentLeetcode150(db);
   expect(current!.position).toBe(30); // unchanged — position 30 (index 29) still not solved
+});
+
+test("matches a solved problem's URL even if its slug casing differs", () => {
+  const db = openDb(":memory:");
+  migrateLeetcode150(db);
+  const item = LEETCODE_150[29]!; // position 30, "Minimum Size Subarray Sum"
+  const mixedCaseUrl = `https://leetcode.com/problems/${slugify(item.title).toUpperCase()}/`;
+  createProblem(db, { title: item.title, url: mixedCaseUrl, solution: "x" }, localToday());
+  const current = getCurrentLeetcode150(db);
+  expect(current!.position).toBe(31);
 });
 
 test("returns null once every problem is done", () => {
