@@ -84,6 +84,22 @@ const api = {
     fetch(`/api/problems/${id}`, { method: "DELETE" }),
 };
 
+interface Leetcode150Current {
+  position: number;
+  number: number;
+  title: string;
+  topic: string;
+  difficulty: "Easy" | "Medium" | "Hard";
+  url: string;
+}
+
+const leetcode150Api = {
+  current: () =>
+    fetch("/api/leetcode150/current").then(
+      (r) => r.json() as Promise<Leetcode150Current | { done: true }>,
+    ),
+};
+
 const daysBetween = (a: string, b: string) =>
   Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
 
@@ -319,6 +335,37 @@ function DueBoard({
   );
 }
 
+function NextProblemBanner() {
+  const [current, setCurrent] = useState<Leetcode150Current | { done: true } | null>(null);
+
+  useEffect(() => {
+    leetcode150Api.current().then(setCurrent);
+  }, []);
+
+  if (current === null) return null;
+  if ("done" in current) {
+    return (
+      <section className="board next-problem-banner" aria-label="Top Interview 150 progress">
+        <p className="board-empty">🎉 All 150 Top Interview problems done!</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="board next-problem-banner" aria-label="Next Top Interview 150 problem">
+      <div className="board-row">
+        <button className="board-row-main" onClick={() => openExternal(current.url)}>
+          <span className="tag">next up</span>
+          <span className="board-title">
+            {current.number}. {current.title}
+          </span>
+          <span className="lang-tag">{current.topic} · {current.difficulty}</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function ProblemForm({
   initial,
   submitLabel,
@@ -550,6 +597,7 @@ function LeetCodeApp({
 
       {view.name === "board" && (
         <>
+          <NextProblemBanner />
           <Stats problems={problems} today={today} completedToday={completedToday} onOpen={open} />
           <p className="rule-note">
             Pass a review and the problem comes back later: 1 → 3 → 7 → 14 → 30
