@@ -219,14 +219,19 @@ days").
 
 ## Home Aggregation
 
-`examDue`/`examCompletedToday` (`home-api.ts`) now produce **one `DueItem`
-per incomplete `(course, week)`**, not one per paper. `title` is
+`examDue` (`home-api.ts`) now produces **one `DueItem` per incomplete
+`(course, week)`**, not one per paper. `title` is
 `"Week <n> (<submitted>/<total> submitted)"` (e.g. `"Week 1 (1/3
 submitted)"`), `subtitle` is the course display name, `dueDate` is that
 week's `weekDueDate()` — no new field on the shared `DueItem` interface.
 This is what resolves the original complaint: once other courses have Week
 1 content, the Home due list shows one row per course-week (up to 4 today),
 not one row per paper.
+
+`examCompletedToday` stays one item per paper actually submitted today (and
+one item per review completed today) — a week isn't "completed today"
+unless its last paper happened to land today, and per-paper matches the
+Exam tab's own completed-today view and `stats.completedToday` count.
 
 ## Testing
 

@@ -5,17 +5,17 @@ import { openDb, createProblem, reviewProblem } from "./db";
 import { migrateTheory, reviewTheoryConcept, saveTheoryContent } from "./theory-db";
 import { migrateGoals, createProject, createStep, toggleStep } from "./goals-db";
 import { migrateExam, gradeExamAnswer, submitExamPaper, reviewExamItem } from "./exam-db";
-import { buildExamSchedule } from "./exam-content";
+import { buildExamSchedule, weekDueDate } from "./exam-content";
 import { homeApiRoutes } from "./home-api";
-import { localToday, addDays, MAX_ACTIVE_BACKLOG } from "./scheduling";
+import { localToday, addDays } from "./scheduling";
 
 const TODAY = localToday();
-// migrateExam releases papers up to the backlog cap immediately, so a fresh
-// db already has this many exam papers due today before any test acts.
-// Weekly pacing has no backlog cap — every paper in the current week (Week 1,
-// which TODAY falls inside) is due at once, so this is simply that week's
-// paper count for INFO5995, not a capped value.
-const EXAM_DUE_ON_MIGRATE = buildExamSchedule().filter((p) => p.course === "INFO5995" && p.week === 1).length;
+// Week 1's due date is fixed (SEMESTER_START is a literal), but "today" is
+// the real wall clock — once today passes weekDueDate(1), the still-open
+// Week 1 item flips from the dueToday bucket to the overdue bucket. These
+// tests compute that dynamically so they don't silently start failing
+// once the real calendar crosses that date.
+const EXAM_WEEK1_OVERDUE = TODAY > weekDueDate(1);
 let db: Database;
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
@@ -118,13 +118,21 @@ test("GET /api/home/due sorts all sources together by due date ascending", async
 
 test("GET /api/home/stats starts with 1 exam item (this week, besides theory) when theory concepts are all blank", async () => {
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats).toEqual({ dueToday: 1, overdue: 0, completedToday: 0 }); // 1 grouped week-item, not EXAM_DUE_ON_MIGRATE papers
+  expect(stats).toEqual({
+    dueToday: EXAM_WEEK1_OVERDUE ? 0 : 1,
+    overdue: EXAM_WEEK1_OVERDUE ? 1 : 0,
+    completedToday: 0,
+  }); // 1 grouped week-item, in whichever bucket today's date currently falls into
 });
 
 test("GET /api/home/stats counts theory concepts once they have content, up to the released cap", async () => {
   for (let day = 1; day <= 5; day++) saveTheoryContent(db, day, `Q${day}`, `A${day}`);
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats).toEqual({ dueToday: 6, overdue: 0, completedToday: 0 }); // 5 theory + 1 exam week-item
+  expect(stats).toEqual({
+    dueToday: 5 + (EXAM_WEEK1_OVERDUE ? 0 : 1),
+    overdue: EXAM_WEEK1_OVERDUE ? 1 : 0,
+    completedToday: 0,
+  }); // 5 theory + 1 exam week-item, in whichever bucket today's date currently falls into
 });
 
 test("GET /api/home/stats counts dueToday and overdue across all four sources", async () => {
@@ -138,8 +146,8 @@ test("GET /api/home/stats counts dueToday and overdue across all four sources", 
   createStep(db, overdueProject.id, "Overdue step", 20, addDays(TODAY, -3)); // overdue
 
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats.dueToday).toBe(7); // leetcode problem + 5 theory concepts + 1 exam week-item
-  expect(stats.overdue).toBe(1); // the goals step
+  expect(stats.dueToday).toBe(6 + (EXAM_WEEK1_OVERDUE ? 0 : 1)); // leetcode problem + 5 theory concepts + 1 exam week-item, date-dependent
+  expect(stats.overdue).toBe(1 + (EXAM_WEEK1_OVERDUE ? 1 : 0)); // the goals step, plus the exam week-item if it's now overdue
 });
 
 test("GET /api/home/stats counts completedToday across all three sources", async () => {

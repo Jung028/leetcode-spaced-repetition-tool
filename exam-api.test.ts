@@ -32,7 +32,7 @@ test("GET /api/exam/:course/due groups Week 1's 3 papers into one weeksDue entry
   expect(body.weeksDue[0].papers.length).toBe(3);
   expect(body.weeksDue[0].papers.every((p: any) => !p.submitted)).toBe(true);
   expect(body.reviewDue).toEqual([]);
-  expect(body.stats.dueCount).toBe(3);
+  expect(body.stats.dueCount).toBe(1); // 1 due week, matching how Home groups the same state — not 3 individual papers
 });
 
 test("GET /api/exam/:course/due hides a week whose start date hasn't arrived yet", async () => {

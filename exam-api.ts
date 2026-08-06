@@ -149,14 +149,14 @@ export function examApiRoutes(db: Database) {
         const reviewDue = reviewItems
           .map((item) => reviewView(course, item))
           .filter((r): r is ExamReviewView => r !== null);
-        const overduePaperCount = visibleRows.filter((r) => r.submitted_at === null && weekDueDate(r.week) < today).length;
-        const duePaperCount = visibleRows.filter((r) => r.submitted_at === null).length;
+        const dueWeekCount = weeksDue.filter((w) => !w.overdue).length;
+        const overdueWeekCount = weeksDue.filter((w) => w.overdue).length;
         return json({
           weeksDue,
           reviewDue,
           stats: {
-            dueCount: duePaperCount + reviewItems.length,
-            overdueCount: overduePaperCount + countOverdueExamReviewItems(db, course, today),
+            dueCount: dueWeekCount + reviewItems.length,
+            overdueCount: overdueWeekCount + countOverdueExamReviewItems(db, course, today),
             completedToday: countExamPapersSubmittedToday(db, course, today) + countExamReviewsToday(db, course, today),
           },
         });
