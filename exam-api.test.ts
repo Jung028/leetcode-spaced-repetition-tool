@@ -2,15 +2,16 @@ import { test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { migrateExam } from "./exam-db";
 import { examApiRoutes } from "./exam-api";
-import { addDays } from "./scheduling";
+import { addDays, localToday } from "./scheduling";
 
 const COURSE = "INFO5995";
-const TODAY = "2026-08-05"; // a Wednesday in Week 1
+const TODAY = localToday();
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
+let db: Database;
 
 beforeEach(() => {
-  const db = new Database(":memory:");
+  db = new Database(":memory:");
   migrateExam(db, TODAY);
   server = Bun.serve({ port: 0, routes: examApiRoutes(db) });
   base = server.url.origin;
@@ -32,6 +33,35 @@ test("GET /api/exam/:course/due groups Week 1's 3 papers into one weeksDue entry
   expect(body.weeksDue[0].papers.every((p: any) => !p.submitted)).toBe(true);
   expect(body.reviewDue).toEqual([]);
   expect(body.stats.dueCount).toBe(3);
+});
+
+test("GET /api/exam/:course/due hides a week whose start date hasn't arrived yet", async () => {
+  // Week 9999's start date (weekStartDate is a pure function of SEMESTER_START,
+  // 2026-08-03) is ~191 years out, so this reliably exercises the
+  // weekStartDate(week) <= today gate on any real calendar day the suite runs,
+  // without depending on "today" sitting before SEMESTER_START itself (which
+  // is now permanently false — SEMESTER_START is a fixed past date, and the
+  // /due route always reads the real localToday(), not an injected one).
+  db.query(`INSERT INTO exam_papers (course, week, paper_number) VALUES (?, ?, ?)`).run(COURSE, 9999, 1);
+  const body: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
+  expect(body.weeksDue.some((w: any) => w.week === 9999)).toBe(false);
+});
+
+test("GET /api/exam/:course/due drops a week once every paper in it is submitted", async () => {
+  for (const paperNumber of [1, 2, 3]) {
+    const paperRes: any = await (await fetch(`${base}/api/exam/${COURSE}/1/${paperNumber}`)).json();
+    const count = paperRes.questions.length;
+    for (let i = 0; i < count; i++) {
+      await fetch(`${base}/api/exam/${COURSE}/1/${paperNumber}/${i}/grade`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ correct: true }),
+      });
+    }
+    await fetch(`${base}/api/exam/${COURSE}/1/${paperNumber}/submit`, { method: "POST" });
+  }
+  const body: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
+  expect(body.weeksDue).toEqual([]);
 });
 
 test("GET /api/exam/:course/due with an unknown course returns 400", async () => {
