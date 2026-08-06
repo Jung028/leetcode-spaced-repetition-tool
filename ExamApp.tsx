@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { EXAM_REVIEW_LADDER } from "./exam-scheduling";
 import { localToday } from "./scheduling";
 import type { ExamPaperView, ExamQuestionView, ExamReviewView } from "./exam-api";
+import type { ExamWeekView } from "./exam-content";
 
 interface Stats {
   dueCount: number;
@@ -15,7 +16,11 @@ interface ExamCourse {
 }
 
 type Result = "correct" | "wrong";
-type View = { name: "board" } | { name: "paper" } | { name: "review"; item: ExamReviewView };
+type View =
+  | { name: "board" }
+  | { name: "week"; week: number }
+  | { name: "paper"; week: number; paperNumber: number }
+  | { name: "review"; item: ExamReviewView };
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -31,28 +36,37 @@ const api = {
   courses: () => fetch("/api/exam/courses").then((r) => json<ExamCourse[]>(r)),
   due: (course: string) =>
     fetch(`/api/exam/${course}/due`).then((r) =>
-      json<{ paper: ExamPaperView | null; reviewDue: ExamReviewView[]; stats: Stats }>(r),
+      json<{ weeksDue: ExamWeekView[]; reviewDue: ExamReviewView[]; stats: Stats }>(r),
     ),
   completedToday: (course: string) =>
     fetch(`/api/exam/${course}/completed-today`).then((r) => json<{ papers: ExamPaperView[] }>(r)),
-  saveAnswer: (course: string, paperDay: number, questionIndex: number, yourAnswer: string) =>
-    fetch(`/api/exam/${course}/${paperDay}/answer`, {
+  paper: (course: string, week: number, paperNumber: number) =>
+    fetch(`/api/exam/${course}/${week}/${paperNumber}`).then((r) => json<ExamPaperView>(r)),
+  saveAnswer: (course: string, week: number, paperNumber: number, questionIndex: number, yourAnswer: string) =>
+    fetch(`/api/exam/${course}/${week}/${paperNumber}/answer`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ questionIndex, yourAnswer }),
     }).then((r) => json<ExamPaperView>(r)),
-  grade: (course: string, paperDay: number, questionIndex: number, correct: boolean, yourAnswer?: string) =>
-    fetch(`/api/exam/${course}/${paperDay}/${questionIndex}/grade`, {
+  grade: (
+    course: string,
+    week: number,
+    paperNumber: number,
+    questionIndex: number,
+    correct: boolean,
+    yourAnswer?: string,
+  ) =>
+    fetch(`/api/exam/${course}/${week}/${paperNumber}/${questionIndex}/grade`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ correct, ...(yourAnswer !== undefined ? { yourAnswer } : {}) }),
     }).then((r) => json<ExamPaperView>(r)),
-  submit: (course: string, paperDay: number) =>
-    fetch(`/api/exam/${course}/${paperDay}/submit`, { method: "POST" }).then((r) =>
+  submit: (course: string, week: number, paperNumber: number) =>
+    fetch(`/api/exam/${course}/${week}/${paperNumber}/submit`, { method: "POST" }).then((r) =>
       json<{ scoreCorrect: number; scoreTotal: number }>(r),
     ),
-  reviewItem: (course: string, paperDay: number, questionIndex: number, result: Result) =>
-    fetch(`/api/exam/review/${course}/${paperDay}/${questionIndex}`, {
+  reviewItem: (course: string, week: number, paperNumber: number, questionIndex: number, result: Result) =>
+    fetch(`/api/exam/review/${course}/${week}/${paperNumber}/${questionIndex}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ result }),
@@ -101,13 +115,15 @@ function CourseSelector({
 function McqQuestion({
   question,
   course,
-  paperDay,
+  week,
+  paperNumber,
   onGraded,
   onError,
 }: {
   question: ExamQuestionView;
   course: string;
-  paperDay: number;
+  week: number;
+  paperNumber: number;
   onGraded: (updated: ExamPaperView) => void;
   onError: (message: string | null) => void;
 }) {
@@ -117,7 +133,7 @@ function McqQuestion({
     if (graded) return;
     onError(null);
     try {
-      const updated = await api.grade(course, paperDay, question.index, i === question.correctIndex, String(i));
+      const updated = await api.grade(course, week, paperNumber, question.index, i === question.correctIndex, String(i));
       onGraded(updated);
     } catch (err) {
       onError(errorMessage(err));
@@ -159,13 +175,15 @@ function McqQuestion({
 function ShortOrScenarioQuestion({
   question,
   course,
-  paperDay,
+  week,
+  paperNumber,
   onGraded,
   onError,
 }: {
   question: ExamQuestionView;
   course: string;
-  paperDay: number;
+  week: number;
+  paperNumber: number;
   onGraded: (updated: ExamPaperView) => void;
   onError: (message: string | null) => void;
 }) {
@@ -176,7 +194,7 @@ function ShortOrScenarioQuestion({
   const saveAndReveal = async () => {
     onError(null);
     try {
-      await api.saveAnswer(course, paperDay, question.index, draft);
+      await api.saveAnswer(course, week, paperNumber, question.index, draft);
       setRevealed(true);
     } catch (err) {
       onError(errorMessage(err));
@@ -186,7 +204,7 @@ function ShortOrScenarioQuestion({
   const grade = async (correct: boolean) => {
     onError(null);
     try {
-      const updated = await api.grade(course, paperDay, question.index, correct);
+      const updated = await api.grade(course, week, paperNumber, question.index, correct);
       onGraded(updated);
     } catch (err) {
       onError(errorMessage(err));
@@ -244,7 +262,7 @@ function PaperView({
   const submit = async () => {
     onError(null);
     try {
-      await api.submit(course, paper.paperDay);
+      await api.submit(course, paper.week, paper.paperNumber);
       onChanged();
       onBack();
     } catch (err) {
@@ -257,16 +275,26 @@ function PaperView({
       <header className="detail-head">
         <h2>{current.title}</h2>
         <span className="tag">{current.questions.length} questions</span>
+        <span className="lang-tag">Due {current.dueDate}</span>
       </header>
       {current.questions.map((q) =>
         q.type === "mcq" || q.type === "truefalse" ? (
-          <McqQuestion key={q.index} question={q} course={course} paperDay={paper.paperDay} onGraded={setCurrent} onError={onError} />
+          <McqQuestion
+            key={q.index}
+            question={q}
+            course={course}
+            week={paper.week}
+            paperNumber={paper.paperNumber}
+            onGraded={setCurrent}
+            onError={onError}
+          />
         ) : (
           <ShortOrScenarioQuestion
             key={q.index}
             question={q}
             course={course}
-            paperDay={paper.paperDay}
+            week={paper.week}
+            paperNumber={paper.paperNumber}
             onGraded={setCurrent}
             onError={onError}
           />
@@ -283,6 +311,77 @@ function PaperView({
           Grade every question — multiple choice grades itself on selection; reveal and mark short/scenario answers — before submitting.
         </p>
       )}
+    </article>
+  );
+}
+
+// Fetches and shows one paper's full content on demand — the weeksDue
+// response only carries per-paper titles/submitted flags for the picker,
+// not full question content, so opening a specific paper needs its own load.
+function PaperLoader({
+  course,
+  week,
+  paperNumber,
+  onBack,
+  onChanged,
+  onError,
+}: {
+  course: string;
+  week: number;
+  paperNumber: number;
+  onBack: () => void;
+  onChanged: () => void;
+  onError: (message: string | null) => void;
+}) {
+  const [paper, setPaper] = useState<ExamPaperView | null>(null);
+
+  useEffect(() => {
+    api
+      .paper(course, week, paperNumber)
+      .then(setPaper)
+      .catch((err) => onError(errorMessage(err)));
+  }, [course, week, paperNumber]);
+
+  if (!paper) return <p className="board-empty">Loading…</p>;
+  return <PaperView paper={paper} course={course} onBack={onBack} onChanged={onChanged} onError={onError} />;
+}
+
+function WeekPicker({
+  weekView,
+  onBack,
+  onPickPaper,
+}: {
+  weekView: ExamWeekView;
+  onBack: () => void;
+  onPickPaper: (paperNumber: number) => void;
+}) {
+  return (
+    <article className="detail">
+      <header className="detail-head">
+        <h2>Week {weekView.week}</h2>
+        <span className="tag">{weekView.overdue ? "overdue" : "due"} — {weekView.dueDate}</span>
+      </header>
+      <ul className="board-rows">
+        {weekView.papers.map((p) => (
+          <li key={p.paperNumber}>
+            {p.submitted ? (
+              <div className="board-row">
+                <span className="tag">done</span>
+                <span className="board-title">{p.title}</span>
+                <span className="lang-tag">{p.scoreCorrect}/{p.scoreTotal}</span>
+              </div>
+            ) : (
+              <button className="board-row board-row-main" onClick={() => onPickPaper(p.paperNumber)}>
+                <span className="tag">due</span>
+                <span className="board-title">{p.title}</span>
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      <div className="btn-row">
+        <button className="btn" onClick={onBack}>Back</button>
+      </div>
     </article>
   );
 }
@@ -305,7 +404,7 @@ function ReviewDetail({
   const review = async (result: Result) => {
     onError(null);
     try {
-      await api.reviewItem(course, item.paperDay, item.questionIndex, result);
+      await api.reviewItem(course, item.week, item.paperNumber, item.questionIndex, result);
       onChanged();
       onBack();
     } catch (err) {
@@ -357,17 +456,17 @@ function ReviewDetail({
 
 export default function ExamApp({
   openCourse,
-  openPaperDay,
+  openWeek,
   onOpened,
 }: {
   openCourse?: string | null;
-  openPaperDay?: number | null;
+  openWeek?: number | null;
   onOpened?: () => void;
 } = {}) {
   const [view, setView] = useState<View>({ name: "board" });
   const [courses, setCourses] = useState<ExamCourse[]>([]);
   const [course, setCourse] = useState<string | null>(null);
-  const [paper, setPaper] = useState<ExamPaperView | null>(null);
+  const [weeksDue, setWeeksDue] = useState<ExamWeekView[]>([]);
   const [reviewDue, setReviewDue] = useState<ExamReviewView[]>([]);
   const [stats, setStats] = useState<Stats>({ dueCount: 0, overdueCount: 0, completedToday: 0 });
   const [completedPapers, setCompletedPapers] = useState<ExamPaperView[] | null>(null);
@@ -388,8 +487,8 @@ export default function ExamApp({
     setError(null);
     return api
       .due(activeCourse)
-      .then(({ paper, reviewDue, stats }) => {
-        setPaper(paper);
+      .then(({ weeksDue, reviewDue, stats }) => {
+        setWeeksDue(weeksDue);
         setReviewDue(reviewDue);
         setStats(stats);
       })
@@ -404,16 +503,26 @@ export default function ExamApp({
     }
   }, [course]);
 
-  // Today's paper is the only exam deep-link target — a Home-tab review-item
-  // click still lands here (same paperDay) but opens the board, since a
-  // single missed question doesn't have its own drill-down view outside the
-  // review-due list. openCourse additionally switches to the right course.
+  // Submitting a week's last remaining paper drops that week out of
+  // weeksDue entirely (groupExamPapersByWeek excludes fully-submitted
+  // weeks). Without this, staying on { name: "week" } would render nothing
+  // — currentWeek's lookup below would come back empty — so snap back to
+  // the board once the week view's target no longer has an entry.
   useEffect(() => {
-    if (openCourse != null || openPaperDay != null) {
+    if (view.name === "week" && !weeksDue.some((w) => w.week === view.week)) {
+      setView({ name: "board" });
+    }
+  }, [weeksDue, view]);
+
+  // A Home-tab click only switches course and returns to the board — it
+  // doesn't drill into a specific week, matching how review-item deep links
+  // already worked before this plan (no per-item drill-down target).
+  useEffect(() => {
+    if (openCourse != null || openWeek != null) {
       if (openCourse != null) setCourse(openCourse);
       onOpened?.();
     }
-  }, [openCourse, openPaperDay]);
+  }, [openCourse, openWeek]);
 
   const openCompleted = () => {
     setShowCompleted(true);
@@ -433,13 +542,15 @@ export default function ExamApp({
     );
   }
 
+  const currentWeek = view.name === "week" || view.name === "paper" ? weeksDue.find((w) => w.week === view.week) : undefined;
+
   return (
     <div className="theory">
       <CourseSelector courses={courses} selected={course} onSelect={setCourse} />
       <ExamStats stats={stats} onOpenCompleted={openCompleted} />
       {error && <p className="form-error">{error}</p>}
       <p className="rule-note">
-        One new practice paper unlocks per day. Missed questions come back for spaced review: 3 → 5 → 7 → 14 → 30 days.
+        Each week's papers are due by Sunday. Missed questions come back for spaced review: 3 → 5 → 7 → 14 → 30 days.
       </p>
 
       {showCompleted && (
@@ -454,7 +565,7 @@ export default function ExamApp({
             ) : (
               <ul className="modal-rows">
                 {(completedPapers ?? []).map((p) => (
-                  <li key={p.paperDay} className="modal-row">
+                  <li key={`${p.week}-${p.paperNumber}`} className="modal-row">
                     <span className="modal-row-title">{p.title}</span>
                     <span className="tag">{p.scoreCorrect}/{p.scoreTotal}</span>
                   </li>
@@ -467,18 +578,27 @@ export default function ExamApp({
 
       {view.name === "board" && (
         <>
-          <section className="board" aria-label="Today's paper">
+          <section className="board" aria-label="Weeks due">
             <div className="section-head">
-              <h2>Today's paper</h2>
+              <h2>This week's papers</h2>
             </div>
-            {paper === null ? (
-              <p className="board-empty">Nothing due. Tomorrow's paper unlocks then.</p>
+            {weeksDue.length === 0 ? (
+              <p className="board-empty">Nothing due. Next week's papers unlock then.</p>
             ) : (
-              <button className="board-row board-row-main" onClick={() => setView({ name: "paper" })}>
-                <span className="tag">due</span>
-                <span className="board-title">{paper.title}</span>
-                <span className="lang-tag">{paper.questions.length} questions</span>
-              </button>
+              <ul className="board-rows">
+                {weeksDue.map((w) => {
+                  const submittedCount = w.papers.filter((p) => p.submitted).length;
+                  return (
+                    <li key={w.week}>
+                      <button className="board-row board-row-main" onClick={() => setView({ name: "week", week: w.week })}>
+                        <span className="tag">{w.overdue ? "overdue" : "due"}</span>
+                        <span className="board-title">Week {w.week}</span>
+                        <span className="lang-tag">{submittedCount}/{w.papers.length} submitted · due {w.dueDate}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </section>
 
@@ -492,7 +612,7 @@ export default function ExamApp({
             ) : (
               <ul className="board-rows">
                 {reviewDue.map((item) => (
-                  <li key={`${item.paperDay}-${item.questionIndex}`}>
+                  <li key={`${item.week}-${item.paperNumber}-${item.questionIndex}`}>
                     <button className="board-row board-row-main" onClick={() => setView({ name: "review", item })}>
                       <span className="tag">{item.nextReview < localToday() ? "overdue" : "due"}</span>
                       <span className="board-title">{item.prompt}</span>
@@ -505,11 +625,20 @@ export default function ExamApp({
         </>
       )}
 
-      {view.name === "paper" && paper && (
-        <PaperView
-          paper={paper}
-          course={course}
+      {view.name === "week" && currentWeek && (
+        <WeekPicker
+          weekView={currentWeek}
           onBack={() => setView({ name: "board" })}
+          onPickPaper={(paperNumber) => setView({ name: "paper", week: view.week, paperNumber })}
+        />
+      )}
+
+      {view.name === "paper" && (
+        <PaperLoader
+          course={course}
+          week={view.week}
+          paperNumber={view.paperNumber}
+          onBack={() => setView({ name: "week", week: view.week })}
           onChanged={() => refresh(course)}
           onError={setError}
         />

@@ -592,7 +592,7 @@ type DeepLink =
   | { tab: "leetcode"; problemId: number }
   | { tab: "theory"; conceptDay: number }
   | { tab: "goals"; projectId: number }
-  | { tab: "exam"; course: string; paperDay: number };
+  | { tab: "exam"; course: string; week: number };
 
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
@@ -639,7 +639,7 @@ function App() {
     if (item.source === "leetcode") setDeepLink({ tab: "leetcode", problemId: item.linkId });
     else if (item.source === "theory") setDeepLink({ tab: "theory", conceptDay: item.linkId });
     else if (item.source === "goals") setDeepLink({ tab: "goals", projectId: item.linkId });
-    else setDeepLink({ tab: "exam", course: item.course!, paperDay: item.linkId });
+    else setDeepLink({ tab: "exam", course: item.course!, week: item.linkId });
     setTab(item.source);
   };
 
@@ -668,7 +668,7 @@ function App() {
       {tab === "exam" && (
         <ExamApp
           openCourse={deepLink?.tab === "exam" ? deepLink.course : null}
-          openPaperDay={deepLink?.tab === "exam" ? deepLink.paperDay : null}
+          openWeek={deepLink?.tab === "exam" ? deepLink.week : null}
           onOpened={() => setDeepLink(null)}
         />
       )}
