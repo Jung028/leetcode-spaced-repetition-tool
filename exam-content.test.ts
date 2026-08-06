@@ -51,9 +51,9 @@ test("every question has a non-empty prompt and modelAnswer", () => {
   }
 });
 
-test("INFO5995 Week 1 has exactly 3 papers, numbered 1-3", () => {
+test("INFO5995 Week 1 has exactly 1 combined paper, numbered 1", () => {
   const week1 = buildExamSchedule().filter((p) => p.course === "INFO5995" && p.week === 1);
-  expect(week1.map((p) => p.paperNumber).sort()).toEqual([1, 2, 3]);
+  expect(week1.map((p) => p.paperNumber)).toEqual([1]);
 });
 
 test("groupExamPapersByWeek groups multiple papers in the same week into one entry", () => {
