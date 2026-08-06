@@ -105,7 +105,7 @@ export interface GenerateResult {
 // The testable core: real FS reads/writes, but no argv parsing — the CLI
 // entrypoint below is the only part that touches process.argv.
 export async function generateWeekFile(options: GenerateOptions): Promise<GenerateResult> {
-  const { week, weekDir, outPath, course, paperCount = 3, force = false } = options;
+  const { week, weekDir, outPath, course, paperCount = 1, force = false } = options;
   if (!existsSync(weekDir)) {
     return { written: false, reason: `Week folder not found: ${weekDir}`, path: outPath };
   }
@@ -135,7 +135,7 @@ function parseArgs(argv: string[]): { week: number; course: string; courseDir?: 
     week,
     course: get("--course") ?? "INFO5995",
     courseDir: get("--course-dir"),
-    papers: papersArg ? Number(papersArg) : 3,
+    papers: papersArg ? Number(papersArg) : 1,
     force: argv.includes("--force"),
   };
 }
