@@ -88,9 +88,23 @@ test("GET /api/home/due gives the week item and exam review items collision-free
   const weekItem = examItems.find((i) => i.title.startsWith("Week "));
   const reviewItem = examItems.find((i) => !i.title.startsWith("Week "));
   expect(weekItem).toBeTruthy();
+  expect(weekItem.title).toBe("Week 1 (1/3 submitted)");
   expect(reviewItem).toBeTruthy();
   const ids = examItems.map((i) => i.id);
   expect(new Set(ids).size).toBe(ids.length); // no id collisions between the week item and the review item
+});
+
+test("GET /api/home/due drops the week item once every paper in it is submitted", async () => {
+  for (const paperNumber of [1, 2, 3] as const) {
+    const paper = buildExamSchedule().find(
+      (p) => p.course === "INFO5995" && p.week === 1 && p.paperNumber === paperNumber,
+    )!;
+    paper.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, paperNumber, i, true));
+    submitExamPaper(db, "INFO5995", 1, paperNumber, TODAY);
+  }
+
+  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  expect(items.some((i) => i.source === "exam")).toBe(false);
 });
 
 test("GET /api/home/due sorts all sources together by due date ascending", async () => {
