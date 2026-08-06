@@ -19,7 +19,8 @@ test("weekStartDate/weekDueDate compute the Monday/Sunday of the given week", ()
 test("listExamCourses only returns courses that actually have at least one paper", () => {
   const listed = listExamCourses();
   expect(listed.some((c) => c.code === "INFO5995")).toBe(true);
-  expect(listed.some((c) => c.code === "INFO5990")).toBe(false); // no papers yet
+  expect(listed.some((c) => c.code === "INFO5990")).toBe(true);
+  expect(listed.length).toBe(COURSES.length); // every known course now has content
 });
 
 test("every paper has at least one question and a non-empty title", () => {

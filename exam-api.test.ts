@@ -22,7 +22,16 @@ afterEach(() => server.stop(true));
 test("GET /api/exam/courses lists courses that have at least one paper", async () => {
   const body: any = await (await fetch(`${base}/api/exam/courses`)).json();
   expect(body.some((c: any) => c.code === "INFO5995")).toBe(true);
-  expect(body.some((c: any) => c.code === "INFO5990")).toBe(false);
+  expect(body.some((c: any) => c.code === "INFO5990")).toBe(true);
+});
+
+test("GET /api/exam/sync returns a pending list (shape check — content depends on the real Desktop folder)", async () => {
+  const body: any = await (await fetch(`${base}/api/exam/sync`)).json();
+  expect(Array.isArray(body.pending)).toBe(true);
+  for (const item of body.pending) {
+    expect(typeof item.course).toBe("string");
+    expect(typeof item.week).toBe("number");
+  }
 });
 
 test("GET /api/exam/:course/due groups Week 1's 3 papers into one weeksDue entry", async () => {

@@ -3,6 +3,7 @@ import { EXAM_REVIEW_LADDER } from "./exam-scheduling";
 import { localToday } from "./scheduling";
 import type { ExamPaperView, ExamQuestionView, ExamReviewView } from "./exam-api";
 import type { ExamWeekView } from "./exam-content";
+import { TIMELINE_URL, TIMELINE_ANCHORS } from "./timeline-link";
 
 interface Stats {
   dueCount: number;
@@ -71,6 +72,7 @@ const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ result }),
     }).then((r) => json<any>(r)),
+  sync: () => fetch("/api/exam/sync").then((r) => json<{ pending: { course: string; week: number }[] }>(r)),
 };
 
 function ExamStats({ stats, onOpenCompleted }: { stats: Stats; onOpenCompleted: () => void }) {
@@ -88,6 +90,29 @@ function ExamStats({ stats, onOpenCompleted }: { stats: Stats; onOpenCompleted: 
         <span className="stat-num">{stats.completedToday}</span>
         <span className="stat-label">Completed today</span>
       </button>
+    </div>
+  );
+}
+
+function SyncBanner({
+  pending,
+  onDismiss,
+}: {
+  pending: { course: string; week: number }[];
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="board" style={{ marginBottom: "1rem" }}>
+      <div className="board-row" style={{ justifyContent: "space-between" }}>
+        <span>
+          {pending.length === 0
+            ? "Everything's generated — nothing pending."
+            : `${pending.length} week${pending.length === 1 ? "" : "s"} ready to generate: ${pending
+                .map((p) => `${p.course} Week ${p.week}`)
+                .join(", ")} — ask Claude Code to fill these in.`}
+        </span>
+        <button className="modal-close" onClick={onDismiss} aria-label="Dismiss">×</button>
+      </div>
     </div>
   );
 }
@@ -365,7 +390,7 @@ function WeekPicker({
         {weekView.papers.map((p) => (
           <li key={p.paperNumber}>
             {p.submitted ? (
-              <div className="board-row">
+              <div className="board-row board-row-main" style={{ "--urgency": "var(--green)" } as React.CSSProperties}>
                 <span className="tag">done</span>
                 <span className="board-title">{p.title}</span>
                 <span className="lang-tag">{p.scoreCorrect}/{p.scoreTotal}</span>
@@ -472,6 +497,21 @@ export default function ExamApp({
   const [completedPapers, setCompletedPapers] = useState<ExamPaperView[] | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [syncPending, setSyncPending] = useState<{ course: string; week: number }[] | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
+  const runSync = async () => {
+    setSyncing(true);
+    setError(null);
+    try {
+      const { pending } = await api.sync();
+      setSyncPending(pending);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     api
@@ -547,11 +587,22 @@ export default function ExamApp({
   return (
     <div className="theory">
       <CourseSelector courses={courses} selected={course} onSelect={setCourse} />
+      <div className="btn-row" style={{ marginBottom: "1rem" }}>
+        <button className="btn" onClick={runSync} disabled={syncing}>
+          {syncing ? "Syncing…" : "Sync"}
+        </button>
+      </div>
+      {syncPending !== null && <SyncBanner pending={syncPending} onDismiss={() => setSyncPending(null)} />}
       <ExamStats stats={stats} onOpenCompleted={openCompleted} />
       {error && <p className="form-error">{error}</p>}
       <p className="rule-note">
         Each week's papers are due by Sunday. Missed questions come back for spaced review: 3 → 5 → 7 → 14 → 30 days.
       </p>
+      <div className="detail-meta">
+        <a href={`${TIMELINE_URL}#${TIMELINE_ANCHORS[course] ?? ""}`} target="_blank" rel="noopener noreferrer">
+          View full semester timeline ↗
+        </a>
+      </div>
 
       {showCompleted && (
         <div className="modal-backdrop" onClick={() => setShowCompleted(false)}>

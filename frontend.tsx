@@ -673,7 +673,7 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
         className={tab === "exam" ? "tab tab-active" : "tab"}
         onClick={() => onChange("exam")}
       >
-        Exam
+        Modules
       </button>
     </nav>
   );

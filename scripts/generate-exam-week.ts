@@ -20,8 +20,9 @@ export function scanWeekFolder(weekDir: string): ScannedWeek {
   const videos: string[] = [];
   const entries = readdirSync(weekDir, { recursive: true }) as string[];
   for (const entry of entries) {
-    const base = entry.split("/").pop()!;
-    if (base.startsWith(".")) continue;
+    const segments = entry.split("/");
+    if (segments.some((s) => s.startsWith(".") || s === "node_modules")) continue;
+    const base = segments.pop()!;
     const dot = base.lastIndexOf(".");
     if (dot === -1) continue;
     const ext = base.slice(dot).toLowerCase();

@@ -120,15 +120,17 @@ test("reviewExamItem returns null for an item that isn't in the review queue", (
 });
 
 test("two different courses' rows are independent — course scoping partitions correctly", () => {
-  db.query(`INSERT INTO exam_papers (course, week, paper_number) VALUES ('COMP5348', 1, 1)`).run();
-  saveExamAnswer(db, "COMP5348", 1, 1, 0, "comp draft");
+  // Uses a course code with no seeded content, so this stays a pure DB-scoping
+  // test rather than colliding with a real course's migrateExam()-seeded rows.
+  db.query(`INSERT INTO exam_papers (course, week, paper_number) VALUES ('OTHERCOURSE', 1, 1)`).run();
+  saveExamAnswer(db, "OTHERCOURSE", 1, 1, 0, "other draft");
   saveExamAnswer(db, COURSE, 1, 1, 0, "info draft");
 
-  expect(listExamAnswers(db, "COMP5348", 1, 1)[0]!.your_answer).toBe("comp draft");
+  expect(listExamAnswers(db, "OTHERCOURSE", 1, 1)[0]!.your_answer).toBe("other draft");
   expect(listExamAnswers(db, COURSE, 1, 1)[0]!.your_answer).toBe("info draft");
-  expect(getExamPaperRow(db, "COMP5348", 1, 1)!.course).toBe("COMP5348");
-  expect(listExamPaperRows(db, "COMP5348").length).toBe(1);
-  expect(listExamPaperRows(db, COURSE).length).toBe(3); // unaffected by COMP5348's row
+  expect(getExamPaperRow(db, "OTHERCOURSE", 1, 1)!.course).toBe("OTHERCOURSE");
+  expect(listExamPaperRows(db, "OTHERCOURSE").length).toBe(1);
+  expect(listExamPaperRows(db, COURSE).length).toBe(3); // unaffected by OTHERCOURSE's row
 });
 
 test("migrateExam upgrades a pre-existing paper_day-keyed db, recovering (week, paperNumber) by content position", () => {

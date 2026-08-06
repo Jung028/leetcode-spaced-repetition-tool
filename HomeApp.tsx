@@ -1,14 +1,95 @@
 // HomeApp.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import type { DueItem, DueSource, HomeStats } from "./home-api";
+import { SEMESTER_DEADLINES } from "./semester-deadlines";
+import { TIMELINE_URL } from "./timeline-link";
+import { localToday } from "./scheduling";
 
 const EMPTY_STATS: HomeStats = { dueToday: 0, overdue: 0, completedToday: 0 };
+
+const DEADLINE_COURSE_COLOR: Record<string, string> = {
+  INFO5995: "#e0784f",
+  COMP5348: "#6fa8dc",
+  INFO6007: "#e0c15c",
+  INFO5990: "#b8bcae",
+};
+
+function daysUntil(dueDate: string, today: string): number {
+  return Math.round((Date.parse(dueDate) - Date.parse(today)) / 86_400_000);
+}
+
+// Real assignment/project due dates, separate from the spaced-repetition
+// exam board — sorted soonest-first, with anything more than 3 days past
+// due dropped so the list doesn't accumulate stale rows all semester.
+function DeadlinesPanel() {
+  const today = localToday();
+  const upcoming = SEMESTER_DEADLINES.map((d) => ({ ...d, days: daysUntil(d.dueDate, today) }))
+    .filter((d) => d.days >= -3)
+    .sort((a, b) => a.days - b.days);
+
+  return (
+    <details className="board deadlines-panel" open aria-label="Semester deadlines">
+      <summary className="section-head deadlines-summary">
+        <span className="deadlines-chevron" aria-hidden="true">›</span>
+        <h2>Semester deadlines</h2>
+        <span className="board-count">{upcoming.length}</span>
+        <a
+          className="section-head-link"
+          href={TIMELINE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+        >
+          Full timeline ↗
+        </a>
+      </summary>
+      {upcoming.length === 0 ? (
+        <p className="board-empty">No graded deadlines with a confirmed date left this semester.</p>
+      ) : (
+        <ul className="board-rows">
+          {upcoming.map((d, i) => {
+            const color = d.days < 0 ? "red" : d.days <= 3 ? "gold" : "green";
+            const label = d.days < 0 ? `${-d.days}d ago` : d.days === 0 ? "today" : `in ${d.days}d`;
+            return (
+              <li key={`${d.course}-${d.title}`} style={{ animationDelay: `${i * 60}ms` }}>
+                <div className="board-row board-row-main" style={{ "--urgency": `var(--${color})` } as React.CSSProperties}>
+                  <span className="tag">{label}</span>
+                  <span className="cat-tag" style={{ "--cat-color": DEADLINE_COURSE_COLOR[d.course] } as React.CSSProperties}>
+                    {d.course}
+                  </span>
+                  <span className="board-title">{d.title}</span>
+                  <span className="goal-deadline">{d.weight} · {d.dueDate}</span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </details>
+  );
+}
+
+// Twice-weekly nudge to keep the exam-content pipeline fed: Wednesday and
+// Friday are when new lecture material typically lands, so those mornings
+// get a standing reminder to pull it in. Computed from the local date, not
+// stored — nothing to go stale.
+function WeeklyContentReminder() {
+  const day = new Date().getDay(); // 0 = Sunday ... 6 = Saturday
+  if (day !== 3 && day !== 5) return null;
+  const label = day === 3 ? "Wednesday" : "Friday";
+  return (
+    <div className="reminder-banner" role="note">
+      <span className="tag">{label}</span>
+      <span>Download this week's lecture video, then ask Claude to generate updated slides notes and exam-style questions from it.</span>
+    </div>
+  );
+}
 
 const SOURCE_LABEL: Record<DueSource, string> = {
   leetcode: "LeetCode",
   theory: "Theory",
   goals: "Goals",
-  exam: "Exam",
+  exam: "Modules",
 };
 
 const SOURCE_COLOR: Record<DueSource, string> = {
@@ -177,6 +258,7 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
           <span className="stat-label">Completed today</span>
         </button>
       </div>
+      <WeeklyContentReminder />
       {openModal === "due" && (
         <HomeListModal
           title="Due today"
@@ -204,6 +286,7 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
           onClose={() => setOpenModal(null)}
         />
       )}
+      <DeadlinesPanel />
       <section className="board" aria-label="Everything due">
         <div className="section-head">
           <h2>Everything due</h2>

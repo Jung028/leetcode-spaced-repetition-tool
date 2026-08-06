@@ -245,6 +245,61 @@ button.stat:hover {
   margin-bottom: 0.75rem;
 }
 
+.section-head-link {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--orange);
+  text-decoration: none;
+}
+
+.section-head-link:hover {
+  text-decoration: underline;
+}
+
+/* Semester deadlines panel, collapsible via <details>/<summary> */
+.deadlines-summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.deadlines-summary::-webkit-details-marker {
+  display: none;
+}
+
+.deadlines-summary::marker {
+  content: "";
+}
+
+.deadlines-chevron {
+  display: inline-block;
+  color: var(--dim);
+  transition: transform 0.15s ease;
+}
+
+.deadlines-panel[open] .deadlines-chevron {
+  transform: rotate(90deg);
+}
+
+/* Twice-weekly content-pipeline nudge on the Home tab */
+.reminder-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--panel);
+  border-left: 3px solid var(--orange);
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.reminder-banner .tag {
+  flex-shrink: 0;
+  background: var(--orange);
+}
+
 .section-head h2 {
   font-size: 0.8rem;
   font-weight: 500;

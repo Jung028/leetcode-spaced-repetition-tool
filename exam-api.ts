@@ -23,6 +23,7 @@ import {
   groupExamPapersByWeek,
   type ExamWeekView,
 } from "./exam-content";
+import { findPendingWeeks } from "./exam-sync";
 import type { ExamQuestionType } from "./exam-content/types";
 import { localToday } from "./scheduling";
 
@@ -135,6 +136,9 @@ export function examApiRoutes(db: Database) {
   return {
     "/api/exam/courses": {
       GET: () => json(listExamCourses()),
+    },
+    "/api/exam/sync": {
+      GET: () => json({ pending: findPendingWeeks() }),
     },
     "/api/exam/:course/due": {
       GET: (req: Request & { params: { course: string } }) => {

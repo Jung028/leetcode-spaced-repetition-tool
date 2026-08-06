@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "leetcode-srs-dev",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["--hot", "index.ts"],
+      "port": 3000
+    }
+  ]
+}

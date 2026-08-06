@@ -5,7 +5,7 @@ import { openDb, createProblem, reviewProblem } from "./db";
 import { migrateTheory, reviewTheoryConcept, saveTheoryContent } from "./theory-db";
 import { migrateGoals, createProject, createStep, toggleStep } from "./goals-db";
 import { migrateExam, gradeExamAnswer, submitExamPaper, reviewExamItem } from "./exam-db";
-import { buildExamSchedule, weekDueDate } from "./exam-content";
+import { buildExamSchedule, weekDueDate, listExamCourses } from "./exam-content";
 import { homeApiRoutes } from "./home-api";
 import { localToday, addDays } from "./scheduling";
 
@@ -16,6 +16,9 @@ const TODAY = localToday();
 // tests compute that dynamically so they don't silently start failing
 // once the real calendar crosses that date.
 const EXAM_WEEK1_OVERDUE = TODAY > weekDueDate(1);
+// Every course with content gets its own collapsed "Week 1" due-item, so
+// stats scale with however many courses currently have papers, not a fixed 1.
+const EXAM_WEEK1_ITEM_COUNT = listExamCourses().length;
 let db: Database;
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
@@ -71,9 +74,11 @@ test("GET /api/home/due excludes a Goals step that isn't due yet", async () => {
 test("GET /api/home/due includes this week's exam item", async () => {
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   const examItems = items.filter((i) => i.source === "exam");
-  expect(examItems.length).toBe(1); // Week 1's 3 papers collapse into one due-item
-  expect(examItems[0]!.linkId).toBe(1); // week 1
-  expect(examItems[0]!.title).toContain("Week 1");
+  expect(examItems.length).toBe(EXAM_WEEK1_ITEM_COUNT); // each course's Week 1 papers collapse into one due-item
+  const info5995Item = examItems.find((i) => i.course === "INFO5995")!;
+  expect(info5995Item).toBeTruthy();
+  expect(info5995Item.linkId).toBe(1); // week 1
+  expect(info5995Item.title).toContain("Week 1");
 });
 
 test("GET /api/home/due gives the week item and exam review items collision-free ids", async () => {
@@ -83,15 +88,16 @@ test("GET /api/home/due gives the week item and exam review items collision-free
 
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   const examItems = items.filter((i) => i.source === "exam");
-  // The week item (papers 2/3 still unsubmitted) and the review item (paper 1's wrong question) coexist distinctly.
-  expect(examItems.length).toBe(2);
-  const weekItem = examItems.find((i) => i.title.startsWith("Week "));
-  const reviewItem = examItems.find((i) => !i.title.startsWith("Week "));
+  const info5995Items = examItems.filter((i) => i.course === "INFO5995");
+  // INFO5995's week item (papers 2/3 still unsubmitted) and review item (paper 1's wrong question) coexist distinctly.
+  expect(info5995Items.length).toBe(2);
+  const weekItem = info5995Items.find((i) => i.title.startsWith("Week "));
+  const reviewItem = info5995Items.find((i) => !i.title.startsWith("Week "));
   expect(weekItem).toBeTruthy();
   expect(weekItem.title).toBe("Week 1 (1/3 submitted)");
   expect(reviewItem).toBeTruthy();
   const ids = examItems.map((i) => i.id);
-  expect(new Set(ids).size).toBe(ids.length); // no id collisions between the week item and the review item
+  expect(new Set(ids).size).toBe(ids.length); // no id collisions across any course's items
 });
 
 test("GET /api/home/due drops the week item once every paper in it is submitted", async () => {
@@ -104,7 +110,7 @@ test("GET /api/home/due drops the week item once every paper in it is submitted"
   }
 
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
-  expect(items.some((i) => i.source === "exam")).toBe(false);
+  expect(items.some((i) => i.source === "exam" && i.course === "INFO5995")).toBe(false);
 });
 
 test("GET /api/home/due sorts all sources together by due date ascending", async () => {
@@ -116,23 +122,23 @@ test("GET /api/home/due sorts all sources together by due date ascending", async
   expect(items[0]!.source).toBe("goals");
 });
 
-test("GET /api/home/stats starts with 1 exam item (this week, besides theory) when theory concepts are all blank", async () => {
+test("GET /api/home/stats starts with one exam item per course (this week, besides theory) when theory concepts are all blank", async () => {
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
   expect(stats).toEqual({
-    dueToday: EXAM_WEEK1_OVERDUE ? 0 : 1,
-    overdue: EXAM_WEEK1_OVERDUE ? 1 : 0,
+    dueToday: EXAM_WEEK1_OVERDUE ? 0 : EXAM_WEEK1_ITEM_COUNT,
+    overdue: EXAM_WEEK1_OVERDUE ? EXAM_WEEK1_ITEM_COUNT : 0,
     completedToday: 0,
-  }); // 1 grouped week-item, in whichever bucket today's date currently falls into
+  }); // one grouped week-item per course, in whichever bucket today's date currently falls into
 });
 
 test("GET /api/home/stats counts theory concepts once they have content, up to the released cap", async () => {
   for (let day = 1; day <= 5; day++) saveTheoryContent(db, day, `Q${day}`, `A${day}`);
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
   expect(stats).toEqual({
-    dueToday: 5 + (EXAM_WEEK1_OVERDUE ? 0 : 1),
-    overdue: EXAM_WEEK1_OVERDUE ? 1 : 0,
+    dueToday: 5 + (EXAM_WEEK1_OVERDUE ? 0 : EXAM_WEEK1_ITEM_COUNT),
+    overdue: EXAM_WEEK1_OVERDUE ? EXAM_WEEK1_ITEM_COUNT : 0,
     completedToday: 0,
-  }); // 5 theory + 1 exam week-item, in whichever bucket today's date currently falls into
+  }); // 5 theory + one exam week-item per course, in whichever bucket today's date currently falls into
 });
 
 test("GET /api/home/stats counts dueToday and overdue across all four sources", async () => {
@@ -146,8 +152,8 @@ test("GET /api/home/stats counts dueToday and overdue across all four sources", 
   createStep(db, overdueProject.id, "Overdue step", 20, addDays(TODAY, -3)); // overdue
 
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats.dueToday).toBe(6 + (EXAM_WEEK1_OVERDUE ? 0 : 1)); // leetcode problem + 5 theory concepts + 1 exam week-item, date-dependent
-  expect(stats.overdue).toBe(1 + (EXAM_WEEK1_OVERDUE ? 1 : 0)); // the goals step, plus the exam week-item if it's now overdue
+  expect(stats.dueToday).toBe(6 + (EXAM_WEEK1_OVERDUE ? 0 : EXAM_WEEK1_ITEM_COUNT)); // leetcode problem + 5 theory concepts + one exam week-item per course, date-dependent
+  expect(stats.overdue).toBe(1 + (EXAM_WEEK1_OVERDUE ? EXAM_WEEK1_ITEM_COUNT : 0)); // the goals step, plus the exam week-items if they're now overdue
 });
 
 test("GET /api/home/stats counts completedToday across all three sources", async () => {
