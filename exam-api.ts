@@ -6,6 +6,7 @@ import {
   saveExamAnswer,
   gradeExamAnswer,
   submitExamPaper,
+  retakeExamPaper,
   countExamPapersSubmittedToday,
   listExamPapersSubmittedToday,
   listDueExamReviewItems,
@@ -255,6 +256,23 @@ export function examApiRoutes(db: Database) {
           return json({ error: message }, status);
         }
         return json({ scoreCorrect: result.scoreCorrect, scoreTotal: result.scoreTotal });
+      },
+    },
+    "/api/exam/:course/:week/:paperNumber/retake": {
+      POST: (req: Request & { params: { course: string; week: string; paperNumber: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const week = parseWeek(req.params.week);
+        if (week === null) return json({ error: "invalid week" }, 400);
+        const paperNumber = parsePaperNumber(req.params.paperNumber, course, week);
+        if (paperNumber === null) return json({ error: "paper not found" }, 404);
+        const result = retakeExamPaper(db, course, week, paperNumber);
+        if (!result.ok) {
+          const status = result.reason === "not_found" ? 404 : 400;
+          const message = result.reason === "not_found" ? "not found" : "paper not yet submitted";
+          return json({ error: message }, status);
+        }
+        return json({ ok: true });
       },
     },
     "/api/exam/review/:course/:week/:paperNumber/:questionIndex": {

@@ -237,3 +237,43 @@ test("GET /api/exam/:course/completed-today lists papers submitted today", async
   expect(completed.papers.length).toBe(1);
   expect(completed.papers[0].scoreCorrect).toBe(count);
 });
+
+async function submitWeek1Paper1(scoreAllCorrect: boolean) {
+  const paperRes: any = await (await fetch(`${base}/api/exam/${COURSE}/1/1`)).json();
+  for (let i = 0; i < paperRes.questions.length; i++) {
+    await fetch(`${base}/api/exam/${COURSE}/1/1/${i}/grade`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ correct: scoreAllCorrect || i !== 0 }),
+    });
+  }
+  return fetch(`${base}/api/exam/${COURSE}/1/1/submit`, { method: "POST" });
+}
+
+test("POST /api/exam/:course/:week/:paperNumber/retake resets a submitted paper", async () => {
+  await submitWeek1Paper1(true);
+
+  const res = await fetch(`${base}/api/exam/${COURSE}/1/1/retake`, { method: "POST" });
+  expect(res.status).toBe(200);
+
+  const paperRes: any = await (await fetch(`${base}/api/exam/${COURSE}/1/1`)).json();
+  expect(paperRes.submittedAt).toBeNull();
+  expect(paperRes.questions.every((q: any) => q.yourAnswer === "" && q.correct === null)).toBe(true);
+});
+
+test("POST retake on a paper never submitted returns 400", async () => {
+  const res = await fetch(`${base}/api/exam/${COURSE}/1/1/retake`, { method: "POST" });
+  expect(res.status).toBe(400);
+  const body: any = await res.json();
+  expect(body.error).toBe("paper not yet submitted");
+});
+
+test("POST retake on an unknown course returns 400", async () => {
+  const res = await fetch(`${base}/api/exam/UNKNOWN123/1/1/retake`, { method: "POST" });
+  expect(res.status).toBe(400);
+});
+
+test("POST retake on a paper number that doesn't exist returns 404", async () => {
+  const res = await fetch(`${base}/api/exam/${COURSE}/1/999/retake`, { method: "POST" });
+  expect(res.status).toBe(404);
+});
