@@ -639,14 +639,17 @@ export default function ExamApp({
     }
   };
 
+  const loadHistory = () => {
+    if (!course) return;
+    api
+      .history(course)
+      .then((r) => setHistory(r.weeks))
+      .catch((err) => setError(errorMessage(err)));
+  };
+
   const openHistory = () => {
     setView({ name: "history" });
-    if (course) {
-      api
-        .history(course)
-        .then((r) => setHistory(r.weeks))
-        .catch((err) => setError(errorMessage(err)));
-    }
+    loadHistory();
   };
 
   const retake = async (week: number, paperNumber: number) => {
@@ -656,6 +659,7 @@ export default function ExamApp({
       await api.retake(course, week, paperNumber);
       setView({ name: "history-paper", week, paperNumber });
       refresh(course);
+      loadHistory();
     } catch (err) {
       setError(errorMessage(err));
     }
