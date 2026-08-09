@@ -39,6 +39,18 @@ function courseOffset(course: string): number {
   return COURSES.findIndex((c) => c.code === course) * 100_000_000;
 }
 
+// Shared by examDue/examCompletedToday so both group exam review items into
+// one row per week the same way — keeps due/completed counts reconcilable.
+function groupByWeek<T extends { week: number }>(rows: T[]): Map<number, T[]> {
+  const byWeek = new Map<number, T[]>();
+  for (const row of rows) {
+    const list = byWeek.get(row.week) ?? [];
+    list.push(row);
+    byWeek.set(row.week, list);
+  }
+  return byWeek;
+}
+
 function leetcodeDue(db: Database, today: string): DueItem[] {
   return listProblems(db)
     .filter((p) => isDue(p.next_review, today))
@@ -95,23 +107,22 @@ function examDue(db: Database, today: string): DueItem[] {
         course: code,
       });
     }
-    const reviews = listDueExamReviewItems(db, code, today).map((item) => {
-      const content = buildExamSchedule().find(
-        (p) => p.course === code && p.week === item.week && p.paperNumber === item.paper_number,
-      );
-      const question = content?.questions[item.question_index];
-      return {
+    const reviewRows = listDueExamReviewItems(db, code, today);
+    const reviewsByWeek = groupByWeek(reviewRows);
+    for (const [week, weekReviews] of reviewsByWeek) {
+      // listDueExamReviewItems orders by next_review ASC, so the first row is already the earliest.
+      const dueDate = weekReviews[0]!.next_review;
+      items.push({
         source: "exam" as const,
-        id: courseOffset(code) + item.week * 1_000_000 + item.paper_number * 1000 + item.question_index,
-        title: question ? question.prompt.slice(0, 80) : "Exam review",
+        id: courseOffset(code) + week * 1_000_000,
+        title: `Week ${week} review (${weekReviews.length} due)`,
         subtitle: name,
-        dueDate: item.next_review,
-        overdueDays: overdueDays(item.next_review, today),
-        linkId: item.week,
+        dueDate,
+        overdueDays: overdueDays(dueDate, today),
+        linkId: week,
         course: code,
-      };
-    });
-    items.push(...reviews);
+      });
+    }
   }
   return items;
 }
@@ -170,22 +181,17 @@ function examCompletedToday(db: Database, today: string): DueItem[] {
         course: code,
       };
     });
-    const reviews = listExamReviewsCompletedToday(db, code, today).map((item) => {
-      const content = buildExamSchedule().find(
-        (p) => p.course === code && p.week === item.week && p.paperNumber === item.paper_number,
-      );
-      const question = content?.questions[item.question_index];
-      return {
-        source: "exam" as const,
-        id: courseOffset(code) + item.week * 1_000_000 + item.paper_number * 1000 + item.question_index,
-        title: question ? question.prompt.slice(0, 80) : "Exam review",
-        subtitle: name,
-        dueDate: today,
-        overdueDays: 0,
-        linkId: item.week,
-        course: code,
-      };
-    });
+    const reviewsByWeek = groupByWeek(listExamReviewsCompletedToday(db, code, today));
+    const reviews = [...reviewsByWeek.entries()].map(([week, weekReviews]) => ({
+      source: "exam" as const,
+      id: courseOffset(code) + week * 1_000_000,
+      title: `Week ${week} review (${weekReviews.length} completed)`,
+      subtitle: name,
+      dueDate: today,
+      overdueDays: 0,
+      linkId: week,
+      course: code,
+    }));
     items.push(...papers, ...reviews);
   }
   return items;

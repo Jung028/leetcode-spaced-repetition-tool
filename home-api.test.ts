@@ -100,13 +100,29 @@ test("GET /api/home/due gives the week item and exam review items collision-free
   const info5995Items = examItems.filter((i) => i.course === "INFO5995");
   // The week item (synthetic paper 2 still unsubmitted) and review item (paper 1's wrong question) coexist distinctly.
   expect(info5995Items.length).toBe(2);
-  const weekItem = info5995Items.find((i) => i.title.startsWith("Week "));
-  const reviewItem = info5995Items.find((i) => !i.title.startsWith("Week "));
+  const weekItem = info5995Items.find((i) => i.title.includes("submitted"));
+  const reviewItem = info5995Items.find((i) => i.title.includes("review"));
   expect(weekItem).toBeTruthy();
   expect(weekItem.title).toBe("Week 1 (1/2 submitted)");
   expect(reviewItem).toBeTruthy();
+  expect(reviewItem.title).toBe("Week 1 review (1 due)");
   const ids = examItems.map((i) => i.id);
   expect(new Set(ids).size).toBe(ids.length); // no id collisions across any course's items
+});
+
+test("GET /api/home/due collapses a week's multiple due exam review items into one row", async () => {
+  const paper = buildExamSchedule().find((p) => p.course === "INFO5995" && p.week === 1 && p.paperNumber === 1)!;
+  // Grade the first three questions wrong (and everything else right) so submitting
+  // creates three separate exam_review_items rows, all due today.
+  paper.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, i >= 3));
+  submitExamPaper(db, "INFO5995", 1, 1, addDays(TODAY, -1)); // review items' next_review lands on TODAY
+
+  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  const info5995Items = items.filter((i) => i.source === "exam" && i.course === "INFO5995");
+  // Three wrong answers in the same week must show up as one due-item, not three.
+  expect(info5995Items.length).toBe(1);
+  expect(info5995Items[0].title).toBe("Week 1 review (3 due)");
+  expect(info5995Items[0].linkId).toBe(1);
 });
 
 test("GET /api/home/due drops the week item once every paper in it is submitted", async () => {
