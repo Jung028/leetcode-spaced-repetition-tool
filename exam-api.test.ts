@@ -237,3 +237,94 @@ test("GET /api/exam/:course/completed-today lists papers submitted today", async
   expect(completed.papers.length).toBe(1);
   expect(completed.papers[0].scoreCorrect).toBe(count);
 });
+
+async function submitWeek1Paper1(scoreAllCorrect: boolean) {
+  const paperRes: any = await (await fetch(`${base}/api/exam/${COURSE}/1/1`)).json();
+  for (let i = 0; i < paperRes.questions.length; i++) {
+    await fetch(`${base}/api/exam/${COURSE}/1/1/${i}/grade`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ correct: scoreAllCorrect || i !== 0 }),
+    });
+  }
+  return fetch(`${base}/api/exam/${COURSE}/1/1/submit`, { method: "POST" });
+}
+
+test("POST /api/exam/:course/:week/:paperNumber/retake resets a submitted paper", async () => {
+  await submitWeek1Paper1(true);
+
+  const res = await fetch(`${base}/api/exam/${COURSE}/1/1/retake`, { method: "POST" });
+  expect(res.status).toBe(200);
+
+  const paperRes: any = await (await fetch(`${base}/api/exam/${COURSE}/1/1`)).json();
+  expect(paperRes.submittedAt).toBeNull();
+  expect(paperRes.questions.every((q: any) => q.yourAnswer === "" && q.correct === null)).toBe(true);
+});
+
+test("POST retake on a paper never submitted returns 400", async () => {
+  const res = await fetch(`${base}/api/exam/${COURSE}/1/1/retake`, { method: "POST" });
+  expect(res.status).toBe(400);
+  const body: any = await res.json();
+  expect(body.error).toBe("paper not yet submitted");
+});
+
+test("POST retake on an unknown course returns 400", async () => {
+  const res = await fetch(`${base}/api/exam/UNKNOWN123/1/1/retake`, { method: "POST" });
+  expect(res.status).toBe(400);
+});
+
+test("POST retake on a paper number that doesn't exist returns 404", async () => {
+  const res = await fetch(`${base}/api/exam/${COURSE}/1/999/retake`, { method: "POST" });
+  expect(res.status).toBe(404);
+});
+
+test("GET /api/exam/:course/history includes a fully-submitted week (which /due excludes)", async () => {
+  await submitWeek1Paper1(true);
+
+  const dueBody: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
+  expect(dueBody.weeksDue).toEqual([]); // confirms the gap this feature closes
+
+  const historyBody: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
+  expect(historyBody.weeks.length).toBe(1);
+  expect(historyBody.weeks[0].week).toBe(1);
+  expect(historyBody.weeks[0].papers[0].submitted).toBe(true);
+  expect(historyBody.weeks[0].papers[0].pastAttempts).toEqual([]);
+});
+
+test("GET /api/exam/:course/history includes a retake's past attempt", async () => {
+  await submitWeek1Paper1(true);
+  await fetch(`${base}/api/exam/${COURSE}/1/1/retake`, { method: "POST" });
+
+  const historyBody: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
+  const paper = historyBody.weeks[0].papers[0];
+  expect(paper.submitted).toBe(false); // reset, awaiting the next attempt
+  expect(paper.pastAttempts.length).toBe(1);
+  expect(paper.pastAttempts[0].attemptNumber).toBe(1);
+});
+
+test("GET /api/exam/:course/history excludes a week whose start date hasn't arrived yet", async () => {
+  db.query(`INSERT INTO exam_papers (course, week, paper_number) VALUES (?, ?, ?)`).run(COURSE, 9999, 1);
+  const body: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
+  expect(body.weeks.some((w: any) => w.week === 9999)).toBe(false);
+});
+
+test("GET /api/exam/:course/history sorts weeks newest-first", async () => {
+  // Week 0's start date (2026-07-27, one week before SEMESTER_START) is
+  // always in the past by the time this test runs — unlike a "normal" week
+  // number, which is only visible once the real calendar reaches it — so
+  // this reliably puts a second, lower-numbered week alongside Week 1
+  // without depending on the exact day the suite runs. Mirrors how the
+  // "hides a week whose start date hasn't arrived yet" test above uses week
+  // 9999 for the opposite (always-invisible) extreme.
+  db.query(`INSERT INTO exam_papers (course, week, paper_number) VALUES (?, ?, ?)`).run(COURSE, 0, 1);
+
+  const body: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
+  const weeks = body.weeks.map((w: any) => w.week);
+  expect(weeks.length).toBeGreaterThanOrEqual(2);
+  expect(weeks).toEqual([...weeks].sort((a: number, b: number) => b - a));
+});
+
+test("GET /api/exam/:course/history with an unknown course returns 400", async () => {
+  const res = await fetch(`${base}/api/exam/UNKNOWN123/history`);
+  expect(res.status).toBe(400);
+});

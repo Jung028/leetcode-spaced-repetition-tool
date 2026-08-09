@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { EXAM_REVIEW_LADDER } from "./exam-scheduling";
 import { localToday } from "./scheduling";
-import type { ExamPaperView, ExamQuestionView, ExamReviewView } from "./exam-api";
+import type { ExamPaperView, ExamQuestionView, ExamReviewView, ExamHistoryWeek } from "./exam-api";
 import type { ExamWeekView } from "./exam-content";
 import { TIMELINE_URL, TIMELINE_ANCHORS } from "./timeline-link";
 
@@ -21,7 +21,9 @@ type View =
   | { name: "board" }
   | { name: "week"; week: number }
   | { name: "paper"; week: number; paperNumber: number }
-  | { name: "review"; item: ExamReviewView };
+  | { name: "review"; item: ExamReviewView }
+  | { name: "history" }
+  | { name: "history-paper"; week: number; paperNumber: number };
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -73,6 +75,9 @@ const api = {
       body: JSON.stringify({ result }),
     }).then((r) => json<any>(r)),
   sync: () => fetch("/api/exam/sync").then((r) => json<{ pending: { course: string; week: number }[] }>(r)),
+  history: (course: string) => fetch(`/api/exam/${course}/history`).then((r) => json<{ weeks: ExamHistoryWeek[] }>(r)),
+  retake: (course: string, week: number, paperNumber: number) =>
+    fetch(`/api/exam/${course}/${week}/${paperNumber}/retake`, { method: "POST" }).then((r) => json<{ ok: true }>(r)),
 };
 
 function ExamStats({ stats, onOpenCompleted }: { stats: Stats; onOpenCompleted: () => void }) {
@@ -411,6 +416,65 @@ function WeekPicker({
   );
 }
 
+function HistoryView({
+  weeks,
+  onBack,
+  onOpenPaper,
+  onRetake,
+}: {
+  weeks: ExamHistoryWeek[];
+  onBack: () => void;
+  onOpenPaper: (week: number, paperNumber: number) => void;
+  onRetake: (week: number, paperNumber: number) => void;
+}) {
+  return (
+    <article className="detail">
+      <header className="detail-head">
+        <h2>History</h2>
+      </header>
+      {weeks.length === 0 ? (
+        <p className="board-empty">No past weeks yet.</p>
+      ) : (
+        weeks.map((w) => (
+          <section key={w.week} className="board" aria-label={`Week ${w.week}`}>
+            <div className="section-head">
+              <h2>Week {w.week}</h2>
+            </div>
+            <ul className="board-rows">
+              {w.papers.map((p) => (
+                <li key={p.paperNumber}>
+                  <div className="board-row board-row-main" style={{ "--urgency": "var(--green)" } as React.CSSProperties}>
+                    <span className="tag">{p.submitted ? "done" : "reset"}</span>
+                    <span className="board-title">{p.title}</span>
+                    {p.submitted && (
+                      <span className="lang-tag">{p.scoreCorrect}/{p.scoreTotal}</span>
+                    )}
+                    {p.submitted ? (
+                      <button className="btn" onClick={() => onRetake(w.week, p.paperNumber)}>Retake</button>
+                    ) : (
+                      <button className="btn" onClick={() => onOpenPaper(w.week, p.paperNumber)}>Continue</button>
+                    )}
+                  </div>
+                  {p.pastAttempts.length > 0 && (
+                    <p className="rule-note">
+                      {p.pastAttempts
+                        .map((a) => `Attempt ${a.attemptNumber}: ${a.scoreCorrect}/${a.scoreTotal} (${a.submittedAt})`)
+                        .join(" · ")}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))
+      )}
+      <div className="btn-row">
+        <button className="btn" onClick={onBack}>Back</button>
+      </div>
+    </article>
+  );
+}
+
 function ReviewDetail({
   item,
   course,
@@ -499,6 +563,7 @@ export default function ExamApp({
   const [error, setError] = useState<string | null>(null);
   const [syncPending, setSyncPending] = useState<{ course: string; week: number }[] | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [history, setHistory] = useState<ExamHistoryWeek[]>([]);
 
   const runSync = async () => {
     setSyncing(true);
@@ -539,6 +604,7 @@ export default function ExamApp({
     if (course) {
       setView({ name: "board" });
       setCompletedPapers(null);
+      setHistory([]);
       refresh(course);
     }
   }, [course]);
@@ -574,6 +640,32 @@ export default function ExamApp({
     }
   };
 
+  const loadHistory = () => {
+    if (!course) return;
+    api
+      .history(course)
+      .then((r) => setHistory(r.weeks))
+      .catch((err) => setError(errorMessage(err)));
+  };
+
+  const openHistory = () => {
+    setView({ name: "history" });
+    loadHistory();
+  };
+
+  const retake = async (week: number, paperNumber: number) => {
+    if (!course) return;
+    setError(null);
+    try {
+      await api.retake(course, week, paperNumber);
+      setView({ name: "history-paper", week, paperNumber });
+      refresh(course);
+      loadHistory();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
   if (!course) {
     return (
       <div className="theory">
@@ -591,6 +683,7 @@ export default function ExamApp({
         <button className="btn" onClick={runSync} disabled={syncing}>
           {syncing ? "Syncing…" : "Sync"}
         </button>
+        <button className="btn" onClick={openHistory}>History</button>
       </div>
       {syncPending !== null && <SyncBanner pending={syncPending} onDismiss={() => setSyncPending(null)} />}
       <ExamStats stats={stats} onOpenCompleted={openCompleted} />
@@ -701,6 +794,29 @@ export default function ExamApp({
           course={course}
           onBack={() => setView({ name: "board" })}
           onChanged={() => refresh(course)}
+          onError={setError}
+        />
+      )}
+
+      {view.name === "history" && (
+        <HistoryView
+          weeks={history}
+          onBack={() => setView({ name: "board" })}
+          onOpenPaper={(week, paperNumber) => setView({ name: "history-paper", week, paperNumber })}
+          onRetake={retake}
+        />
+      )}
+
+      {view.name === "history-paper" && (
+        <PaperLoader
+          course={course}
+          week={view.week}
+          paperNumber={view.paperNumber}
+          onBack={() => setView({ name: "history" })}
+          onChanged={() => {
+            refresh(course);
+            openHistory();
+          }}
           onError={setError}
         />
       )}

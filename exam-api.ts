@@ -6,14 +6,17 @@ import {
   saveExamAnswer,
   gradeExamAnswer,
   submitExamPaper,
+  retakeExamPaper,
   countExamPapersSubmittedToday,
   listExamPapersSubmittedToday,
   listDueExamReviewItems,
   countOverdueExamReviewItems,
   countExamReviewsToday,
   reviewExamItem,
+  listExamAttemptHistory,
   type ExamPaperRow,
   type ExamReviewItemRow,
+  type ExamAttemptSummary,
 } from "./exam-db";
 import {
   buildExamSchedule,
@@ -22,6 +25,7 @@ import {
   weekDueDate,
   groupExamPapersByWeek,
   type ExamWeekView,
+  type ExamWeekPaperSummary,
 } from "./exam-content";
 import { findPendingWeeks } from "./exam-sync";
 import type { ExamQuestionType } from "./exam-content/types";
@@ -103,6 +107,16 @@ function paperView(db: Database, course: string, row: ExamPaperRow): ExamPaperVi
   };
 }
 
+export interface ExamHistoryPaper extends ExamWeekPaperSummary {
+  pastAttempts: ExamAttemptSummary[];
+}
+
+export interface ExamHistoryWeek {
+  week: number;
+  dueDate: string;
+  papers: ExamHistoryPaper[];
+}
+
 export interface ExamReviewView {
   week: number;
   paperNumber: number;
@@ -164,6 +178,25 @@ export function examApiRoutes(db: Database) {
             completedToday: countExamPapersSubmittedToday(db, course, today) + countExamReviewsToday(db, course, today),
           },
         });
+      },
+    },
+    "/api/exam/:course/history": {
+      GET: (req: Request & { params: { course: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const today = localToday();
+        const visibleRows = listExamPaperRows(db, course).filter((r) => weekStartDate(r.week) <= today);
+        const weeks: ExamHistoryWeek[] = groupExamPapersByWeek(course, visibleRows, today)
+          .sort((a, b) => b.week - a.week)
+          .map((w) => ({
+            week: w.week,
+            dueDate: w.dueDate,
+            papers: w.papers.map((p) => ({
+              ...p,
+              pastAttempts: listExamAttemptHistory(db, course, w.week, p.paperNumber),
+            })),
+          }));
+        return json({ weeks });
       },
     },
     "/api/exam/:course/completed-today": {
@@ -255,6 +288,23 @@ export function examApiRoutes(db: Database) {
           return json({ error: message }, status);
         }
         return json({ scoreCorrect: result.scoreCorrect, scoreTotal: result.scoreTotal });
+      },
+    },
+    "/api/exam/:course/:week/:paperNumber/retake": {
+      POST: (req: Request & { params: { course: string; week: string; paperNumber: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const week = parseWeek(req.params.week);
+        if (week === null) return json({ error: "invalid week" }, 400);
+        const paperNumber = parsePaperNumber(req.params.paperNumber, course, week);
+        if (paperNumber === null) return json({ error: "paper not found" }, 404);
+        const result = retakeExamPaper(db, course, week, paperNumber);
+        if (!result.ok) {
+          const status = result.reason === "not_found" ? 404 : 400;
+          const message = result.reason === "not_found" ? "not found" : "paper not yet submitted";
+          return json({ error: message }, status);
+        }
+        return json({ ok: true });
       },
     },
     "/api/exam/review/:course/:week/:paperNumber/:questionIndex": {

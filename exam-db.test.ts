@@ -12,6 +12,8 @@ import {
   listDueExamReviewItems,
   countExamReviewsToday,
   reviewExamItem,
+  retakeExamPaper,
+  listExamAttemptHistory,
 } from "./exam-db";
 import { buildExamSchedule } from "./exam-content";
 import { addDays } from "./scheduling";
@@ -290,4 +292,70 @@ test("a migration failure rolls back cleanly, leaving the original paper_day-sha
   // dropped rather than crashing the whole migration or corrupting state.
   expect(getExamPaperRow(legacyDb, "INFO5995", 1, 1)).not.toBeNull();
   expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(1); // just the migrated row — INFO5995 only has 1 paper now
+});
+
+function submitPaper1AsWrongThenRight(db: Database, correctAllExceptFirst: boolean) {
+  const paper1 = buildExamSchedule().find((p) => p.course === COURSE && p.week === 1 && p.paperNumber === 1)!;
+  paper1.questions.forEach((_, i) => gradeExamAnswer(db, COURSE, 1, 1, i, correctAllExceptFirst ? i !== 0 : true));
+  return submitExamPaper(db, COURSE, 1, 1, TODAY);
+}
+
+test("retakeExamPaper rejects a paper that was never submitted", () => {
+  const result = retakeExamPaper(db, COURSE, 1, 1);
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.reason).toBe("not_submitted");
+});
+
+test("retakeExamPaper rejects an unknown paper", () => {
+  const result = retakeExamPaper(db, COURSE, 99, 1);
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.reason).toBe("not_found");
+});
+
+test("retakeExamPaper snapshots the prior attempt, then clears submission and answers", () => {
+  submitPaper1AsWrongThenRight(db, true); // question 0 wrong, rest correct
+
+  const result = retakeExamPaper(db, COURSE, 1, 1);
+  expect(result.ok).toBe(true);
+
+  const paperRow = getExamPaperRow(db, COURSE, 1, 1)!;
+  expect(paperRow.submitted_at).toBeNull();
+  expect(paperRow.score_correct).toBeNull();
+  expect(paperRow.score_total).toBeNull();
+  expect(listExamAnswers(db, COURSE, 1, 1)).toEqual([]);
+
+  const history = listExamAttemptHistory(db, COURSE, 1, 1);
+  expect(history.length).toBe(1);
+  expect(history[0]!.attemptNumber).toBe(1);
+  expect(history[0]!.submittedAt).toBe(TODAY);
+  const paper1 = buildExamSchedule().find((p) => p.course === COURSE && p.week === 1 && p.paperNumber === 1)!;
+  expect(history[0]!.scoreCorrect).toBe(paper1.questions.length - 1);
+  expect(history[0]!.scoreTotal).toBe(paper1.questions.length);
+});
+
+test("two consecutive retakes number attempts 1 and 2 in order", () => {
+  submitPaper1AsWrongThenRight(db, true);
+  retakeExamPaper(db, COURSE, 1, 1);
+  submitPaper1AsWrongThenRight(db, false); // all correct this time
+  retakeExamPaper(db, COURSE, 1, 1);
+
+  const history = listExamAttemptHistory(db, COURSE, 1, 1);
+  expect(history.map((h) => h.attemptNumber)).toEqual([1, 2]);
+  const paper1 = buildExamSchedule().find((p) => p.course === COURSE && p.week === 1 && p.paperNumber === 1)!;
+  expect(history[0]!.scoreCorrect).toBe(paper1.questions.length - 1); // attempt 1: question 0 wrong
+  expect(history[1]!.scoreCorrect).toBe(paper1.questions.length); // attempt 2: all correct
+});
+
+test("retaking and resubmitting still-wrong reuses the existing review-item pipeline unchanged", () => {
+  submitPaper1AsWrongThenRight(db, true); // question 0 wrong -> creates a review item
+  const beforeRetake = listDueExamReviewItems(db, COURSE, addDays(TODAY, 1));
+  expect(beforeRetake.length).toBe(1);
+
+  retakeExamPaper(db, COURSE, 1, 1);
+  submitPaper1AsWrongThenRight(db, true); // question 0 wrong again
+
+  // ON CONFLICT DO NOTHING: still one review item, not duplicated, for the same question.
+  const afterRetake = listDueExamReviewItems(db, COURSE, addDays(TODAY, 1));
+  expect(afterRetake.length).toBe(1);
+  expect(afterRetake[0]!.question_index).toBe(0);
 });
