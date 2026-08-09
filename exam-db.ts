@@ -70,6 +70,16 @@ export function migrateExam(db: Database, today: string): void {
       reviewed_at TEXT NOT NULL,
       result TEXT NOT NULL CHECK (result IN ('correct','wrong'))
     );
+    CREATE TABLE IF NOT EXISTS exam_attempt_history (
+      course TEXT NOT NULL,
+      week INTEGER NOT NULL,
+      paper_number INTEGER NOT NULL,
+      attempt_number INTEGER NOT NULL,
+      submitted_at TEXT NOT NULL,
+      score_correct INTEGER NOT NULL,
+      score_total INTEGER NOT NULL,
+      PRIMARY KEY (course, week, paper_number, attempt_number)
+    );
   `);
 
   migrateLegacySingleCourseShape(db);
@@ -413,6 +423,54 @@ export function submitExamPaper(
   }
 
   return { ok: true, scoreCorrect, scoreTotal };
+}
+
+export interface ExamAttemptSummary {
+  attemptNumber: number;
+  submittedAt: string;
+  scoreCorrect: number;
+  scoreTotal: number;
+}
+
+export type RetakeResult = { ok: true } | { ok: false; reason: "not_found" | "not_submitted" };
+
+export function retakeExamPaper(db: Database, course: string, week: number, paperNumber: number): RetakeResult {
+  const paper = getExamPaperRow(db, course, week, paperNumber);
+  if (!paper) return { ok: false, reason: "not_found" };
+  if (!paper.submitted_at) return { ok: false, reason: "not_submitted" };
+
+  const { n: attemptCount } = db
+    .query(`SELECT COUNT(*) AS n FROM exam_attempt_history WHERE course = ? AND week = ? AND paper_number = ?`)
+    .get(course, week, paperNumber) as { n: number };
+
+  db.query(
+    `INSERT INTO exam_attempt_history (course, week, paper_number, attempt_number, submitted_at, score_correct, score_total)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(course, week, paperNumber, attemptCount + 1, paper.submitted_at, paper.score_correct!, paper.score_total!);
+
+  db.query(
+    `UPDATE exam_papers SET submitted_at = NULL, score_correct = NULL, score_total = NULL
+     WHERE course = ? AND week = ? AND paper_number = ?`,
+  ).run(course, week, paperNumber);
+
+  db.query(`DELETE FROM exam_answers WHERE course = ? AND week = ? AND paper_number = ?`).run(course, week, paperNumber);
+
+  return { ok: true };
+}
+
+export function listExamAttemptHistory(db: Database, course: string, week: number, paperNumber: number): ExamAttemptSummary[] {
+  const rows = db
+    .query(
+      `SELECT attempt_number, submitted_at, score_correct, score_total FROM exam_attempt_history
+       WHERE course = ? AND week = ? AND paper_number = ? ORDER BY attempt_number`,
+    )
+    .all(course, week, paperNumber) as { attempt_number: number; submitted_at: string; score_correct: number; score_total: number }[];
+  return rows.map((r) => ({
+    attemptNumber: r.attempt_number,
+    submittedAt: r.submitted_at,
+    scoreCorrect: r.score_correct,
+    scoreTotal: r.score_total,
+  }));
 }
 
 export function countExamPapersSubmittedToday(db: Database, course: string, today: string): number {
