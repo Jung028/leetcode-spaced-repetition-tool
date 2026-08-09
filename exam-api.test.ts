@@ -277,3 +277,38 @@ test("POST retake on a paper number that doesn't exist returns 404", async () =>
   const res = await fetch(`${base}/api/exam/${COURSE}/1/999/retake`, { method: "POST" });
   expect(res.status).toBe(404);
 });
+
+test("GET /api/exam/:course/history includes a fully-submitted week (which /due excludes)", async () => {
+  await submitWeek1Paper1(true);
+
+  const dueBody: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
+  expect(dueBody.weeksDue).toEqual([]); // confirms the gap this feature closes
+
+  const historyBody: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
+  expect(historyBody.weeks.length).toBe(1);
+  expect(historyBody.weeks[0].week).toBe(1);
+  expect(historyBody.weeks[0].papers[0].submitted).toBe(true);
+  expect(historyBody.weeks[0].papers[0].pastAttempts).toEqual([]);
+});
+
+test("GET /api/exam/:course/history includes a retake's past attempt", async () => {
+  await submitWeek1Paper1(true);
+  await fetch(`${base}/api/exam/${COURSE}/1/1/retake`, { method: "POST" });
+
+  const historyBody: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
+  const paper = historyBody.weeks[0].papers[0];
+  expect(paper.submitted).toBe(false); // reset, awaiting the next attempt
+  expect(paper.pastAttempts.length).toBe(1);
+  expect(paper.pastAttempts[0].attemptNumber).toBe(1);
+});
+
+test("GET /api/exam/:course/history excludes a week whose start date hasn't arrived yet", async () => {
+  db.query(`INSERT INTO exam_papers (course, week, paper_number) VALUES (?, ?, ?)`).run(COURSE, 9999, 1);
+  const body: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
+  expect(body.weeks.some((w: any) => w.week === 9999)).toBe(false);
+});
+
+test("GET /api/exam/:course/history with an unknown course returns 400", async () => {
+  const res = await fetch(`${base}/api/exam/UNKNOWN123/history`);
+  expect(res.status).toBe(400);
+});
