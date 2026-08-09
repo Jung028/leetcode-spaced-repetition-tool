@@ -104,3 +104,13 @@ bun --hot ./index.ts
 ```
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+
+## Spec requirement: continuous testing
+
+Every SPEC.md (or equivalent spec/plan doc) written for this project must include a section requiring the following, verbatim in intent:
+
+- **Automated Hooks**: a hook fires every time the AI saves a change (PostToolUse on Write/Edit).
+- **Continuous Testing**: that hook triggers the build step, the test suite (`bun test`), and the type checker (`tsc`).
+- **Autonomous Correction**: if a test fails, the AI sees the failure output immediately and attempts to fix its own mistake before the user has to intervene, so the user always returns to a green (passing) state.
+
+This repo currently has no such hook configured (no `.git/hooks/pre-commit`, no CI). Until one exists, treat this as an outstanding requirement — any SPEC.md that omits it is incomplete.
