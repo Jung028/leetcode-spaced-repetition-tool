@@ -604,6 +604,7 @@ export default function ExamApp({
     if (course) {
       setView({ name: "board" });
       setCompletedPapers(null);
+      setHistory([]);
       refresh(course);
     }
   }, [course]);

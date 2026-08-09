@@ -308,6 +308,22 @@ test("GET /api/exam/:course/history excludes a week whose start date hasn't arri
   expect(body.weeks.some((w: any) => w.week === 9999)).toBe(false);
 });
 
+test("GET /api/exam/:course/history sorts weeks newest-first", async () => {
+  // Week 0's start date (2026-07-27, one week before SEMESTER_START) is
+  // always in the past by the time this test runs — unlike a "normal" week
+  // number, which is only visible once the real calendar reaches it — so
+  // this reliably puts a second, lower-numbered week alongside Week 1
+  // without depending on the exact day the suite runs. Mirrors how the
+  // "hides a week whose start date hasn't arrived yet" test above uses week
+  // 9999 for the opposite (always-invisible) extreme.
+  db.query(`INSERT INTO exam_papers (course, week, paper_number) VALUES (?, ?, ?)`).run(COURSE, 0, 1);
+
+  const body: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
+  const weeks = body.weeks.map((w: any) => w.week);
+  expect(weeks.length).toBeGreaterThanOrEqual(2);
+  expect(weeks).toEqual([...weeks].sort((a: number, b: number) => b - a));
+});
+
 test("GET /api/exam/:course/history with an unknown course returns 400", async () => {
   const res = await fetch(`${base}/api/exam/UNKNOWN123/history`);
   expect(res.status).toBe(400);
