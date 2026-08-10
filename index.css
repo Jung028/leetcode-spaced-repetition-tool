@@ -73,7 +73,7 @@ button {
   display: flex;
   align-items: baseline;
   gap: 1rem;
-  border-bottom: 2px solid var(--accent);
+  border-bottom: 1px solid var(--line);
   padding-bottom: 0.75rem;
   margin-bottom: 1.75rem;
 }
@@ -99,8 +99,8 @@ button {
 .masthead-date {
   color: var(--dim);
   flex: 1;
-  font-family: var(--mono);
-  font-size: 0.85rem;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
 }
 
 .rule-note {
@@ -768,7 +768,20 @@ a.btn {
   padding: 0.5rem 1.1rem;
   border-radius: 5px;
   color: var(--dim);
-  border-bottom: 2px solid transparent;
+  position: relative;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.tab::after {
+  content: "";
+  position: absolute;
+  left: 0.9rem;
+  right: 0.9rem;
+  bottom: -2px;
+  height: 2px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transition: transform var(--dur-base) var(--ease);
 }
 
 .tab:hover {
@@ -777,7 +790,10 @@ a.btn {
 
 .tab-active {
   color: var(--accent);
-  border-bottom-color: var(--accent);
+}
+
+.tab-active::after {
+  transform: scaleX(1);
 }
 
 /* Category badge (Theory tab) */
