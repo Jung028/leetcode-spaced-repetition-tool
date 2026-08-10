@@ -120,3 +120,7 @@ Every SPEC.md (or equivalent spec/plan doc) written for this project must includ
 - **Autonomous Correction**: if a test fails, the AI sees the failure output immediately and attempts to fix its own mistake before the user has to intervene, so the user always returns to a green (passing) state.
 
 This repo currently has no such hook configured (no `.git/hooks/pre-commit`, no CI). Until one exists, treat this as an outstanding requirement — any SPEC.md that omits it is incomplete.
+
+## Finishing work
+
+Whenever a task/feature is complete (and the user has confirmed committing is OK): commit on a feature branch (never directly to `main`), push, open a PR against `main`, and send the user the PR link — don't just leave finished work sitting uncommitted. `gh pr create` has previously failed here with a stale `GITHUB_TOKEN` (401 Bad credentials); if that happens, fall back to the PR-creation URL `git push` prints for a new branch and share that link instead. Do not merge the PR automatically — leave that for the user.
