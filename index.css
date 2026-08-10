@@ -183,17 +183,33 @@ button.stat:hover {
   justify-content: center;
   z-index: 100;
   padding: 1rem;
+  animation: backdrop-in var(--dur-base) var(--ease);
 }
 
 .modal-panel {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
+  box-shadow: var(--shadow-panel);
   width: 100%;
   max-width: 480px;
   max-height: 80vh;
   overflow-y: auto;
   padding: 1.25rem;
+  animation: modal-in var(--dur-base) var(--ease);
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
 }
 
 .modal-head {
