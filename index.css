@@ -59,7 +59,8 @@ button {
 }
 
 :focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
@@ -953,8 +954,14 @@ a.btn {
   .form select,
   .form textarea,
   .theory-answer,
-  .step-row input[type="checkbox"] {
+  .step-row input[type="checkbox"],
+  .deadlines-chevron {
     transition: none !important;
+  }
+
+  .btn-primary:hover,
+  .btn-pass:hover,
+  .btn-fail:hover {
     transform: none !important;
   }
 }
