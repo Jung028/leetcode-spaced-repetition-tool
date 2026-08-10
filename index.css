@@ -881,6 +881,7 @@ a.btn {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 6px;
+  box-shadow: var(--shadow-panel);
   padding: 1rem;
   margin: 0 0 1.2rem;
 }
@@ -943,7 +944,7 @@ a.btn {
 /* Goals tab */
 .goal-weight {
   font-family: var(--mono);
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--dim);
   flex-shrink: 0;
@@ -951,7 +952,7 @@ a.btn {
 
 .goal-deadline {
   font-family: var(--mono);
-  font-size: 0.78rem;
+  font-size: var(--text-xs);
   color: var(--dim);
   flex-shrink: 0;
 }
@@ -966,6 +967,7 @@ a.btn {
   height: 1.1rem;
   flex-shrink: 0;
   accent-color: var(--accent);
+  transition: accent-color var(--dur-fast) var(--ease);
 }
 
 /* Exam tab */
