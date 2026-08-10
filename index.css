@@ -8,6 +8,7 @@
   --dim: #97969e;
 
   --accent: #f2994a;
+  --on-accent: #1a1108;
   --green: #00b8a3;
   --gold: #e0a83e;
   --red: #ff5470;
@@ -36,6 +37,89 @@
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --dur-fast: 120ms;
   --dur-base: 200ms;
+
+  --cat-info5995: #e0784f;
+  --cat-comp5348: #6fa8dc;
+  --cat-info6007: #e0c15c;
+  --cat-info5990: #b8bcae;
+  --cat-src-leetcode: #ffa116;
+  --cat-src-theory: #00b8a3;
+  --cat-src-goals: #c084fc;
+  --cat-src-exam: #ff375f;
+  --cat-topic-system-design: #ffa116;
+  --cat-topic-dsa: #00b8a3;
+  --cat-topic-distributed: #c084fc;
+  --cat-topic-databases: #38bdf8;
+  --cat-topic-networking: #ffc01e;
+  --cat-topic-behavioral: #ff375f;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #fbf8f0;
+    --panel: #f3eee0;
+    --panel-raised: #ece4d0;
+    --line: #e0d6c0;
+    --line-strong: #8a7a5a;
+    --text: #2a2018;
+    --dim: #756349;
+
+    --accent: #8b5e34;
+    --on-accent: #fbf8f0;
+    --green: #17685b;
+    --gold: #7d5f00;
+    --red: #b33a3a;
+
+    --shadow-panel: 0 1px 2px rgba(60, 45, 20, 0.08), 0 6px 20px rgba(60, 45, 20, 0.06);
+
+    --cat-info5995: #b44920;
+    --cat-comp5348: #2a6eac;
+    --cat-info6007: #806818;
+    --cat-info5990: #676d5a;
+    --cat-src-leetcode: #9b5c00;
+    --cat-src-theory: #007668;
+    --cat-src-goals: #922afa;
+    --cat-src-exam: #da002c;
+    --cat-topic-system-design: #9b5c00;
+    --cat-topic-dsa: #007668;
+    --cat-topic-distributed: #922afa;
+    --cat-topic-databases: #0671a1;
+    --cat-topic-networking: #896300;
+    --cat-topic-behavioral: #da002c;
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: #fbf8f0;
+  --panel: #f3eee0;
+  --panel-raised: #ece4d0;
+  --line: #e0d6c0;
+  --line-strong: #8a7a5a;
+  --text: #2a2018;
+  --dim: #756349;
+
+  --accent: #8b5e34;
+  --on-accent: #fbf8f0;
+  --green: #17685b;
+  --gold: #7d5f00;
+  --red: #b33a3a;
+
+  --shadow-panel: 0 1px 2px rgba(60, 45, 20, 0.08), 0 6px 20px rgba(60, 45, 20, 0.06);
+
+  --cat-info5995: #b44920;
+  --cat-comp5348: #2a6eac;
+  --cat-info6007: #806818;
+  --cat-info5990: #676d5a;
+  --cat-src-leetcode: #9b5c00;
+  --cat-src-theory: #007668;
+  --cat-src-goals: #922afa;
+  --cat-src-exam: #da002c;
+  --cat-topic-system-design: #9b5c00;
+  --cat-topic-dsa: #007668;
+  --cat-topic-distributed: #922afa;
+  --cat-topic-databases: #0671a1;
+  --cat-topic-networking: #896300;
+  --cat-topic-behavioral: #da002c;
 }
 
 * {
@@ -443,7 +527,7 @@ button.stat:hover {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--bg);
+  color: var(--on-accent);
   background: var(--urgency, var(--gold));
   padding: 0.2rem 0.5rem;
   border-radius: 3px;
@@ -600,7 +684,7 @@ a.btn {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #1a1108;
+  color: var(--on-accent);
   font-weight: 600;
 }
 
@@ -749,6 +833,107 @@ a.btn {
   color: #9cdcfe;
 }
 
+/* Light syntax highlighting — VS Code "Light+" token colors */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .solution {
+    color: #333333;
+  }
+
+  :root:not([data-theme="dark"]) .token.comment,
+  :root:not([data-theme="dark"]) .token.prolog,
+  :root:not([data-theme="dark"]) .token.doctype,
+  :root:not([data-theme="dark"]) .token.cdata {
+    color: #007b00;
+    font-style: italic;
+  }
+
+  :root:not([data-theme="dark"]) .token.keyword,
+  :root:not([data-theme="dark"]) .token.atrule {
+    color: #0000ff;
+  }
+
+  :root:not([data-theme="dark"]) .token.string,
+  :root:not([data-theme="dark"]) .token.char,
+  :root:not([data-theme="dark"]) .token.attr-value,
+  :root:not([data-theme="dark"]) .token.builtin {
+    color: #a31515;
+  }
+
+  :root:not([data-theme="dark"]) .token.number,
+  :root:not([data-theme="dark"]) .token.boolean,
+  :root:not([data-theme="dark"]) .token.constant {
+    color: #087c52;
+  }
+
+  :root:not([data-theme="dark"]) .token.class-name,
+  :root:not([data-theme="dark"]) .token.namespace {
+    color: #23758d;
+  }
+
+  :root:not([data-theme="dark"]) .token.function,
+  :root:not([data-theme="dark"]) .token.annotation {
+    color: #795e26;
+  }
+
+  :root:not([data-theme="dark"]) .token.operator,
+  :root:not([data-theme="dark"]) .token.punctuation {
+    color: #333333;
+  }
+
+  :root:not([data-theme="dark"]) .token.property {
+    color: #001080;
+  }
+}
+
+[data-theme="light"] .solution {
+  color: #333333;
+}
+
+[data-theme="light"] .token.comment,
+[data-theme="light"] .token.prolog,
+[data-theme="light"] .token.doctype,
+[data-theme="light"] .token.cdata {
+  color: #007b00;
+  font-style: italic;
+}
+
+[data-theme="light"] .token.keyword,
+[data-theme="light"] .token.atrule {
+  color: #0000ff;
+}
+
+[data-theme="light"] .token.string,
+[data-theme="light"] .token.char,
+[data-theme="light"] .token.attr-value,
+[data-theme="light"] .token.builtin {
+  color: #a31515;
+}
+
+[data-theme="light"] .token.number,
+[data-theme="light"] .token.boolean,
+[data-theme="light"] .token.constant {
+  color: #087c52;
+}
+
+[data-theme="light"] .token.class-name,
+[data-theme="light"] .token.namespace {
+  color: #23758d;
+}
+
+[data-theme="light"] .token.function,
+[data-theme="light"] .token.annotation {
+  color: #795e26;
+}
+
+[data-theme="light"] .token.operator,
+[data-theme="light"] .token.punctuation {
+  color: #333333;
+}
+
+[data-theme="light"] .token.property {
+  color: #001080;
+}
+
 /* History */
 .history {
   margin-top: 2rem;
@@ -824,6 +1009,21 @@ a.btn {
 
 .tab-active::after {
   transform: scaleX(1);
+}
+
+.theme-toggle {
+  margin-left: auto;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.4rem 0.6rem;
+  border-radius: 5px;
+  color: var(--dim);
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.theme-toggle:hover {
+  color: var(--text);
+  background: var(--panel-raised);
 }
 
 /* Category badge (Theory tab) */
@@ -955,7 +1155,8 @@ a.btn {
   .form textarea,
   .theory-answer,
   .step-row input[type="checkbox"],
-  .deadlines-chevron {
+  .deadlines-chevron,
+  .theme-toggle {
     transition: none !important;
   }
 

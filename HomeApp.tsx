@@ -9,10 +9,10 @@ import { localToday } from "./scheduling";
 const EMPTY_STATS: HomeStats = { dueToday: 0, overdue: 0, completedToday: 0 };
 
 const DEADLINE_COURSE_COLOR: Record<string, string> = {
-  INFO5995: "#e0784f",
-  COMP5348: "#6fa8dc",
-  INFO6007: "#e0c15c",
-  INFO5990: "#b8bcae",
+  INFO5995: "var(--cat-info5995)",
+  COMP5348: "var(--cat-comp5348)",
+  INFO6007: "var(--cat-info6007)",
+  INFO5990: "var(--cat-info5990)",
 };
 
 function daysUntil(dueDate: string, today: string): number {
@@ -94,10 +94,10 @@ const SOURCE_LABEL: Record<DueSource, string> = {
 };
 
 const SOURCE_COLOR: Record<DueSource, string> = {
-  leetcode: "#ffa116",
-  theory: "#00b8a3",
-  goals: "#c084fc",
-  exam: "#ff375f",
+  leetcode: "var(--cat-src-leetcode)",
+  theory: "var(--cat-src-theory)",
+  goals: "var(--cat-src-goals)",
+  exam: "var(--cat-src-exam)",
 };
 
 // Same two calendars leetcode-srs already overlays elsewhere: Adam's
