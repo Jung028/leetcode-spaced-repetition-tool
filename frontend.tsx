@@ -642,6 +642,29 @@ type DeepLink =
   | { tab: "goals"; projectId: number }
   | { tab: "exam"; course: string; week: number };
 
+function ThemeToggle() {
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    const stored = localStorage.getItem("theme");
+    if (stored === "light" || stored === "dark") return stored;
+    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  });
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  return (
+    <button
+      className="theme-toggle"
+      onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+      aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
+    >
+      {theme === "light" ? "☾" : "☀"}
+    </button>
+  );
+}
+
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
     <nav className="tabs" aria-label="Sections">
@@ -675,6 +698,7 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
       >
         Modules
       </button>
+      <ThemeToggle />
     </nav>
   );
 }

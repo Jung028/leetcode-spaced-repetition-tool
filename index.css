@@ -966,6 +966,21 @@ a.btn {
   transform: scaleX(1);
 }
 
+.theme-toggle {
+  margin-left: auto;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.4rem 0.6rem;
+  border-radius: 5px;
+  color: var(--dim);
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.theme-toggle:hover {
+  color: var(--text);
+  background: var(--panel-raised);
+}
+
 /* Category badge (Theory tab) */
 .cat-tag {
   font-family: var(--mono);
@@ -1095,7 +1110,8 @@ a.btn {
   .form textarea,
   .theory-answer,
   .step-row input[type="checkbox"],
-  .deadlines-chevron {
+  .deadlines-chevron,
+  .theme-toggle {
     transition: none !important;
   }
 
