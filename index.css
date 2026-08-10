@@ -461,7 +461,7 @@ button.stat:hover {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--dim);
-  background: var(--panel-raised);
+  background: transparent;
   border: 1px solid var(--line);
   border-radius: 3px;
   padding: 0.1rem 0.4rem;
@@ -815,8 +815,9 @@ a.btn {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--bg);
-  background: var(--cat-color, var(--accent));
+  color: var(--cat-color, var(--accent));
+  background: transparent;
+  border: 1px solid var(--cat-color, var(--accent));
   padding: 0.25rem 0.6rem;
   border-radius: 3px;
 }
