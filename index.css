@@ -8,6 +8,7 @@
   --dim: #97969e;
 
   --accent: #f2994a;
+  --on-accent: #1a1108;
   --green: #00b8a3;
   --gold: #e0a83e;
   --red: #ff5470;
@@ -36,6 +37,44 @@
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --dur-fast: 120ms;
   --dur-base: 200ms;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #fbf8f0;
+    --panel: #f3eee0;
+    --panel-raised: #ece4d0;
+    --line: #e0d6c0;
+    --line-strong: #8a7a5a;
+    --text: #2a2018;
+    --dim: #756349;
+
+    --accent: #8b5e34;
+    --on-accent: #fbf8f0;
+    --green: #17685b;
+    --gold: #7d5f00;
+    --red: #b33a3a;
+
+    --shadow-panel: 0 1px 2px rgba(60, 45, 20, 0.08), 0 6px 20px rgba(60, 45, 20, 0.06);
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: #fbf8f0;
+  --panel: #f3eee0;
+  --panel-raised: #ece4d0;
+  --line: #e0d6c0;
+  --line-strong: #8a7a5a;
+  --text: #2a2018;
+  --dim: #756349;
+
+  --accent: #8b5e34;
+  --on-accent: #fbf8f0;
+  --green: #17685b;
+  --gold: #7d5f00;
+  --red: #b33a3a;
+
+  --shadow-panel: 0 1px 2px rgba(60, 45, 20, 0.08), 0 6px 20px rgba(60, 45, 20, 0.06);
 }
 
 * {
@@ -600,7 +639,7 @@ a.btn {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #1a1108;
+  color: var(--on-accent);
   font-weight: 600;
 }
 
