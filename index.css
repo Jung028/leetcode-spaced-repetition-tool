@@ -1,16 +1,40 @@
 :root {
-  --bg: #1a1a1a;
-  --panel: #262626;
-  --panel-raised: #2d2d2d;
-  --line: #3e3e3e;
-  --text: #eff2f6;
-  --dim: #9c9c9c;
-  --orange: #ffa116;
+  --bg: #17171a;
+  --panel: #1f1f23;
+  --panel-raised: #27272c;
+  --line: #2c2c31;
+  --text: #ececea;
+  --dim: #97969e;
+
+  --accent: #f2994a;
   --green: #00b8a3;
-  --gold: #ffc01e;
-  --red: #ff375f;
+  --gold: #e0a83e;
+  --red: #ff5470;
+
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --sans: "Space Grotesk", system-ui, -apple-system, sans-serif;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.3rem;
+  --text-xl: 1.7rem;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  --shadow-panel: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.15);
+
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
 }
 
 * {
@@ -34,7 +58,7 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid var(--orange);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -49,7 +73,7 @@ button {
   display: flex;
   align-items: baseline;
   gap: 1rem;
-  border-bottom: 2px solid var(--orange);
+  border-bottom: 2px solid var(--accent);
   padding-bottom: 0.75rem;
   margin-bottom: 1.75rem;
 }
@@ -68,7 +92,7 @@ button {
   height: 0.7em;
   margin-right: 0.4em;
   border-radius: 2px;
-  background: var(--orange);
+  background: var(--accent);
   transform: rotate(45deg) translateY(-0.05em);
 }
 
@@ -133,7 +157,7 @@ button {
 }
 
 .stat-total .stat-num {
-  color: var(--orange);
+  color: var(--accent);
 }
 
 .stat-completed .stat-num {
@@ -249,7 +273,7 @@ button.stat:hover {
   margin-left: auto;
   font-family: var(--mono);
   font-size: 0.75rem;
-  color: var(--orange);
+  color: var(--accent);
   text-decoration: none;
 }
 
@@ -287,7 +311,7 @@ button.stat:hover {
   align-items: center;
   gap: 0.75rem;
   background: var(--panel);
-  border-left: 3px solid var(--orange);
+  border-left: 3px solid var(--accent);
   border-radius: 6px;
   padding: 0.85rem 1rem;
   margin-bottom: 1.5rem;
@@ -297,7 +321,7 @@ button.stat:hover {
 
 .reminder-banner .tag {
   flex-shrink: 0;
-  background: var(--orange);
+  background: var(--accent);
 }
 
 .section-head h2 {
@@ -384,7 +408,7 @@ button.stat:hover {
 }
 
 .board-row-review:hover {
-  color: var(--orange);
+  color: var(--accent);
 }
 
 .board-title {
@@ -423,7 +447,7 @@ button.stat:hover {
 }
 
 .rung-on {
-  background: var(--orange);
+  background: var(--accent);
 }
 
 .rung-off {
@@ -503,7 +527,7 @@ button.stat:hover {
 .form input:focus,
 .form select:focus,
 .form textarea:focus {
-  outline: 2px solid var(--orange);
+  outline: 2px solid var(--accent);
   outline-offset: 0;
   border-color: transparent;
 }
@@ -550,14 +574,14 @@ a.btn {
 }
 
 .btn-primary {
-  background: var(--orange);
-  border-color: var(--orange);
+  background: var(--accent);
+  border-color: var(--accent);
   color: #1a1108;
   font-weight: 600;
 }
 
 .btn-primary:hover {
-  border-color: var(--orange);
+  border-color: var(--accent);
   filter: brightness(1.08);
 }
 
@@ -609,7 +633,7 @@ a.btn {
 }
 
 .detail-meta a {
-  color: var(--orange);
+  color: var(--accent);
   text-decoration: none;
 }
 
@@ -642,7 +666,7 @@ a.btn {
 
 .solution-cover:hover {
   color: var(--text);
-  border-color: var(--orange);
+  border-color: var(--accent);
 }
 
 /* Syntax highlighting — VS Code "Dark+" token colors */
@@ -752,8 +776,8 @@ a.btn {
 }
 
 .tab-active {
-  color: var(--orange);
-  border-bottom-color: var(--orange);
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 /* Category badge (Theory tab) */
@@ -764,7 +788,7 @@ a.btn {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--bg);
-  background: var(--cat-color, var(--orange));
+  background: var(--cat-color, var(--accent));
   padding: 0.25rem 0.6rem;
   border-radius: 3px;
 }
@@ -802,7 +826,7 @@ a.btn {
 }
 
 .theory-answer:focus {
-  outline: 2px solid var(--orange);
+  outline: 2px solid var(--accent);
   outline-offset: 0;
   border-color: transparent;
 }
@@ -849,7 +873,7 @@ a.btn {
 }
 
 .theory-model-answer-link {
-  color: var(--orange);
+  color: var(--accent);
   word-break: break-all;
 }
 
@@ -895,7 +919,7 @@ a.btn {
   width: 1.1rem;
   height: 1.1rem;
   flex-shrink: 0;
-  accent-color: var(--orange);
+  accent-color: var(--accent);
 }
 
 /* Exam tab */
