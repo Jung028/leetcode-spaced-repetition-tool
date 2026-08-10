@@ -518,6 +518,7 @@ button.stat:hover {
   border: 1px solid var(--line);
   border-radius: 5px;
   padding: 0.6rem 0.7rem;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 
 .form select {
@@ -527,9 +528,9 @@ button.stat:hover {
 .form input:focus,
 .form select:focus,
 .form textarea:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 0;
-  border-color: transparent;
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 .form textarea {
@@ -562,6 +563,11 @@ button.stat:hover {
   border: 1px solid var(--line);
   border-radius: 5px;
   color: var(--text);
+  transition:
+    background var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
 }
 
 a.btn {
@@ -583,6 +589,8 @@ a.btn {
 .btn-primary:hover {
   border-color: var(--accent);
   filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-panel);
 }
 
 .btn-pass {
@@ -592,6 +600,8 @@ a.btn {
 
 .btn-pass:hover {
   background: color-mix(in srgb, var(--green) 12%, transparent);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-panel);
 }
 
 .btn-fail {
@@ -601,6 +611,8 @@ a.btn {
 
 .btn-fail:hover {
   background: color-mix(in srgb, var(--red) 12%, transparent);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-panel);
 }
 
 .btn-danger {
@@ -839,12 +851,13 @@ a.btn {
   padding: 0.7rem 0.8rem;
   resize: vertical;
   margin-bottom: 1rem;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 
 .theory-answer:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 0;
-  border-color: transparent;
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 .theory-model-answer {
