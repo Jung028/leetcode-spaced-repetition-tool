@@ -133,7 +133,7 @@ directly on LeetCode's problem pages. Clicking it:
 2. Open `userscript/leetcode-sync.user.js` in this repo, copy its contents.
 3. In Tampermonkey's dashboard, create a new script and paste it in, then save.
 4. Make sure the app is running (`bun run dev`) before clicking the button —
-   it POSTs to `http://localhost:4321/api/capture` (edit `APP_URL` at the top
+   it POSTs to `http://localhost:3000/api/capture` (edit `APP_URL` at the top
    of the script if you run the app on a different port).
 
 ## Tests

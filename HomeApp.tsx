@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import type { DueItem, DueSource, HomeStats } from "./home-api";
 import { SEMESTER_DEADLINES } from "./semester-deadlines";
 import { TIMELINE_URL } from "./timeline-link";
+import { ED_DIGEST_URL } from "./ed-digest-link";
 import { localToday } from "./scheduling";
 
 const EMPTY_STATS: HomeStats = { dueToday: 0, overdue: 0, completedToday: 0 };
@@ -291,6 +292,14 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
         <div className="section-head">
           <h2>Everything due</h2>
           <span className="board-count">{items.length}</span>
+          <a
+            className="section-head-link"
+            href={ED_DIGEST_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Ed digest ↗
+          </a>
         </div>
         {loadError ? (
           <p className="board-empty">Couldn't load what's due.</p>

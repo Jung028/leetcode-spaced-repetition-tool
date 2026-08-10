@@ -13,7 +13,7 @@
   "use strict";
 
   // Change this if your review board runs on a different port (see index.ts / PORT).
-  const APP_URL = "http://localhost:4321";
+  const APP_URL = "http://localhost:3000";
 
   // Monaco's internal language id doesn't always match LeetCode's own langSlug
   // (used by its codeSnippets API) — these two are the only ones that differ.

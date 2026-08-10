@@ -105,6 +105,12 @@ bun --hot ./index.ts
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
 
+## Active exam prep priorities
+
+- **INFO5990 Interactive Oral / Viva** — 10%, hurdle requirement, oral, no notes allowed, covers Weeks 1–6 (assessment slides) / 1–7 (marking rubric — unconfirmed conflict, see assessment_overview.md), held Week 8. See `exam-content/info5990/assessment_overview.md` for full assessment breakdown and the Viva marking rubric (Knowledge & Understanding /40, Communication & Clarity /40, Professionalism & Engagement /20). Only Week 1 content is authored so far (`exam-content/info5990/week-1.ts`) — remaining weeks need authoring per `docs/exam-content-authoring-guide.md` before the Week 8 Viva. Authoring must target the rubric (guide point 6): synthesis across concepts/weeks for Knowledge & Understanding depth, time-boxed structured answers for Communication & Clarity, unaided-recall model answers for Professionalism & Engagement.
+- **Final exam prep, all courses**: `docs/exam-content-authoring-guide.md` (point 5) now requires authored weeks to include a few questions styled like each course's actual final exam format (per that course's `assessment_overview.md`), not just weekly-quiz-style recall.
+- **INFO5990 Team Report / Group Assignment** — 35%, not a hurdle task, due Week 12. Full 13-criterion marking rubric (/70 total: org & industry context, business challenge & governance, methodology & timeline, stakeholder engagement, tech/cost/resource justification, IT governance & compliance, change management, QA & testing, risk/security/privacy, ethics, KPIs & monitoring, integration/research/presentation, SparkPlus peer evaluation) is in `exam-content/info5990/assessment_overview.md`. This is a deliverable-quality rubric, not a recall rubric — use it as a drafting/self-review checklist against the actual report content when helping with this assignment, not for SRS question generation.
+
 ## Spec requirement: continuous testing
 
 Every SPEC.md (or equivalent spec/plan doc) written for this project must include a section requiring the following, verbatim in intent:
