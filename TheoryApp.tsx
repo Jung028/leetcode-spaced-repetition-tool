@@ -6,12 +6,12 @@ import { localToday } from "./scheduling";
 import { sydneyWallClockToUtc, toGoogleUtcStamp } from "./sydneyTime";
 
 const CATEGORY_COLORS: Record<Category, string> = {
-  "System Design": "#ffa116",
-  "Data Structures & Algorithms": "#00b8a3",
-  "Distributed Systems": "#c084fc",
-  Databases: "#38bdf8",
-  "Networking & OS": "#ffc01e",
-  Behavioral: "#ff375f",
+  "System Design": "var(--cat-topic-system-design)",
+  "Data Structures & Algorithms": "var(--cat-topic-dsa)",
+  "Distributed Systems": "var(--cat-topic-distributed)",
+  Databases: "var(--cat-topic-databases)",
+  "Networking & OS": "var(--cat-topic-networking)",
+  Behavioral: "var(--cat-topic-behavioral)",
 };
 
 interface Stats {

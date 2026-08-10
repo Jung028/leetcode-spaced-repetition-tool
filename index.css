@@ -37,6 +37,21 @@
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --dur-fast: 120ms;
   --dur-base: 200ms;
+
+  --cat-info5995: #e0784f;
+  --cat-comp5348: #6fa8dc;
+  --cat-info6007: #e0c15c;
+  --cat-info5990: #b8bcae;
+  --cat-src-leetcode: #ffa116;
+  --cat-src-theory: #00b8a3;
+  --cat-src-goals: #c084fc;
+  --cat-src-exam: #ff375f;
+  --cat-topic-system-design: #ffa116;
+  --cat-topic-dsa: #00b8a3;
+  --cat-topic-distributed: #c084fc;
+  --cat-topic-databases: #38bdf8;
+  --cat-topic-networking: #ffc01e;
+  --cat-topic-behavioral: #ff375f;
 }
 
 @media (prefers-color-scheme: light) {
@@ -56,6 +71,21 @@
     --red: #b33a3a;
 
     --shadow-panel: 0 1px 2px rgba(60, 45, 20, 0.08), 0 6px 20px rgba(60, 45, 20, 0.06);
+
+    --cat-info5995: #b44920;
+    --cat-comp5348: #2a6eac;
+    --cat-info6007: #806818;
+    --cat-info5990: #676d5a;
+    --cat-src-leetcode: #9b5c00;
+    --cat-src-theory: #007668;
+    --cat-src-goals: #922afa;
+    --cat-src-exam: #da002c;
+    --cat-topic-system-design: #9b5c00;
+    --cat-topic-dsa: #007668;
+    --cat-topic-distributed: #922afa;
+    --cat-topic-databases: #0671a1;
+    --cat-topic-networking: #896300;
+    --cat-topic-behavioral: #da002c;
   }
 }
 
@@ -75,6 +105,21 @@
   --red: #b33a3a;
 
   --shadow-panel: 0 1px 2px rgba(60, 45, 20, 0.08), 0 6px 20px rgba(60, 45, 20, 0.06);
+
+  --cat-info5995: #b44920;
+  --cat-comp5348: #2a6eac;
+  --cat-info6007: #806818;
+  --cat-info5990: #676d5a;
+  --cat-src-leetcode: #9b5c00;
+  --cat-src-theory: #007668;
+  --cat-src-goals: #922afa;
+  --cat-src-exam: #da002c;
+  --cat-topic-system-design: #9b5c00;
+  --cat-topic-dsa: #007668;
+  --cat-topic-distributed: #922afa;
+  --cat-topic-databases: #0671a1;
+  --cat-topic-networking: #896300;
+  --cat-topic-behavioral: #da002c;
 }
 
 * {
@@ -482,7 +527,7 @@ button.stat:hover {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--bg);
+  color: var(--on-accent);
   background: var(--urgency, var(--gold));
   padding: 0.2rem 0.5rem;
   border-radius: 3px;
@@ -798,7 +843,7 @@ a.btn {
   :root:not([data-theme="dark"]) .token.prolog,
   :root:not([data-theme="dark"]) .token.doctype,
   :root:not([data-theme="dark"]) .token.cdata {
-    color: #008000;
+    color: #007b00;
     font-style: italic;
   }
 
@@ -817,12 +862,12 @@ a.btn {
   :root:not([data-theme="dark"]) .token.number,
   :root:not([data-theme="dark"]) .token.boolean,
   :root:not([data-theme="dark"]) .token.constant {
-    color: #098658;
+    color: #087c52;
   }
 
   :root:not([data-theme="dark"]) .token.class-name,
   :root:not([data-theme="dark"]) .token.namespace {
-    color: #267f99;
+    color: #23758d;
   }
 
   :root:not([data-theme="dark"]) .token.function,
@@ -848,7 +893,7 @@ a.btn {
 [data-theme="light"] .token.prolog,
 [data-theme="light"] .token.doctype,
 [data-theme="light"] .token.cdata {
-  color: #008000;
+  color: #007b00;
   font-style: italic;
 }
 
@@ -867,12 +912,12 @@ a.btn {
 [data-theme="light"] .token.number,
 [data-theme="light"] .token.boolean,
 [data-theme="light"] .token.constant {
-  color: #098658;
+  color: #087c52;
 }
 
 [data-theme="light"] .token.class-name,
 [data-theme="light"] .token.namespace {
-  color: #267f99;
+  color: #23758d;
 }
 
 [data-theme="light"] .token.function,

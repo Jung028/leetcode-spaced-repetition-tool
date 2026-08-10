@@ -644,23 +644,36 @@ type DeepLink =
 
 function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
-    const stored = localStorage.getItem("theme");
-    if (stored === "light" || stored === "dark") return stored;
+    try {
+      const stored = localStorage.getItem("theme");
+      if (stored === "light" || stored === "dark") return stored;
+    } catch {
+      // localStorage inaccessible (e.g. blocked storage) — fall through to system preference
+    }
     return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
   });
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem("theme", theme);
   }, [theme]);
+
+  const toggle = () => {
+    const next = theme === "light" ? "dark" : "light";
+    setTheme(next);
+    try {
+      localStorage.setItem("theme", next);
+    } catch {
+      // localStorage inaccessible — theme still applies for this session, just won't persist
+    }
+  };
 
   return (
     <button
       className="theme-toggle"
-      onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+      onClick={toggle}
       aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
     >
-      {theme === "light" ? "☾" : "☀"}
+      {theme === "light" ? "☾︎" : "☀︎"}
     </button>
   );
 }
