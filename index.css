@@ -788,6 +788,107 @@ a.btn {
   color: #9cdcfe;
 }
 
+/* Light syntax highlighting — VS Code "Light+" token colors */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .solution {
+    color: #333333;
+  }
+
+  :root:not([data-theme="dark"]) .token.comment,
+  :root:not([data-theme="dark"]) .token.prolog,
+  :root:not([data-theme="dark"]) .token.doctype,
+  :root:not([data-theme="dark"]) .token.cdata {
+    color: #008000;
+    font-style: italic;
+  }
+
+  :root:not([data-theme="dark"]) .token.keyword,
+  :root:not([data-theme="dark"]) .token.atrule {
+    color: #0000ff;
+  }
+
+  :root:not([data-theme="dark"]) .token.string,
+  :root:not([data-theme="dark"]) .token.char,
+  :root:not([data-theme="dark"]) .token.attr-value,
+  :root:not([data-theme="dark"]) .token.builtin {
+    color: #a31515;
+  }
+
+  :root:not([data-theme="dark"]) .token.number,
+  :root:not([data-theme="dark"]) .token.boolean,
+  :root:not([data-theme="dark"]) .token.constant {
+    color: #098658;
+  }
+
+  :root:not([data-theme="dark"]) .token.class-name,
+  :root:not([data-theme="dark"]) .token.namespace {
+    color: #267f99;
+  }
+
+  :root:not([data-theme="dark"]) .token.function,
+  :root:not([data-theme="dark"]) .token.annotation {
+    color: #795e26;
+  }
+
+  :root:not([data-theme="dark"]) .token.operator,
+  :root:not([data-theme="dark"]) .token.punctuation {
+    color: #333333;
+  }
+
+  :root:not([data-theme="dark"]) .token.property {
+    color: #001080;
+  }
+}
+
+[data-theme="light"] .solution {
+  color: #333333;
+}
+
+[data-theme="light"] .token.comment,
+[data-theme="light"] .token.prolog,
+[data-theme="light"] .token.doctype,
+[data-theme="light"] .token.cdata {
+  color: #008000;
+  font-style: italic;
+}
+
+[data-theme="light"] .token.keyword,
+[data-theme="light"] .token.atrule {
+  color: #0000ff;
+}
+
+[data-theme="light"] .token.string,
+[data-theme="light"] .token.char,
+[data-theme="light"] .token.attr-value,
+[data-theme="light"] .token.builtin {
+  color: #a31515;
+}
+
+[data-theme="light"] .token.number,
+[data-theme="light"] .token.boolean,
+[data-theme="light"] .token.constant {
+  color: #098658;
+}
+
+[data-theme="light"] .token.class-name,
+[data-theme="light"] .token.namespace {
+  color: #267f99;
+}
+
+[data-theme="light"] .token.function,
+[data-theme="light"] .token.annotation {
+  color: #795e26;
+}
+
+[data-theme="light"] .token.operator,
+[data-theme="light"] .token.punctuation {
+  color: #333333;
+}
+
+[data-theme="light"] .token.property {
+  color: #001080;
+}
+
 /* History */
 .history {
   margin-top: 2rem;
