@@ -5,20 +5,32 @@ import { openDb, createProblem, reviewProblem } from "./db";
 import { migrateTheory, reviewTheoryConcept, saveTheoryContent } from "./theory-db";
 import { migrateGoals, createProject, createStep, toggleStep } from "./goals-db";
 import { migrateExam, gradeExamAnswer, submitExamPaper, reviewExamItem } from "./exam-db";
-import { buildExamSchedule, weekDueDate, listExamCourses } from "./exam-content";
+import { buildExamSchedule, weekStartDate, weekDueDate, listExamCourses } from "./exam-content";
 import { homeApiRoutes } from "./home-api";
 import { localToday, addDays } from "./scheduling";
 
 const TODAY = localToday();
-// Week 1's due date is fixed (SEMESTER_START is a literal), but "today" is
-// the real wall clock — once today passes weekDueDate(1), the still-open
-// Week 1 item flips from the dueToday bucket to the overdue bucket. These
-// tests compute that dynamically so they don't silently start failing
-// once the real calendar crosses that date.
-const EXAM_WEEK1_OVERDUE = TODAY > weekDueDate(1);
-// Every course with content gets its own collapsed "Week 1" due-item, so
-// stats scale with however many courses currently have papers, not a fixed 1.
-const EXAM_WEEK1_ITEM_COUNT = listExamCourses().length;
+// Each course's due date per week is fixed (SEMESTER_START is a literal),
+// but "today" is the real wall clock, and different courses now sit at
+// different numbers of weeks-with-content — so rather than assuming one
+// due-item per course, this walks every course's actual weeks and buckets
+// each visible, unsubmitted week by whether its due date has passed yet.
+// This keeps the stats tests below correct as more weeks are authored and
+// as the real calendar advances, without hardcoding a per-course count.
+function examWeekItemCounts(): { dueToday: number; overdue: number } {
+  let dueToday = 0;
+  let overdue = 0;
+  for (const { code } of listExamCourses()) {
+    const weeks = new Set(buildExamSchedule().filter((p) => p.course === code).map((p) => p.week));
+    for (const week of weeks) {
+      if (weekStartDate(week) > TODAY) continue; // not visible yet
+      if (weekDueDate(week) < TODAY) overdue++;
+      else dueToday++;
+    }
+  }
+  return { dueToday, overdue };
+}
+const EXAM_ITEM_COUNTS = examWeekItemCounts();
 let db: Database;
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
@@ -74,8 +86,8 @@ test("GET /api/home/due excludes a Goals step that isn't due yet", async () => {
 test("GET /api/home/due includes this week's exam item", async () => {
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   const examItems = items.filter((i) => i.source === "exam");
-  expect(examItems.length).toBe(EXAM_WEEK1_ITEM_COUNT); // each course's Week 1 papers collapse into one due-item
-  const info5995Item = examItems.find((i) => i.course === "INFO5995")!;
+  expect(examItems.length).toBe(EXAM_ITEM_COUNTS.dueToday + EXAM_ITEM_COUNTS.overdue); // each visible, unsubmitted week collapses into one due-item
+  const info5995Item = examItems.find((i) => i.course === "INFO5995" && i.linkId === 1)!;
   expect(info5995Item).toBeTruthy();
   expect(info5995Item.linkId).toBe(1); // week 1
   expect(info5995Item.title).toContain("Week 1");
@@ -86,22 +98,24 @@ test("GET /api/home/due gives the week item and exam review items collision-free
   // item disappears entirely. To get a week item and a review item
   // coexisting under the same course/week without depending on a second
   // week's real-calendar visibility date, manually seed a synthetic second
-  // paper row for INFO5995's week 1 — groupExamPapersByWeek falls back to a
+  // paper row for INFO5990's week 1 — groupExamPapersByWeek falls back to a
   // generic title for rows without matching content, so this doesn't need
-  // real multi-paper content to exist.
-  db.query(`INSERT INTO exam_papers (course, week, paper_number) VALUES ('INFO5995', 1, 2)`).run();
+  // real multi-paper content to exist. INFO5990 is used here (rather than
+  // INFO5995) because it's still on a single visible week, so filtering by
+  // course alone can't pick up an unrelated week's item too.
+  db.query(`INSERT INTO exam_papers (course, week, paper_number) VALUES ('INFO5990', 1, 2)`).run();
 
-  const paper1 = buildExamSchedule().find((p) => p.course === "INFO5995" && p.week === 1 && p.paperNumber === 1)!;
-  paper1.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, i !== 0)); // question 0 wrong, rest correct
-  submitExamPaper(db, "INFO5995", 1, 1, addDays(TODAY, -1)); // review item's next_review lands on TODAY
+  const paper1 = buildExamSchedule().find((p) => p.course === "INFO5990" && p.week === 1 && p.paperNumber === 1)!;
+  paper1.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5990", 1, 1, i, i !== 0)); // question 0 wrong, rest correct
+  submitExamPaper(db, "INFO5990", 1, 1, addDays(TODAY, -1)); // review item's next_review lands on TODAY
 
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   const examItems = items.filter((i) => i.source === "exam");
-  const info5995Items = examItems.filter((i) => i.course === "INFO5995");
+  const info5990Items = examItems.filter((i) => i.course === "INFO5990");
   // The week item (synthetic paper 2 still unsubmitted) and review item (paper 1's wrong question) coexist distinctly.
-  expect(info5995Items.length).toBe(2);
-  const weekItem = info5995Items.find((i) => i.title.includes("submitted"));
-  const reviewItem = info5995Items.find((i) => i.title.includes("review"));
+  expect(info5990Items.length).toBe(2);
+  const weekItem = info5990Items.find((i) => i.title.includes("submitted"));
+  const reviewItem = info5990Items.find((i) => i.title.includes("review"));
   expect(weekItem).toBeTruthy();
   expect(weekItem.title).toBe("Week 1 (1/2 submitted)");
   expect(reviewItem).toBeTruthy();
@@ -111,27 +125,27 @@ test("GET /api/home/due gives the week item and exam review items collision-free
 });
 
 test("GET /api/home/due collapses a week's multiple due exam review items into one row", async () => {
-  const paper = buildExamSchedule().find((p) => p.course === "INFO5995" && p.week === 1 && p.paperNumber === 1)!;
+  const paper = buildExamSchedule().find((p) => p.course === "INFO5990" && p.week === 1 && p.paperNumber === 1)!;
   // Grade the first three questions wrong (and everything else right) so submitting
   // creates three separate exam_review_items rows, all due today.
-  paper.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, i >= 3));
-  submitExamPaper(db, "INFO5995", 1, 1, addDays(TODAY, -1)); // review items' next_review lands on TODAY
+  paper.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5990", 1, 1, i, i >= 3));
+  submitExamPaper(db, "INFO5990", 1, 1, addDays(TODAY, -1)); // review items' next_review lands on TODAY
 
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
-  const info5995Items = items.filter((i) => i.source === "exam" && i.course === "INFO5995");
+  const info5990Items = items.filter((i) => i.source === "exam" && i.course === "INFO5990");
   // Three wrong answers in the same week must show up as one due-item, not three.
-  expect(info5995Items.length).toBe(1);
-  expect(info5995Items[0].title).toBe("Week 1 review (3 due)");
-  expect(info5995Items[0].linkId).toBe(1);
+  expect(info5990Items.length).toBe(1);
+  expect(info5990Items[0].title).toBe("Week 1 review (3 due)");
+  expect(info5990Items[0].linkId).toBe(1);
 });
 
 test("GET /api/home/due drops the week item once every paper in it is submitted", async () => {
-  const paper = buildExamSchedule().find((p) => p.course === "INFO5995" && p.week === 1 && p.paperNumber === 1)!;
-  paper.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, true));
-  submitExamPaper(db, "INFO5995", 1, 1, TODAY);
+  const paper = buildExamSchedule().find((p) => p.course === "INFO5990" && p.week === 1 && p.paperNumber === 1)!;
+  paper.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5990", 1, 1, i, true));
+  submitExamPaper(db, "INFO5990", 1, 1, TODAY);
 
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
-  expect(items.some((i) => i.source === "exam" && i.course === "INFO5995")).toBe(false);
+  expect(items.some((i) => i.source === "exam" && i.course === "INFO5990")).toBe(false);
 });
 
 test("GET /api/home/due sorts all sources together by due date ascending", async () => {
@@ -146,20 +160,20 @@ test("GET /api/home/due sorts all sources together by due date ascending", async
 test("GET /api/home/stats starts with one exam item per course (this week, besides theory) when theory concepts are all blank", async () => {
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
   expect(stats).toEqual({
-    dueToday: EXAM_WEEK1_OVERDUE ? 0 : EXAM_WEEK1_ITEM_COUNT,
-    overdue: EXAM_WEEK1_OVERDUE ? EXAM_WEEK1_ITEM_COUNT : 0,
+    dueToday: EXAM_ITEM_COUNTS.dueToday,
+    overdue: EXAM_ITEM_COUNTS.overdue,
     completedToday: 0,
-  }); // one grouped week-item per course, in whichever bucket today's date currently falls into
+  }); // one grouped item per visible, unsubmitted week, in whichever bucket its own due date currently falls into
 });
 
 test("GET /api/home/stats counts theory concepts once they have content, up to the released cap", async () => {
   for (let day = 1; day <= 5; day++) saveTheoryContent(db, day, `Q${day}`, `A${day}`);
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
   expect(stats).toEqual({
-    dueToday: 5 + (EXAM_WEEK1_OVERDUE ? 0 : EXAM_WEEK1_ITEM_COUNT),
-    overdue: EXAM_WEEK1_OVERDUE ? EXAM_WEEK1_ITEM_COUNT : 0,
+    dueToday: 5 + EXAM_ITEM_COUNTS.dueToday,
+    overdue: EXAM_ITEM_COUNTS.overdue,
     completedToday: 0,
-  }); // 5 theory + one exam week-item per course, in whichever bucket today's date currently falls into
+  }); // 5 theory + one exam item per visible, unsubmitted week, in whichever bucket its own due date currently falls into
 });
 
 test("GET /api/home/stats counts dueToday and overdue across all four sources", async () => {
@@ -173,8 +187,8 @@ test("GET /api/home/stats counts dueToday and overdue across all four sources", 
   createStep(db, overdueProject.id, "Overdue step", 20, addDays(TODAY, -3)); // overdue
 
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats.dueToday).toBe(6 + (EXAM_WEEK1_OVERDUE ? 0 : EXAM_WEEK1_ITEM_COUNT)); // leetcode problem + 5 theory concepts + one exam week-item per course, date-dependent
-  expect(stats.overdue).toBe(1 + (EXAM_WEEK1_OVERDUE ? EXAM_WEEK1_ITEM_COUNT : 0)); // the goals step, plus the exam week-items if they're now overdue
+  expect(stats.dueToday).toBe(6 + EXAM_ITEM_COUNTS.dueToday); // leetcode problem + 5 theory concepts + one exam item per due, unsubmitted week
+  expect(stats.overdue).toBe(1 + EXAM_ITEM_COUNTS.overdue); // the goals step, plus one exam item per overdue, unsubmitted week
 });
 
 test("GET /api/home/stats counts completedToday across all three sources", async () => {

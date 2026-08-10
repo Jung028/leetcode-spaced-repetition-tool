@@ -19,7 +19,11 @@ import { buildExamSchedule } from "./exam-content";
 import { addDays } from "./scheduling";
 
 const TODAY = "2026-08-05"; // a Wednesday in Week 1 (2026-08-03..2026-08-09)
-const COURSE = "INFO5995";
+// INFO5990 is the one course still on a single content paper (week 1 only) —
+// using it here keeps every "this course has just 1 paper" assertion below
+// stable as other courses (INFO5995, COMP5348, INFO6007) accumulate more
+// weeks of content over the semester.
+const COURSE = "INFO5990";
 let db: Database;
 
 beforeEach(() => {
@@ -29,7 +33,7 @@ beforeEach(() => {
 
 test("seeds every paper for the course, unsubmitted", () => {
   const rows = listExamPaperRows(db, COURSE);
-  expect(rows.length).toBe(1); // INFO5995 Week 1's combined paper
+  expect(rows.length).toBe(1); // INFO5990 Week 1's combined paper
   expect(rows.every((r) => r.submitted_at === null)).toBe(true);
   expect(rows.map((r) => r.paper_number).sort()).toEqual([1]);
 });
@@ -157,41 +161,41 @@ test("migrateExam upgrades a pre-existing paper_day-keyed db, recovering (week, 
       released_up_to INTEGER NOT NULL DEFAULT 0
     );
   `);
-  // paper_day 1 = INFO5995's only paper in content order = (week 1, paperNumber 1)
+  // paper_day 1 = INFO5990's only paper in content order = (week 1, paperNumber 1)
   legacyDb
     .query(
-      `INSERT INTO exam_papers (course, paper_day, next_review, submitted_at, score_correct, score_total) VALUES ('INFO5995', 1, ?, ?, 20, 26)`,
+      `INSERT INTO exam_papers (course, paper_day, next_review, submitted_at, score_correct, score_total) VALUES ('INFO5990', 1, ?, ?, 20, 26)`,
     )
     .run(TODAY, TODAY);
   legacyDb
-    .query(`INSERT INTO exam_answers (course, paper_day, question_index, your_answer, correct) VALUES ('INFO5995', 1, 0, 'my answer', 1)`)
+    .query(`INSERT INTO exam_answers (course, paper_day, question_index, your_answer, correct) VALUES ('INFO5990', 1, 0, 'my answer', 1)`)
     .run();
   legacyDb
-    .query(`INSERT INTO exam_review_items (course, paper_day, question_index, rung, next_review) VALUES ('INFO5995', 1, 3, 0, ?)`)
+    .query(`INSERT INTO exam_review_items (course, paper_day, question_index, rung, next_review) VALUES ('INFO5990', 1, 3, 0, ?)`)
     .run(TODAY);
   legacyDb
-    .query(`INSERT INTO exam_review_log (course, paper_day, question_index, reviewed_at, result) VALUES ('INFO5995', 1, 3, ?, 'correct')`)
+    .query(`INSERT INTO exam_review_log (course, paper_day, question_index, reviewed_at, result) VALUES ('INFO5990', 1, 3, ?, 'correct')`)
     .run(TODAY);
-  legacyDb.query(`INSERT INTO exam_state (course, released_up_to) VALUES ('INFO5995', 3)`).run();
+  legacyDb.query(`INSERT INTO exam_state (course, released_up_to) VALUES ('INFO5990', 3)`).run();
 
   migrateExam(legacyDb, TODAY);
 
-  const paper = getExamPaperRow(legacyDb, "INFO5995", 1, 1)!;
+  const paper = getExamPaperRow(legacyDb, "INFO5990", 1, 1)!;
   expect(paper).not.toBeNull();
   expect(paper.submitted_at).toBe(TODAY);
   expect(paper.score_correct).toBe(20);
 
-  const answers = listExamAnswers(legacyDb, "INFO5995", 1, 1);
+  const answers = listExamAnswers(legacyDb, "INFO5990", 1, 1);
   expect(answers[0]!.your_answer).toBe("my answer");
 
-  const dueReviews = listDueExamReviewItems(legacyDb, "INFO5995", TODAY);
+  const dueReviews = listDueExamReviewItems(legacyDb, "INFO5990", TODAY);
   expect(dueReviews.some((r) => r.week === 1 && r.paper_number === 1 && r.question_index === 3)).toBe(true);
 
-  expect(countExamReviewsToday(legacyDb, "INFO5995", TODAY)).toBe(1);
+  expect(countExamReviewsToday(legacyDb, "INFO5990", TODAY)).toBe(1);
 
-  // INFO5995 now has just this one paper, so nothing is left for
+  // INFO5990 now has just this one paper, so nothing is left for
   // migrateExam's seedNewPapers step to fresh-seed.
-  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(1);
+  expect(listExamPaperRows(legacyDb, "INFO5990").length).toBe(1);
 
   // exam_state has no successor in the weekly-pacing schema. This is the
   // exact shape (course+paper_day, exam_state already present) the real
@@ -275,7 +279,7 @@ test("a migration failure rolls back cleanly, leaving the original paper_day-sha
     );
   `);
   legacyDb
-    .query(`INSERT INTO exam_papers (course, paper_day, next_review) VALUES ('INFO5995', 1, ?)`)
+    .query(`INSERT INTO exam_papers (course, paper_day, next_review) VALUES ('INFO5990', 1, ?)`)
     .run(TODAY);
   // A paper_day with no matching content position (way out of range) — lookup()
   // returns undefined for it, which the migration already handles by skipping
@@ -283,15 +287,15 @@ test("a migration failure rolls back cleanly, leaving the original paper_day-sha
   // exact skip-don't-crash behavior, since a real mid-migration SQL failure
   // is hard to simulate without corrupting bun:sqlite's connection itself.
   legacyDb
-    .query(`INSERT INTO exam_papers (course, paper_day, next_review) VALUES ('INFO5995', 999, ?)`)
+    .query(`INSERT INTO exam_papers (course, paper_day, next_review) VALUES ('INFO5990', 999, ?)`)
     .run(TODAY);
 
   migrateExam(legacyDb, TODAY);
 
   // The valid row (paper_day 1) migrated; the out-of-range row (999) was
   // dropped rather than crashing the whole migration or corrupting state.
-  expect(getExamPaperRow(legacyDb, "INFO5995", 1, 1)).not.toBeNull();
-  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(1); // just the migrated row — INFO5995 only has 1 paper now
+  expect(getExamPaperRow(legacyDb, "INFO5990", 1, 1)).not.toBeNull();
+  expect(listExamPaperRows(legacyDb, "INFO5990").length).toBe(1); // just the migrated row — INFO5990 only has 1 paper now
 });
 
 function submitPaper1AsWrongThenRight(db: Database, correctAllExceptFirst: boolean) {
