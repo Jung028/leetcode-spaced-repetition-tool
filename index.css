@@ -996,6 +996,7 @@ a.btn {
   border: 1px solid var(--line);
   border-radius: 6px;
   cursor: pointer;
+  transition: background var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease);
 }
 
 .exam-option-correct {
