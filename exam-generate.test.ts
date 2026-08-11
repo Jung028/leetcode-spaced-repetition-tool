@@ -130,3 +130,41 @@ test("startGenerateJob refuses to spawn a second job while one is already runnin
   resolveClaude?.();
   if (first.ok) await first.done;
 });
+
+test("startGenerateJob closes the dispatch-time race: two back-to-back calls without awaiting the first only start one job", async () => {
+  const root = makeTempDir();
+  let resolveClaude: (() => void) | undefined;
+  const stuckRunClaude: RunClaude = () =>
+    new Promise((resolve) => {
+      resolveClaude = () => resolve({ stdout: "", stderr: "", exitCode: 0 });
+    });
+
+  // Deliberately NOT awaited — both calls race before either has a chance
+  // to write status.json. The in-memory lock must still let only one win.
+  const firstPromise = startGenerateJob("INFO5995", 7, "/fake/week/dir", { runClaude: stuckRunClaude, root });
+  const secondPromise = startGenerateJob("INFO5995", 7, "/fake/week/dir", { runClaude: stuckRunClaude, root });
+
+  const [first, second] = await Promise.all([firstPromise, secondPromise]);
+
+  expect(first.ok).toBe(true);
+  expect(second).toEqual({ ok: false, reason: "already generating" });
+
+  resolveClaude?.();
+  if (first.ok) await first.done;
+});
+
+test("startGenerateJob marks the job failed when runClaude rejects instead of resolving", async () => {
+  const root = makeTempDir();
+  const throwingRunClaude: RunClaude = async () => {
+    throw new Error("claude binary not found on PATH");
+  };
+
+  const result = await startGenerateJob("INFO5995", 8, "/fake/week/dir", { runClaude: throwingRunClaude, root });
+  expect(result.ok).toBe(true);
+  if (result.ok) await result.done;
+
+  const status = await readJobStatus("INFO5995", 8, root);
+  expect(status.state).toBe("failed");
+  expect(status.logTail).toContain("claude binary not found on PATH");
+  expect(status.finishedAt).toBeTruthy();
+});

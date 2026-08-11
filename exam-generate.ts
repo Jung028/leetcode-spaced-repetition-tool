@@ -96,26 +96,44 @@ export type StartResult = { ok: true; done: Promise<void> } | { ok: false; reaso
 
 const REPO_ROOT = import.meta.dir;
 
+// Closes the narrow dispatch-time race where two near-simultaneous calls
+// (e.g. a double-click) both pass the disk-based "not already running"
+// check before either write lands. This is a same-process, in-memory guard
+// only — it's checked/added synchronously (no `await` gap) so there's no
+// window for a second call to slip through, and the key is released as
+// soon as the initial "running" status.json write completes, at which
+// point the durable disk-based readJobStatus check takes over as the
+// source of truth (including across hot-reload/page-reload).
+const startingJobs = new Set<string>();
+
 export async function startGenerateJob(
   course: string,
   week: number,
   weekDir: string,
   deps: StartJobDeps = defaultGenerateDeps,
 ): Promise<StartResult> {
-  const existing = await readJobStatus(course, week, deps.root);
-  if (existing.state === "running") return { ok: false, reason: "already generating" };
+  const key = `${course}-${week}`;
+  if (startingJobs.has(key)) return { ok: false, reason: "already generating" };
+  startingJobs.add(key);
 
-  const dir = jobDir(course, week, deps.root);
-  mkdirSync(dir, { recursive: true });
-  const statusPath = join(dir, "status.json");
-  const startedAt = new Date().toISOString();
-  await Bun.write(statusPath, JSON.stringify({ state: "running", startedAt } satisfies JobStatus));
+  try {
+    const existing = await readJobStatus(course, week, deps.root);
+    if (existing.state === "running") return { ok: false, reason: "already generating" };
 
-  // Fire-and-forget from the caller's point of view (an HTTP route handler
-  // returns as soon as this function resolves, well before generation
-  // finishes) — `done` exists purely so tests can await completion.
-  const done = runGeneration(course, week, weekDir, statusPath, startedAt, deps.runClaude).catch(() => {});
-  return { ok: true, done };
+    const dir = jobDir(course, week, deps.root);
+    mkdirSync(dir, { recursive: true });
+    const statusPath = join(dir, "status.json");
+    const startedAt = new Date().toISOString();
+    await Bun.write(statusPath, JSON.stringify({ state: "running", startedAt } satisfies JobStatus));
+
+    // Fire-and-forget from the caller's point of view (an HTTP route handler
+    // returns as soon as this function resolves, well before generation
+    // finishes) — `done` exists purely so tests can await completion.
+    const done = runGeneration(course, week, weekDir, statusPath, startedAt, deps.runClaude).catch(() => {});
+    return { ok: true, done };
+  } finally {
+    startingJobs.delete(key);
+  }
 }
 
 async function runGeneration(
@@ -126,17 +144,27 @@ async function runGeneration(
   startedAt: string,
   runClaude: RunClaude,
 ): Promise<void> {
-  const prompt = buildGeneratePrompt(course, week, weekDir);
-  const args = buildClaudeArgs(prompt);
-  const { stdout, stderr, exitCode } = await runClaude(args, REPO_ROOT);
-  const status: JobStatus = {
-    state: exitCode === 0 ? "done" : "failed",
-    startedAt,
-    finishedAt: new Date().toISOString(),
-    exitCode,
-    logTail: tailLines(`${stdout}\n${stderr}`, 40),
-  };
-  await Bun.write(statusPath, JSON.stringify(status));
+  try {
+    const prompt = buildGeneratePrompt(course, week, weekDir);
+    const args = buildClaudeArgs(prompt);
+    const { stdout, stderr, exitCode } = await runClaude(args, REPO_ROOT);
+    const status: JobStatus = {
+      state: exitCode === 0 ? "done" : "failed",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      exitCode,
+      logTail: tailLines(`${stdout}\n${stderr}`, 40),
+    };
+    await Bun.write(statusPath, JSON.stringify(status));
+  } catch (err) {
+    const status: JobStatus = {
+      state: "failed",
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      logTail: err instanceof Error ? err.message : String(err),
+    };
+    await Bun.write(statusPath, JSON.stringify(status));
+  }
 }
 
 function tailLines(text: string, maxLines: number): string {
