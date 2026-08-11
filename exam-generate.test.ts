@@ -9,6 +9,8 @@ import {
   buildGeneratePrompt,
   buildClaudeArgs,
   ALLOWED_TOOLS,
+  startGenerateJob,
+  type RunClaude,
 } from "./exam-generate";
 
 const tempDirs: string[] = [];
@@ -75,4 +77,56 @@ test("buildClaudeArgs scopes permissions to exactly Read/Write/Edit/Bash(bun tes
     "json",
     "do the thing",
   ]);
+});
+
+test("startGenerateJob writes a running status before runClaude resolves, then done on exit 0", async () => {
+  const root = makeTempDir();
+  let sawRunningWhileClaudeRan = false;
+  const fakeRunClaude: RunClaude = async () => {
+    sawRunningWhileClaudeRan = (await readJobStatus("INFO5995", 5, root)).state === "running";
+    return { stdout: "did the thing", stderr: "", exitCode: 0 };
+  };
+
+  const result = await startGenerateJob("INFO5995", 5, "/fake/week/dir", { runClaude: fakeRunClaude, root });
+  expect(result.ok).toBe(true);
+  if (result.ok) await result.done;
+
+  expect(sawRunningWhileClaudeRan).toBe(true);
+  const status = await readJobStatus("INFO5995", 5, root);
+  expect(status.state).toBe("done");
+  expect(status.exitCode).toBe(0);
+  expect(status.logTail).toContain("did the thing");
+  expect(status.startedAt).toBeTruthy();
+  expect(status.finishedAt).toBeTruthy();
+});
+
+test("startGenerateJob marks the job failed when runClaude exits non-zero", async () => {
+  const root = makeTempDir();
+  const fakeRunClaude: RunClaude = async () => ({ stdout: "", stderr: "bun test failed", exitCode: 1 });
+
+  const result = await startGenerateJob("INFO5995", 5, "/fake/week/dir", { runClaude: fakeRunClaude, root });
+  if (result.ok) await result.done;
+
+  const status = await readJobStatus("INFO5995", 5, root);
+  expect(status.state).toBe("failed");
+  expect(status.exitCode).toBe(1);
+  expect(status.logTail).toContain("bun test failed");
+});
+
+test("startGenerateJob refuses to spawn a second job while one is already running", async () => {
+  const root = makeTempDir();
+  let resolveClaude: (() => void) | undefined;
+  const stuckRunClaude: RunClaude = () =>
+    new Promise((resolve) => {
+      resolveClaude = () => resolve({ stdout: "", stderr: "", exitCode: 0 });
+    });
+
+  const first = await startGenerateJob("INFO5995", 6, "/fake/week/dir", { runClaude: stuckRunClaude, root });
+  expect(first.ok).toBe(true);
+
+  const second = await startGenerateJob("INFO5995", 6, "/fake/week/dir", { runClaude: stuckRunClaude, root });
+  expect(second).toEqual({ ok: false, reason: "already generating" });
+
+  resolveClaude?.();
+  if (first.ok) await first.done;
 });

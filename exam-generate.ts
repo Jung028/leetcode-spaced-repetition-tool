@@ -70,3 +70,76 @@ You are running unattended in headless mode with no human present to ask questio
 export function buildClaudeArgs(prompt: string): string[] {
   return ["-p", "--permission-mode", "acceptEdits", "--allowedTools", ALLOWED_TOOLS, "--output-format", "json", prompt];
 }
+
+export type RunClaude = (args: string[], cwd: string) => Promise<{ stdout: string; stderr: string; exitCode: number }>;
+
+// Spawns the real `claude` binary with an argv array (not a shell string),
+// so there's no quoting/escaping ambiguity around the prompt text.
+export const defaultRunClaude: RunClaude = async (args, cwd) => {
+  const proc = Bun.spawn(["claude", ...args], { cwd, stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { stdout, stderr, exitCode };
+};
+
+export interface StartJobDeps {
+  runClaude: RunClaude;
+  root: string;
+}
+
+export const defaultGenerateDeps: StartJobDeps = { runClaude: defaultRunClaude, root: DEFAULT_JOB_ROOT };
+
+export type StartResult = { ok: true; done: Promise<void> } | { ok: false; reason: string };
+
+const REPO_ROOT = import.meta.dir;
+
+export async function startGenerateJob(
+  course: string,
+  week: number,
+  weekDir: string,
+  deps: StartJobDeps = defaultGenerateDeps,
+): Promise<StartResult> {
+  const existing = await readJobStatus(course, week, deps.root);
+  if (existing.state === "running") return { ok: false, reason: "already generating" };
+
+  const dir = jobDir(course, week, deps.root);
+  mkdirSync(dir, { recursive: true });
+  const statusPath = join(dir, "status.json");
+  const startedAt = new Date().toISOString();
+  await Bun.write(statusPath, JSON.stringify({ state: "running", startedAt } satisfies JobStatus));
+
+  // Fire-and-forget from the caller's point of view (an HTTP route handler
+  // returns as soon as this function resolves, well before generation
+  // finishes) — `done` exists purely so tests can await completion.
+  const done = runGeneration(course, week, weekDir, statusPath, startedAt, deps.runClaude).catch(() => {});
+  return { ok: true, done };
+}
+
+async function runGeneration(
+  course: string,
+  week: number,
+  weekDir: string,
+  statusPath: string,
+  startedAt: string,
+  runClaude: RunClaude,
+): Promise<void> {
+  const prompt = buildGeneratePrompt(course, week, weekDir);
+  const args = buildClaudeArgs(prompt);
+  const { stdout, stderr, exitCode } = await runClaude(args, REPO_ROOT);
+  const status: JobStatus = {
+    state: exitCode === 0 ? "done" : "failed",
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    exitCode,
+    logTail: tailLines(`${stdout}\n${stderr}`, 40),
+  };
+  await Bun.write(statusPath, JSON.stringify(status));
+}
+
+function tailLines(text: string, maxLines: number): string {
+  const lines = text.split("\n");
+  return lines.slice(Math.max(0, lines.length - maxLines)).join("\n").trim();
+}
