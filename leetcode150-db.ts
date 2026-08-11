@@ -13,6 +13,13 @@ export function migrateLeetcode150(db: Database): void {
       completed_count INTEGER NOT NULL
     );
   `);
+  const columns = db.query(`PRAGMA table_info(leetcode150_state)`).all() as { name: string }[];
+  if (!columns.some((c) => c.name === "due_since")) {
+    db.exec(`ALTER TABLE leetcode150_state ADD COLUMN due_since TEXT`);
+  }
+  if (!columns.some((c) => c.name === "last_completed_date")) {
+    db.exec(`ALTER TABLE leetcode150_state ADD COLUMN last_completed_date TEXT`);
+  }
   const existing = db.query(`SELECT completed_count FROM leetcode150_state WHERE id = 1`).get() as
     | { completed_count: number }
     | null;
@@ -21,15 +28,33 @@ export function migrateLeetcode150(db: Database): void {
   }
 }
 
+export interface CurrentLeetcode150 {
+  item: (Leetcode150Item & { dueSince: string }) | null;
+  completedCount: number;
+  lastCompletedDate: string | null;
+}
+
 // Self-advances on every read: walks the pointer forward past any entries
 // that already have a matching solved `problems` row, persisting the new
 // position. This is the only place the pointer moves — there is no hook
 // into createProblem/captureSubmission in db.ts/api.ts.
-export function getCurrentLeetcode150(db: Database): Leetcode150Item | null {
-  const row = db.query(`SELECT completed_count FROM leetcode150_state WHERE id = 1`).get() as {
+//
+// due_since tracks when the CURRENT pointer position became due (seeds to
+// `today` on first read, resets to `today` whenever the pointer advances —
+// this is what lets callers compute overdueDays for a daily quota with no
+// calendar date of its own). last_completed_date tracks the most recent
+// day an advance happened (one credit per day, not one per position, even
+// if multiple positions advance in a single call).
+export function getCurrentLeetcode150(db: Database, today: string): CurrentLeetcode150 {
+  const row = db
+    .query(`SELECT completed_count, due_since, last_completed_date FROM leetcode150_state WHERE id = 1`)
+    .get() as {
     completed_count: number;
+    due_since: string | null;
+    last_completed_date: string | null;
   };
   let completedCount = row.completed_count;
+  let dueSince = row.due_since ?? today;
 
   const solvedSlugs = new Set(
     listProblems(db)
@@ -37,6 +62,7 @@ export function getCurrentLeetcode150(db: Database): Leetcode150Item | null {
       .filter((s): s is string => s !== null),
   );
 
+  const startCount = completedCount;
   while (
     completedCount < LEETCODE_150.length &&
     solvedSlugs.has(slugify(LEETCODE_150[completedCount]!.title))
@@ -44,9 +70,25 @@ export function getCurrentLeetcode150(db: Database): Leetcode150Item | null {
     completedCount++;
   }
 
-  if (completedCount !== row.completed_count) {
-    db.query(`UPDATE leetcode150_state SET completed_count = ? WHERE id = 1`).run(completedCount);
+  let lastCompletedDate = row.last_completed_date;
+  if (completedCount > startCount) {
+    dueSince = today;
+    lastCompletedDate = today;
   }
 
-  return completedCount < LEETCODE_150.length ? LEETCODE_150[completedCount]! : null;
+  if (
+    completedCount !== row.completed_count ||
+    dueSince !== row.due_since ||
+    lastCompletedDate !== row.last_completed_date
+  ) {
+    db.query(
+      `UPDATE leetcode150_state SET completed_count = ?, due_since = ?, last_completed_date = ? WHERE id = 1`,
+    ).run(completedCount, dueSince, lastCompletedDate);
+  }
+
+  return {
+    item: completedCount < LEETCODE_150.length ? { ...LEETCODE_150[completedCount]!, dueSince } : null,
+    completedCount,
+    lastCompletedDate,
+  };
 }
