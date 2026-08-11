@@ -3,6 +3,7 @@ import { EXAM_REVIEW_LADDER } from "./exam-scheduling";
 import { localToday } from "./scheduling";
 import type { ExamPaperView, ExamQuestionView, ExamReviewView, ExamHistoryWeek } from "./exam-api";
 import type { ExamWeekView } from "./exam-content";
+import type { JobStatus } from "./exam-generate";
 import { TIMELINE_URL, TIMELINE_ANCHORS } from "./timeline-link";
 
 interface Stats {
@@ -75,6 +76,10 @@ const api = {
       body: JSON.stringify({ result }),
     }).then((r) => json<any>(r)),
   sync: () => fetch("/api/exam/sync").then((r) => json<{ pending: { course: string; week: number }[] }>(r)),
+  generate: (course: string, week: number) =>
+    fetch(`/api/exam/${course}/${week}/generate`, { method: "POST" }).then((r) => json<{}>(r)),
+  generateStatus: (course: string, week: number) =>
+    fetch(`/api/exam/${course}/${week}/generate/status`).then((r) => json<JobStatus>(r)),
   history: (course: string) => fetch(`/api/exam/${course}/history`).then((r) => json<{ weeks: ExamHistoryWeek[] }>(r)),
   retake: (course: string, week: number, paperNumber: number) =>
     fetch(`/api/exam/${course}/${week}/${paperNumber}/retake`, { method: "POST" }).then((r) => json<{ ok: true }>(r)),
@@ -99,25 +104,89 @@ function ExamStats({ stats, onOpenCompleted }: { stats: Stats; onOpenCompleted: 
   );
 }
 
+function jobKey(course: string, week: number): string {
+  return `${course}:${week}`;
+}
+
 function SyncBanner({
   pending,
   onDismiss,
+  onGenerated,
 }: {
   pending: { course: string; week: number }[];
   onDismiss: () => void;
+  onGenerated: () => void;
 }) {
+  const [jobs, setJobs] = useState<Record<string, JobStatus>>({});
+
+  const poll = async (course: string, week: number) => {
+    const status = await api.generateStatus(course, week).catch(() => null);
+    if (!status) return;
+    setJobs((prev) => ({ ...prev, [jobKey(course, week)]: status }));
+    if (status.state === "done") onGenerated();
+  };
+
+  // Recover in-progress/failed state on mount — e.g. after a page reload
+  // mid-generation, since job status lives on disk, not in this component's
+  // state.
+  useEffect(() => {
+    pending.forEach((p) => poll(p.course, p.week));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const running = pending.filter((p) => jobs[jobKey(p.course, p.week)]?.state === "running");
+    if (running.length === 0) return;
+    const id = setInterval(() => running.forEach((p) => poll(p.course, p.week)), 5000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs, pending]);
+
+  const generate = async (course: string, week: number) => {
+    setJobs((prev) => ({ ...prev, [jobKey(course, week)]: { state: "running", startedAt: new Date().toISOString() } }));
+    try {
+      await api.generate(course, week);
+    } catch (err) {
+      setJobs((prev) => ({
+        ...prev,
+        [jobKey(course, week)]: { state: "failed", logTail: errorMessage(err) },
+      }));
+    }
+  };
+
   return (
     <div className="board" style={{ marginBottom: "1rem" }}>
       <div className="board-row" style={{ justifyContent: "space-between" }}>
         <span>
           {pending.length === 0
             ? "Everything's generated — nothing pending."
-            : `${pending.length} week${pending.length === 1 ? "" : "s"} ready to generate: ${pending
-                .map((p) => `${p.course} Week ${p.week}`)
-                .join(", ")} — ask Claude Code to fill these in.`}
+            : `${pending.length} week${pending.length === 1 ? "" : "s"} ready to generate.`}
         </span>
         <button className="modal-close" onClick={onDismiss} aria-label="Dismiss">×</button>
       </div>
+      {pending.length > 0 && (
+        <ul className="board-rows">
+          {pending.map((p) => {
+            const job = jobs[jobKey(p.course, p.week)];
+            const running = job?.state === "running";
+            const failed = job?.state === "failed";
+            return (
+              <li key={jobKey(p.course, p.week)}>
+                <div className="board-row" style={{ justifyContent: "space-between" }}>
+                  <span className="board-title">{p.course} Week {p.week}</span>
+                  <span>
+                    {failed && <span className="tag">failed</span>}
+                    <button className="btn btn-primary" disabled={running} onClick={() => generate(p.course, p.week)}>
+                      {running ? "Generating…" : failed ? "Retry" : "Generate"}
+                    </button>
+                  </span>
+                </div>
+                {failed && job?.logTail && <p className="rule-note">{job.logTail}</p>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
@@ -685,7 +754,16 @@ export default function ExamApp({
         </button>
         <button className="btn" onClick={openHistory}>History</button>
       </div>
-      {syncPending !== null && <SyncBanner pending={syncPending} onDismiss={() => setSyncPending(null)} />}
+      {syncPending !== null && (
+        <SyncBanner
+          pending={syncPending}
+          onDismiss={() => setSyncPending(null)}
+          onGenerated={() => {
+            runSync();
+            if (course) refresh(course);
+          }}
+        />
+      )}
       <ExamStats stats={stats} onOpenCompleted={openCompleted} />
       {error && <p className="form-error">{error}</p>}
       <p className="rule-note">
