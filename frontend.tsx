@@ -688,7 +688,16 @@ function App() {
   const [tab, setTab] = useState<Tab>("home");
   const [deepLink, setDeepLink] = useState<DeepLink | null>(null);
 
-  const navigate = (item: { source: "leetcode" | "theory" | "goals" | "exam"; linkId: number; course?: string }) => {
+  const navigate = (item: {
+    source: "leetcode" | "theory" | "goals" | "exam";
+    linkId: number;
+    course?: string;
+    externalUrl?: string;
+  }) => {
+    if (item.source === "leetcode" && item.externalUrl) {
+      openExternal(item.externalUrl);
+      return;
+    }
     if (item.source === "leetcode") setDeepLink({ tab: "leetcode", problemId: item.linkId });
     else if (item.source === "theory") setDeepLink({ tab: "theory", conceptDay: item.linkId });
     else if (item.source === "goals") setDeepLink({ tab: "goals", projectId: item.linkId });
