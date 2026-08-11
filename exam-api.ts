@@ -28,6 +28,7 @@ import {
   type ExamWeekPaperSummary,
 } from "./exam-content";
 import { findPendingWeeks } from "./exam-sync";
+import { resolveWeekDir, startGenerateJob, readJobStatus, defaultGenerateDeps, type StartJobDeps } from "./exam-generate";
 import type { ExamQuestionType } from "./exam-content/types";
 import { localToday } from "./scheduling";
 
@@ -146,13 +147,38 @@ function reviewView(course: string, item: ExamReviewItemRow): ExamReviewView | n
   };
 }
 
-export function examApiRoutes(db: Database) {
+export function examApiRoutes(
+  db: Database,
+  generateDeps: StartJobDeps & { courseDirs?: Record<string, string> } = defaultGenerateDeps,
+) {
   return {
     "/api/exam/courses": {
       GET: () => json(listExamCourses()),
     },
     "/api/exam/sync": {
       GET: () => json({ pending: findPendingWeeks() }),
+    },
+    "/api/exam/:course/:week/generate": {
+      POST: async (req: Request & { params: { course: string; week: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const week = parseWeek(req.params.week);
+        if (week === null) return json({ error: "invalid week" }, 400);
+        const weekDir = resolveWeekDir(course, week, generateDeps.courseDirs);
+        if (!weekDir) return json({ error: "no material found for this week" }, 404);
+        const result = await startGenerateJob(course, week, weekDir, generateDeps);
+        if (!result.ok) return json({ error: result.reason }, 409);
+        return json({}, 202);
+      },
+    },
+    "/api/exam/:course/:week/generate/status": {
+      GET: async (req: Request & { params: { course: string; week: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const week = parseWeek(req.params.week);
+        if (week === null) return json({ error: "invalid week" }, 400);
+        return json(await readJobStatus(course, week, generateDeps.root));
+      },
     },
     "/api/exam/:course/due": {
       GET: (req: Request & { params: { course: string } }) => {
