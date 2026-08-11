@@ -2,10 +2,14 @@ import { test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { migrateExam } from "./exam-db";
 import { examApiRoutes } from "./exam-api";
+import { weekDueDate } from "./exam-content";
 import { addDays, localToday } from "./scheduling";
 
 const COURSE = "INFO5995";
 const TODAY = localToday();
+// Week 1's due date is fixed, but "today" is the real wall clock — once
+// today passes it, Week 1 moves from the due bucket to the overdue bucket.
+const WEEK1_OVERDUE = TODAY > weekDueDate(1);
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
 let db: Database;
@@ -41,7 +45,9 @@ test("GET /api/exam/:course/due groups Week 1's combined paper into one weeksDue
   expect(body.weeksDue[0].papers.length).toBe(1);
   expect(body.weeksDue[0].papers.every((p: any) => !p.submitted)).toBe(true);
   expect(body.reviewDue).toEqual([]);
-  expect(body.stats.dueCount).toBe(1); // 1 due week, matching how Home groups the same state
+  // 1 week, in whichever bucket (due vs overdue) its due date currently falls into.
+  expect(body.stats.dueCount).toBe(WEEK1_OVERDUE ? 0 : 1);
+  expect(body.stats.overdueCount).toBe(WEEK1_OVERDUE ? 1 : 0);
 });
 
 test("GET /api/exam/:course/due hides a week whose start date hasn't arrived yet", async () => {
