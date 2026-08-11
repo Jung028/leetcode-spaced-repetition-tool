@@ -2,7 +2,7 @@ import { test, expect, afterEach } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { findPendingWeeks } from "./exam-sync";
+import { findPendingWeeks, findWeekFolder } from "./exam-sync";
 
 const tempDirs: string[] = [];
 
@@ -90,4 +90,27 @@ test("results are sorted by course then week", () => {
     { course: "AAA", week: 5 },
     { course: "BBB", week: 1 },
   ]);
+});
+
+test("findWeekFolder finds a case-insensitively matching Week N folder", () => {
+  const courseDir = makeCourseDir();
+  mkdirSync(join(courseDir, "week 3"));
+  expect(findWeekFolder(courseDir, 3)).toBe(join(courseDir, "week 3"));
+});
+
+test("findWeekFolder returns null when no folder matches the target week number", () => {
+  const courseDir = makeCourseDir();
+  mkdirSync(join(courseDir, "Week 1"));
+  expect(findWeekFolder(courseDir, 2)).toBeNull();
+});
+
+test("findWeekFolder returns null for a missing course directory", () => {
+  expect(findWeekFolder("/does/not/exist/anywhere", 1)).toBeNull();
+});
+
+test("findWeekFolder ignores non-'Week N' folders like the pending-weeks scan does", () => {
+  const courseDir = makeCourseDir();
+  mkdirSync(join(courseDir, "Readings"));
+  mkdirSync(join(courseDir, "Week 7"));
+  expect(findWeekFolder(courseDir, 7)).toBe(join(courseDir, "Week 7"));
 });
