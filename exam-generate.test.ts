@@ -36,14 +36,23 @@ test("readJobStatus returns the parsed status.json when one exists", async () =>
   const root = makeTempDir();
   const dir = join(root, "INFO5995-2");
   mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, "status.json"),
-    JSON.stringify({ state: "running", startedAt: "2026-08-11T00:00:00.000Z" }),
-  );
+  const startedAt = new Date().toISOString();
+  writeFileSync(join(dir, "status.json"), JSON.stringify({ state: "running", startedAt }));
   expect(await readJobStatus("INFO5995", 2, root)).toEqual({
     state: "running",
-    startedAt: "2026-08-11T00:00:00.000Z",
+    startedAt,
   });
+});
+
+test("readJobStatus downgrades a running status older than 1 hour to failed", async () => {
+  const root = makeTempDir();
+  const dir = join(root, "INFO5995-9");
+  mkdirSync(dir, { recursive: true });
+  const startedAt = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  writeFileSync(join(dir, "status.json"), JSON.stringify({ state: "running", startedAt }));
+  const status = await readJobStatus("INFO5995", 9, root);
+  expect(status.state).toBe("failed");
+  expect(status.logTail).toContain("Timed out");
 });
 
 test("resolveWeekDir finds the real week folder via the injected courseDirs map", () => {
@@ -65,8 +74,8 @@ test("buildGeneratePrompt names the exact output file, source folder, and requir
   expect(prompt).toContain("exam-content.ts");
 });
 
-test("buildClaudeArgs scopes permissions to exactly Read/Write/Edit/Bash(bun test)", () => {
-  expect(ALLOWED_TOOLS).toBe("Read Write Edit Bash(bun test)");
+test("buildClaudeArgs scopes permissions to Read/Write/Edit/Glob/Grep/Bash(bun test*)", () => {
+  expect(ALLOWED_TOOLS).toBe("Read Write Edit Glob Grep Bash(bun test*)");
   expect(buildClaudeArgs("do the thing")).toEqual([
     "-p",
     "--permission-mode",
@@ -147,10 +156,40 @@ test("startGenerateJob closes the dispatch-time race: two back-to-back calls wit
   const [first, second] = await Promise.all([firstPromise, secondPromise]);
 
   expect(first.ok).toBe(true);
-  expect(second).toEqual({ ok: false, reason: "already generating" });
+  expect(second).toEqual({ ok: false, reason: "another generation is already running" });
 
   resolveClaude?.();
   if (first.ok) await first.done;
+});
+
+test("startGenerateJob prefers the parsed JSON result field over the raw stdout envelope", async () => {
+  const root = makeTempDir();
+  const fakeRunClaude: RunClaude = async () => ({
+    stdout: JSON.stringify({ result: "wrote 42 questions" }),
+    stderr: "",
+    exitCode: 0,
+  });
+
+  const result = await startGenerateJob("INFO5995", 10, "/fake/week/dir", { runClaude: fakeRunClaude, root });
+  if (result.ok) await result.done;
+
+  const status = await readJobStatus("INFO5995", 10, root);
+  expect(status.logTail).toBe("wrote 42 questions");
+});
+
+test("startGenerateJob caps a non-JSON logTail to 4000 characters", async () => {
+  const root = makeTempDir();
+  const fakeRunClaude: RunClaude = async () => ({
+    stdout: "x".repeat(5000),
+    stderr: "",
+    exitCode: 1,
+  });
+
+  const result = await startGenerateJob("INFO5995", 11, "/fake/week/dir", { runClaude: fakeRunClaude, root });
+  if (result.ok) await result.done;
+
+  const status = await readJobStatus("INFO5995", 11, root);
+  expect(status.logTail!.length).toBeLessThanOrEqual(4000);
 });
 
 test("startGenerateJob marks the job failed when runClaude rejects instead of resolving", async () => {
@@ -167,4 +206,48 @@ test("startGenerateJob marks the job failed when runClaude rejects instead of re
   expect(status.state).toBe("failed");
   expect(status.logTail).toContain("claude binary not found on PATH");
   expect(status.finishedAt).toBeTruthy();
+});
+
+test("startGenerateJob's global lock blocks a different week's job (not just the same week) while one is already running on disk", async () => {
+  const root = makeTempDir();
+  let resolveClaude: (() => void) | undefined;
+  const stuckRunClaude: RunClaude = () =>
+    new Promise((resolve) => {
+      resolveClaude = () => resolve({ stdout: "", stderr: "", exitCode: 0 });
+    });
+
+  // Awaited, so the in-memory startingJobs guard is released by the time
+  // this returns — only the disk-based scan (anyOtherJobRunning) is left to
+  // catch a different course/week trying to start while this one runs.
+  const first = await startGenerateJob("COMP5348", 2, "/fake/week/dir", { runClaude: stuckRunClaude, root });
+  expect(first.ok).toBe(true);
+
+  const second = await startGenerateJob("INFO5990", 2, "/fake/week/dir", { runClaude: stuckRunClaude, root });
+  expect(second).toEqual({ ok: false, reason: "another generation is already running" });
+
+  resolveClaude?.();
+  if (first.ok) await first.done;
+});
+
+test("startGenerateJob's global in-memory lock blocks a different week's job fired concurrently before either writes status.json", async () => {
+  const root = makeTempDir();
+  let resolveClaude: (() => void) | undefined;
+  const stuckRunClaude: RunClaude = () =>
+    new Promise((resolve) => {
+      resolveClaude = () => resolve({ stdout: "", stderr: "", exitCode: 0 });
+    });
+
+  // Deliberately NOT awaited, and deliberately *different* course/week keys —
+  // the global lock must block a second week's job just as it would the
+  // same week's, since every job edits the same shared exam-content.ts.
+  const firstPromise = startGenerateJob("COMP5348", 3, "/fake/week/dir", { runClaude: stuckRunClaude, root });
+  const secondPromise = startGenerateJob("INFO5995", 3, "/fake/week/dir", { runClaude: stuckRunClaude, root });
+
+  const [first, second] = await Promise.all([firstPromise, secondPromise]);
+
+  expect(first.ok).toBe(true);
+  expect(second).toEqual({ ok: false, reason: "another generation is already running" });
+
+  resolveClaude?.();
+  if (first.ok) await first.done;
 });

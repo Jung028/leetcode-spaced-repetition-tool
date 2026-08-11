@@ -8,7 +8,7 @@
 // and this job's whole purpose is to write files (the week's content,
 // exam-content.ts) while it runs — an in-memory Map would risk getting
 // wiped mid-job by the very save it triggers.
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { COURSE_DIRS, findWeekFolder } from "./exam-sync";
 
@@ -26,6 +26,25 @@ export function jobDir(course: string, week: number, root: string = DEFAULT_JOB_
   return join(root, `${course}-${week}`);
 }
 
+// If the dev server restarts or the spawned `claude` process hangs without
+// exiting, status.json can stay `{state: "running"}` forever. Treat a
+// running status older than this as failed when *reading* it (don't
+// rewrite the file — just present it as failed to callers) so a fresh
+// generation naturally becomes possible again.
+const RUNNING_STALE_MS = 60 * 60 * 1000;
+
+function withStaleness(status: JobStatus): JobStatus {
+  if (status.state !== "running" || !status.startedAt) return status;
+  const age = Date.now() - new Date(status.startedAt).getTime();
+  if (age <= RUNNING_STALE_MS) return status;
+  return {
+    ...status,
+    state: "failed",
+    finishedAt: status.finishedAt ?? new Date().toISOString(),
+    logTail: "Timed out: no update in over 1 hour (server likely restarted or the process hung). Click Retry.",
+  };
+}
+
 export async function readJobStatus(
   course: string,
   week: number,
@@ -33,7 +52,7 @@ export async function readJobStatus(
 ): Promise<JobStatus> {
   const file = Bun.file(join(jobDir(course, week, root), "status.json"));
   if (!(await file.exists())) return { state: "idle" };
-  return (await file.json()) as JobStatus;
+  return withStaleness((await file.json()) as JobStatus);
 }
 
 // courseDirs defaults to the real COURSE_DIRS map (same default pattern as
@@ -52,7 +71,7 @@ export function resolveWeekDir(
 // the authoring workflow actually needs — deliberately narrower than
 // --dangerously-skip-permissions, which Anthropic's own --help text calls
 // "recommended only for sandboxes with no internet access."
-export const ALLOWED_TOOLS = "Read Write Edit Bash(bun test)";
+export const ALLOWED_TOOLS = "Read Write Edit Glob Grep Bash(bun test*)";
 
 export function buildGeneratePrompt(course: string, week: number, weekDir: string): string {
   const courseLower = course.toLowerCase();
@@ -106,6 +125,23 @@ const REPO_ROOT = import.meta.dir;
 // source of truth (including across hot-reload/page-reload).
 const startingJobs = new Set<string>();
 
+// Scans deps.root for any *other* job directory whose status is "running"
+// (staleness-aware, via withStaleness) — the disk-based half of the global
+// concurrency lock. Two different-week jobs would otherwise both be able to
+// edit the shared exam-content.ts file at once and corrupt it.
+async function anyOtherJobRunning(root: string, excludeKey: string): Promise<boolean> {
+  if (!existsSync(root)) return false;
+  const entries = readdirSync(root, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name === excludeKey) continue;
+    const file = Bun.file(join(root, entry.name, "status.json"));
+    if (!(await file.exists())) continue;
+    const status = withStaleness((await file.json()) as JobStatus);
+    if (status.state === "running") return true;
+  }
+  return false;
+}
+
 export async function startGenerateJob(
   course: string,
   week: number,
@@ -113,12 +149,19 @@ export async function startGenerateJob(
   deps: StartJobDeps = defaultGenerateDeps,
 ): Promise<StartResult> {
   const key = `${course}-${week}`;
-  if (startingJobs.has(key)) return { ok: false, reason: "already generating" };
+  // Global, not per-key: only one generation job may be in-flight across the
+  // whole app at a time, since every job edits the same shared
+  // exam-content.ts file.
+  if (startingJobs.size > 0) return { ok: false, reason: "another generation is already running" };
   startingJobs.add(key);
 
   try {
     const existing = await readJobStatus(course, week, deps.root);
     if (existing.state === "running") return { ok: false, reason: "already generating" };
+
+    if (await anyOtherJobRunning(deps.root, key)) {
+      return { ok: false, reason: "another generation is already running" };
+    }
 
     const dir = jobDir(course, week, deps.root);
     mkdirSync(dir, { recursive: true });
@@ -153,7 +196,7 @@ async function runGeneration(
       startedAt,
       finishedAt: new Date().toISOString(),
       exitCode,
-      logTail: tailLines(`${stdout}\n${stderr}`, 40),
+      logTail: summarizeOutput(stdout, stderr),
     };
     await Bun.write(statusPath, JSON.stringify(status));
   } catch (err) {
@@ -165,6 +208,28 @@ async function runGeneration(
     };
     await Bun.write(statusPath, JSON.stringify(status));
   }
+}
+
+const LOG_TAIL_MAX_CHARS = 4000;
+
+function summarizeOutput(stdout: string, stderr: string): string {
+  const parsed = parseClaudeJsonResult(stdout);
+  return capChars(parsed ?? tailLines(`${stdout}\n${stderr}`, 40), LOG_TAIL_MAX_CHARS);
+}
+
+function parseClaudeJsonResult(stdout: string): string | null {
+  try {
+    const data = JSON.parse(stdout.trim());
+    if (typeof data.result === "string") return data.result;
+    if (typeof data.error === "string") return data.error;
+  } catch {
+    // stdout wasn't a single JSON object (or didn't have result/error) — fall back to the raw tail
+  }
+  return null;
+}
+
+function capChars(text: string, maxChars: number): string {
+  return text.length > maxChars ? text.slice(text.length - maxChars) : text;
 }
 
 function tailLines(text: string, maxLines: number): string {

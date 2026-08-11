@@ -154,6 +154,13 @@ function SyncBanner({
     }
   };
 
+  // Backend generation is a global lock (only one job may run at a time,
+  // regardless of week) — disable every row's button while any row is
+  // running, not just the row that's actually running, so a second click
+  // can't hit the 409 and show a confusing "failed" state for a job that
+  // never started.
+  const anyRunning = pending.some((p) => jobs[jobKey(p.course, p.week)]?.state === "running");
+
   return (
     <div className="board" style={{ marginBottom: "1rem" }}>
       <div className="board-row" style={{ justifyContent: "space-between" }}>
@@ -176,7 +183,7 @@ function SyncBanner({
                   <span className="board-title">{p.course} Week {p.week}</span>
                   <span>
                     {failed && <span className="tag">failed</span>}
-                    <button className="btn btn-primary" disabled={running} onClick={() => generate(p.course, p.week)}>
+                    <button className="btn btn-primary" disabled={anyRunning} onClick={() => generate(p.course, p.week)}>
                       {running ? "Generating…" : failed ? "Retry" : "Generate"}
                     </button>
                   </span>
