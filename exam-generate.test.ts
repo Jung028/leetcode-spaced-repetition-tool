@@ -1,0 +1,78 @@
+import { test, expect, afterEach } from "bun:test";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import {
+  jobDir,
+  readJobStatus,
+  resolveWeekDir,
+  buildGeneratePrompt,
+  buildClaudeArgs,
+  ALLOWED_TOOLS,
+} from "./exam-generate";
+
+const tempDirs: string[] = [];
+function makeTempDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), "exam-generate-test-"));
+  tempDirs.push(dir);
+  return dir;
+}
+afterEach(() => {
+  while (tempDirs.length) rmSync(tempDirs.pop()!, { recursive: true, force: true });
+});
+
+test("jobDir joins the root, course, and week into one directory name", () => {
+  expect(jobDir("INFO5995", 2, "/tmp/root")).toBe("/tmp/root/INFO5995-2");
+});
+
+test("readJobStatus returns idle when no status.json exists yet", async () => {
+  const root = makeTempDir();
+  expect(await readJobStatus("INFO5995", 2, root)).toEqual({ state: "idle" });
+});
+
+test("readJobStatus returns the parsed status.json when one exists", async () => {
+  const root = makeTempDir();
+  const dir = join(root, "INFO5995-2");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "status.json"),
+    JSON.stringify({ state: "running", startedAt: "2026-08-11T00:00:00.000Z" }),
+  );
+  expect(await readJobStatus("INFO5995", 2, root)).toEqual({
+    state: "running",
+    startedAt: "2026-08-11T00:00:00.000Z",
+  });
+});
+
+test("resolveWeekDir finds the real week folder via the injected courseDirs map", () => {
+  const courseDir = makeTempDir();
+  mkdirSync(join(courseDir, "Week 4"));
+  expect(resolveWeekDir("TESTCRS", 4, { TESTCRS: courseDir })).toBe(join(courseDir, "Week 4"));
+});
+
+test("resolveWeekDir returns null for a course with no configured directory", () => {
+  expect(resolveWeekDir("UNKNOWN", 1, {})).toBeNull();
+});
+
+test("buildGeneratePrompt names the exact output file, source folder, and required commands", () => {
+  const prompt = buildGeneratePrompt("INFO5995", 3, "/fake/Desktop/INFO5995/Week 3");
+  expect(prompt).toContain("exam-content/info5995/week-3.ts");
+  expect(prompt).toContain("/fake/Desktop/INFO5995/Week 3");
+  expect(prompt).toContain("docs/exam-content-authoring-guide.md");
+  expect(prompt).toContain("bun test");
+  expect(prompt).toContain("exam-content.ts");
+});
+
+test("buildClaudeArgs scopes permissions to exactly Read/Write/Edit/Bash(bun test)", () => {
+  expect(ALLOWED_TOOLS).toBe("Read Write Edit Bash(bun test)");
+  expect(buildClaudeArgs("do the thing")).toEqual([
+    "-p",
+    "--permission-mode",
+    "acceptEdits",
+    "--allowedTools",
+    ALLOWED_TOOLS,
+    "--output-format",
+    "json",
+    "do the thing",
+  ]);
+});
