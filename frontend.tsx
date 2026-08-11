@@ -68,6 +68,8 @@ interface Leetcode150Current {
   topic: string;
   difficulty: "Easy" | "Medium" | "Hard";
   url: string;
+  dueSince: string;
+  overdueDays: number;
 }
 
 const leetcode150Api = {
@@ -530,9 +532,29 @@ function LeetCodeApp({
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
   const [completedToday, setCompletedToday] = useState(0);
 
-  const refresh = () => {
-    api.list().then(setProblems);
-    api.stats().then((s) => setCompletedToday(s.completedToday));
+  const refresh = async () => {
+    const [list, stats, current] = await Promise.all([
+      api.list(),
+      api.stats(),
+      leetcode150Api.current(),
+    ]);
+    setCompletedToday(stats.completedToday);
+    if ("done" in current) {
+      setProblems(list);
+    } else {
+      setProblems([
+        {
+          id: -1,
+          title: `${current.number}. ${current.title}`,
+          url: current.url,
+          language: "—",
+          rung: 0,
+          next_review: current.dueSince,
+          created_at: current.dueSince,
+        },
+        ...list,
+      ]);
+    }
   };
   useEffect(() => { refresh(); }, []);
 
@@ -543,7 +565,14 @@ function LeetCodeApp({
     }
   }, [openProblemId]);
 
-  const open = (id: number) => setView({ name: "detail", id });
+  const open = (id: number) => {
+    if (id === -1) {
+      const pointer = problems.find((p) => p.id === -1);
+      if (pointer) openExternal(pointer.url);
+      return;
+    }
+    setView({ name: "detail", id });
+  };
 
   return (
     <>
