@@ -225,7 +225,6 @@ function homeStats(db: Database, today: string): HomeStats {
       countTheoryReviewsToday(db, today) +
       countStepsCompletedToday(db, today) +
       examSubmittedToday +
-      examReviewsToday +
       leetcode150CompletedCount,
   };
 }
