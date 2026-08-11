@@ -6,6 +6,8 @@ import { migrateTheory, reviewTheoryConcept, saveTheoryContent } from "./theory-
 import { migrateGoals, createProject, createStep, toggleStep } from "./goals-db";
 import { migrateExam, gradeExamAnswer, submitExamPaper, reviewExamItem } from "./exam-db";
 import { buildExamSchedule, weekStartDate, weekDueDate, listExamCourses } from "./exam-content";
+import { migrateLeetcode150 } from "./leetcode150-db";
+import { LEETCODE_150, leetcode150Url } from "./leetcode150-content";
 import { homeApiRoutes } from "./home-api";
 import { localToday, addDays } from "./scheduling";
 
@@ -31,6 +33,12 @@ function examWeekItemCounts(): { dueToday: number; overdue: number } {
   return { dueToday, overdue };
 }
 const EXAM_ITEM_COUNTS = examWeekItemCounts();
+// A freshly migrated db always has exactly one LeetCode150 pointer item due
+// today (due_since seeds to TODAY, so it's never overdue and never
+// completed unless a test explicitly solves LEETCODE_150[29] itself — none
+// of the existing tests below do, they all use "Two Sum" as their generic
+// mock problem, which is never the current pointer's title).
+const LEETCODE150_DAILY_DUE = 1;
 let db: Database;
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
@@ -40,6 +48,7 @@ beforeEach(() => {
   migrateTheory(db, TODAY);
   migrateGoals(db, TODAY);
   migrateExam(db, TODAY);
+  migrateLeetcode150(db);
   server = Bun.serve({ port: 0, routes: homeApiRoutes(db) });
   base = server.url.origin;
 });
@@ -59,7 +68,7 @@ test("GET /api/home/due includes a due LeetCode problem", async () => {
     addDays(TODAY, -1),
   );
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
-  const item = items.find((i) => i.source === "leetcode");
+  const item = items.find((i) => i.source === "leetcode" && i.title === "Two Sum");
   expect(item).toBeTruthy();
   expect(item.title).toBe("Two Sum");
   expect(item.subtitle).toBe("java");
@@ -158,20 +167,20 @@ test("GET /api/home/due sorts all sources together by due date ascending", async
 test("GET /api/home/stats starts with one exam item per course (this week, besides theory) when theory concepts are all blank", async () => {
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
   expect(stats).toEqual({
-    dueToday: EXAM_ITEM_COUNTS.dueToday,
+    dueToday: EXAM_ITEM_COUNTS.dueToday + LEETCODE150_DAILY_DUE,
     overdue: EXAM_ITEM_COUNTS.overdue,
     completedToday: 0,
-  }); // one grouped item per visible, unsubmitted week, in whichever bucket its own due date currently falls into
+  }); // one grouped item per visible, unsubmitted week + the daily LeetCode150 pointer, in whichever bucket its own due date currently falls into
 });
 
 test("GET /api/home/stats counts theory concepts once they have content, up to the released cap", async () => {
   for (let day = 1; day <= 5; day++) saveTheoryContent(db, day, `Q${day}`, `A${day}`);
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
   expect(stats).toEqual({
-    dueToday: 5 + EXAM_ITEM_COUNTS.dueToday,
+    dueToday: 5 + EXAM_ITEM_COUNTS.dueToday + LEETCODE150_DAILY_DUE,
     overdue: EXAM_ITEM_COUNTS.overdue,
     completedToday: 0,
-  }); // 5 theory + one exam item per visible, unsubmitted week, in whichever bucket its own due date currently falls into
+  }); // 5 theory + one exam item per visible, unsubmitted week + the daily LeetCode150 pointer, in whichever bucket its own due date currently falls into
 });
 
 test("GET /api/home/stats counts dueToday and overdue across all four sources", async () => {
@@ -185,7 +194,7 @@ test("GET /api/home/stats counts dueToday and overdue across all four sources", 
   createStep(db, overdueProject.id, "Overdue step", 20, addDays(TODAY, -3)); // overdue
 
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats.dueToday).toBe(6 + EXAM_ITEM_COUNTS.dueToday); // leetcode problem + 5 theory concepts + one exam item per due, unsubmitted week
+  expect(stats.dueToday).toBe(6 + EXAM_ITEM_COUNTS.dueToday + LEETCODE150_DAILY_DUE); // leetcode problem + 5 theory concepts + one exam item per due, unsubmitted week + the daily LeetCode150 pointer
   expect(stats.overdue).toBe(1 + EXAM_ITEM_COUNTS.overdue); // the goals step, plus one exam item per overdue, unsubmitted week
 });
 
@@ -273,4 +282,42 @@ test("overdueDays is 0 for an item due today and positive for an overdue item", 
   const items2: any[] = await (await fetch(`${base}/api/home/due`)).json();
   const overdueItem = items2.find((i) => i.source === "goals")!;
   expect(overdueItem.overdueDays).toBe(3);
+});
+
+test("GET /api/home/due includes the LeetCode150 daily pointer with an externalUrl", async () => {
+  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  const pointer = items.find((i) => i.source === "leetcode" && i.externalUrl);
+  expect(pointer).toBeTruthy();
+  expect(pointer.title).toBe("209. Minimum Size Subarray Sum");
+  expect(pointer.subtitle).toBe("Sliding Window · Medium");
+  expect(pointer.overdueDays).toBe(0);
+  expect(pointer.externalUrl).toBe("https://leetcode.com/problems/minimum-size-subarray-sum/");
+});
+
+test("GET /api/home/due shows the LeetCode150 daily pointer as overdue after a missed day", async () => {
+  db.query(`UPDATE leetcode150_state SET due_since = ? WHERE id = 1`).run(addDays(TODAY, -2));
+  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  const pointer = items.find((i) => i.source === "leetcode" && i.externalUrl);
+  expect(pointer.overdueDays).toBe(2);
+});
+
+test("solving the LeetCode150 daily pointer removes it from due and credits completedToday", async () => {
+  createProblem(
+    db,
+    { title: LEETCODE_150[29]!.title, url: leetcode150Url(LEETCODE_150[29]!), solution: "x" },
+    TODAY,
+  );
+  const dueItems: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  const stillPending = dueItems.find(
+    (i) => i.source === "leetcode" && i.title.startsWith("209."),
+  );
+  expect(stillPending).toBeFalsy(); // pointer advanced past position 30, so it's no longer today's due item
+
+  const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
+  expect(stats.completedToday).toBe(1);
+
+  const completedItems: any[] = await (await fetch(`${base}/api/home/completed-today`)).json();
+  const solved = completedItems.find((i) => i.source === "leetcode" && i.externalUrl);
+  expect(solved).toBeTruthy();
+  expect(solved.title).toBe(LEETCODE_150[29]!.number + ". " + LEETCODE_150[29]!.title);
 });
