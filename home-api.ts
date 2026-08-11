@@ -5,7 +5,7 @@ import { listDueTheory, countTheoryReviewsToday, listTheoryCompletedToday } from
 import { listDueSteps, countStepsCompletedToday, listStepsCompletedOn } from "./goals-db";
 import { listExamPaperRows, countExamPapersSubmittedToday, listExamPapersSubmittedToday } from "./exam-db";
 import { buildExamSchedule, listExamCourses, COURSES, weekStartDate, groupExamPapersByWeek } from "./exam-content";
-import { isDue, localToday } from "./scheduling";
+import { isDue, localToday, overdueDays } from "./scheduling";
 
 export type DueSource = "leetcode" | "theory" | "goals" | "exam";
 
@@ -18,10 +18,6 @@ export interface DueItem {
   overdueDays: number;
   linkId: number;
   course?: string;
-}
-
-function overdueDays(dueDate: string, today: string): number {
-  return Math.max(0, Math.round((Date.parse(today) - Date.parse(dueDate)) / 86_400_000));
 }
 
 // Every exam id below folds in a course-derived offset so two different
