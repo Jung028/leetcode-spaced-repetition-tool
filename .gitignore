@@ -2,3 +2,4 @@ node_modules/
 srs.db*
 .worktrees/
 .env
+.superpowers/
