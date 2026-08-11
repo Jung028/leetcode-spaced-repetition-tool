@@ -5,6 +5,9 @@ import { listDueTheory, countTheoryReviewsToday, listTheoryCompletedToday } from
 import { listDueSteps, countStepsCompletedToday, listStepsCompletedOn } from "./goals-db";
 import { listExamPaperRows, countExamPapersSubmittedToday, listExamPapersSubmittedToday } from "./exam-db";
 import { buildExamSchedule, listExamCourses, COURSES, weekStartDate, groupExamPapersByWeek } from "./exam-content";
+import { getCurrentLeetcode150 } from "./leetcode150-db";
+import type { CurrentLeetcode150 } from "./leetcode150-db";
+import { LEETCODE_150, leetcode150Url } from "./leetcode150-content";
 import { isDue, localToday, overdueDays } from "./scheduling";
 
 export type DueSource = "leetcode" | "theory" | "goals" | "exam";
@@ -18,6 +21,10 @@ export interface DueItem {
   overdueDays: number;
   linkId: number;
   course?: string;
+  // Set only for the LeetCode150 daily pointer item, which has no
+  // `problems`-table row to deep-link to — clients should open this URL
+  // directly instead of dispatching the normal source-based navigation.
+  externalUrl?: string;
 }
 
 // Every exam id below folds in a course-derived offset so two different
@@ -40,6 +47,28 @@ function leetcodeDue(db: Database, today: string): DueItem[] {
       overdueDays: overdueDays(p.next_review, today),
       linkId: p.id,
     }));
+}
+
+// `current` lets callers that already fetched getCurrentLeetcode150 this
+// request (e.g. homeStats, which also needs leetcode150CompletedToday) pass
+// the result in directly. getCurrentLeetcode150 self-advances/mutates on
+// read, so it must be called at most once per incoming request — omit the
+// param and it fetches fresh, for callers that only need this one value.
+function leetcode150Due(db: Database, today: string, current: CurrentLeetcode150 = getCurrentLeetcode150(db, today)): DueItem[] {
+  const { item } = current;
+  if (!item) return [];
+  return [
+    {
+      source: "leetcode" as const,
+      id: -1,
+      title: `${item.number}. ${item.title}`,
+      subtitle: `${item.topic} · ${item.difficulty}`,
+      dueDate: item.dueSince,
+      overdueDays: overdueDays(item.dueSince, today),
+      linkId: -1,
+      externalUrl: leetcode150Url(item),
+    },
+  ];
 }
 
 function theoryDue(db: Database, today: string): DueItem[] {
@@ -100,6 +129,25 @@ function leetcodeCompletedToday(db: Database, today: string): DueItem[] {
   }));
 }
 
+// See leetcode150Due's `current` param note above — same reasoning applies here.
+function leetcode150CompletedToday(db: Database, today: string, current: CurrentLeetcode150 = getCurrentLeetcode150(db, today)): DueItem[] {
+  const { completedCount, lastCompletedDate } = current;
+  if (lastCompletedDate !== today || completedCount === 0) return [];
+  const solved = LEETCODE_150[completedCount - 1]!;
+  return [
+    {
+      source: "leetcode" as const,
+      id: -1,
+      title: `${solved.number}. ${solved.title}`,
+      subtitle: `${solved.topic} · ${solved.difficulty}`,
+      dueDate: today,
+      overdueDays: 0,
+      linkId: -1,
+      externalUrl: leetcode150Url(solved),
+    },
+  ];
+}
+
 function theoryCompletedToday(db: Database, today: string): DueItem[] {
   return listTheoryCompletedToday(db, today).map((entry) => ({
     source: "theory" as const,
@@ -154,16 +202,31 @@ export interface HomeStats {
 }
 
 function homeStats(db: Database, today: string): HomeStats {
-  const items = [...leetcodeDue(db, today), ...theoryDue(db, today), ...goalsDue(db, today), ...examDue(db, today)];
+  // Fetched once and threaded into both leetcode150Due/leetcode150CompletedToday
+  // below — getCurrentLeetcode150 self-advances/mutates on read, so this
+  // handler must not call it more than once.
+  const leetcode150 = getCurrentLeetcode150(db, today);
+  const items = [
+    ...leetcodeDue(db, today),
+    ...leetcode150Due(db, today, leetcode150),
+    ...theoryDue(db, today),
+    ...goalsDue(db, today),
+    ...examDue(db, today),
+  ];
   const examSubmittedToday = listExamCourses().reduce(
     (sum, { code }) => sum + countExamPapersSubmittedToday(db, code, today),
     0,
   );
+  const leetcode150CompletedCredit = leetcode150CompletedToday(db, today, leetcode150).length;
   return {
     dueToday: items.filter((i) => i.overdueDays === 0).length,
     overdue: items.filter((i) => i.overdueDays > 0).length,
     completedToday:
-      countReviewsToday(db, today) + countTheoryReviewsToday(db, today) + countStepsCompletedToday(db, today) + examSubmittedToday,
+      countReviewsToday(db, today) +
+      countTheoryReviewsToday(db, today) +
+      countStepsCompletedToday(db, today) +
+      examSubmittedToday +
+      leetcode150CompletedCredit,
   };
 }
 
@@ -174,6 +237,7 @@ export function homeApiRoutes(db: Database) {
         const today = localToday();
         const items = [
           ...leetcodeDue(db, today),
+          ...leetcode150Due(db, today),
           ...theoryDue(db, today),
           ...goalsDue(db, today),
           ...examDue(db, today),
@@ -190,6 +254,7 @@ export function homeApiRoutes(db: Database) {
         const today = localToday();
         const items = [
           ...leetcodeCompletedToday(db, today),
+          ...leetcode150CompletedToday(db, today),
           ...theoryCompletedToday(db, today),
           ...goalsCompletedToday(db, today),
           ...examCompletedToday(db, today),
