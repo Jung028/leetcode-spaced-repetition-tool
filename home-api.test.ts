@@ -254,7 +254,7 @@ test("solving the LeetCode150 daily pointer removes it from due and credits comp
   const stillPending = dueItems.find(
     (i) => i.source === "leetcode" && i.title.startsWith("209."),
   );
-  expect(stillPending).toBeFalsy();
+  expect(stillPending).toBeFalsy(); // pointer advanced past position 30, so it's no longer today's due item
   expect(dueItems.some((i) => i.source === "leetcode" && i.externalUrl)).toBe(false);
 
   const row = db.query(`SELECT due_since FROM leetcode150_state WHERE id = 1`).get() as { due_since: string };
