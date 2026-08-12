@@ -2,12 +2,16 @@ import { test, expect, beforeEach, afterEach } from "bun:test";
 import { openDb } from "./db";
 import { apiRoutes } from "./api";
 import { addDays, localToday } from "./scheduling";
+import { migrateLeetcode150 } from "./leetcode150-db";
+import { LEETCODE_150, leetcode150Url } from "./leetcode150-content";
 
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
 
 beforeEach(() => {
-  server = Bun.serve({ port: 0, routes: apiRoutes(openDb(":memory:")) });
+  const db = openDb(":memory:");
+  migrateLeetcode150(db);
+  server = Bun.serve({ port: 0, routes: apiRoutes(db) });
   base = server.url.origin;
 });
 
@@ -209,4 +213,57 @@ test("GET /api/problems/completed-today lists problems reviewed today only", asy
   const completed: any = await (await fetch(`${base}/api/problems/completed-today`)).json();
   expect(completed.length).toBe(1);
   expect(completed[0].title).toBe("Two Sum");
+});
+
+test("GET /api/stats credits the LeetCode150 pointer once when solved via plain Add (no review)", async () => {
+  const before: any = await (await fetch(`${base}/api/stats`)).json();
+  expect(before.completedToday).toBe(0);
+
+  await addProblem({
+    title: LEETCODE_150[29]!.title,
+    url: leetcode150Url(LEETCODE_150[29]!),
+    solution: "x",
+  }); // plain "Add problem" — creates a problem row with no review row
+
+  const after: any = await (await fetch(`${base}/api/stats`)).json();
+  expect(after.completedToday).toBe(1);
+});
+
+test("GET /api/stats does not double-count the LeetCode150 pointer when solved via captured pass (userscript path)", async () => {
+  await capture({
+    title: LEETCODE_150[29]!.title,
+    url: leetcode150Url(LEETCODE_150[29]!),
+    solution: "x",
+    result: "pass",
+  }); // captures both the problem row and a same-day review row in one call
+
+  const stats: any = await (await fetch(`${base}/api/stats`)).json();
+  expect(stats.completedToday).toBe(1); // credited once via the review-based count, not again via the pointer credit
+});
+
+test("GET /api/problems/completed-today includes a synthesized entry for an Add-problem-only pointer solve", async () => {
+  await addProblem({
+    title: LEETCODE_150[29]!.title,
+    url: leetcode150Url(LEETCODE_150[29]!),
+    solution: "x",
+  });
+
+  const items: any[] = await (await fetch(`${base}/api/problems/completed-today`)).json();
+  const synthesized = items.find((i) => i.id === -1);
+  expect(synthesized).toBeTruthy();
+  expect(synthesized.title).toBe(`${LEETCODE_150[29]!.number}. ${LEETCODE_150[29]!.title}`);
+  expect(synthesized.url).toBe(leetcode150Url(LEETCODE_150[29]!));
+});
+
+test("GET /api/problems/completed-today does not add a synthesized entry when the pointer solve is already review-backed", async () => {
+  await capture({
+    title: LEETCODE_150[29]!.title,
+    url: leetcode150Url(LEETCODE_150[29]!),
+    solution: "x",
+    result: "pass",
+  });
+
+  const items: any[] = await (await fetch(`${base}/api/problems/completed-today`)).json();
+  expect(items.length).toBe(1); // the review-backed entry only, no synthesized duplicate
+  expect(items.every((i) => i.id !== -1)).toBe(true);
 });

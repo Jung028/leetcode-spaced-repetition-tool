@@ -50,3 +50,7 @@ export function releaseCount(
 ): number {
   return Math.min(Math.max(cap - backlog, 0), remaining);
 }
+
+export function overdueDays(dueDate: string, today: string): number {
+  return Math.max(0, Math.round((Date.parse(today) - Date.parse(dueDate)) / 86_400_000));
+}
