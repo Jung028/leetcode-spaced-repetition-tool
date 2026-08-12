@@ -3,7 +3,7 @@ import { listProblems, listCompletedToday } from "./db";
 import { slugFromUrl } from "./leetcode";
 import { LEETCODE_150, leetcode150Url, slugify } from "./leetcode150-content";
 import type { Leetcode150Item } from "./leetcode150-content";
-import { addDays, isDue } from "./scheduling";
+import { addDays } from "./scheduling";
 
 const SEED_COMPLETED_COUNT = 29;
 
