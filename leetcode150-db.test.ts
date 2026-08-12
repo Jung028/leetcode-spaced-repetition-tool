@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test";
-import { openDb, createProblem } from "./db";
+import { openDb, createProblem, reviewProblem } from "./db";
 import { addDays, localToday } from "./scheduling";
-import { migrateLeetcode150, getCurrentLeetcode150 } from "./leetcode150-db";
+import { migrateLeetcode150, getCurrentLeetcode150, leetcode150CompletedCredit } from "./leetcode150-db";
 import { LEETCODE_150, leetcode150Url, slugify } from "./leetcode150-content";
 
 test("fresh db seeds completed_count at 29, so position 30 is current", () => {
@@ -84,7 +84,7 @@ test("due_since stays unchanged across reads on later days with no advance", () 
   expect(item!.dueSince).toBe(day1); // still due since day1 — 2 days overdue by day3
 });
 
-test("due_since and last_completed_date reset to today when the pointer advances", () => {
+test("due_since resets to the day after today (and last_completed_date to today) when the pointer advances", () => {
   const db = openDb(":memory:");
   migrateLeetcode150(db);
   const day1 = localToday();
@@ -97,7 +97,7 @@ test("due_since and last_completed_date reset to today when the pointer advances
   );
   const { item, lastCompletedDate } = getCurrentLeetcode150(db, day3);
   expect(item!.position).toBe(31);
-  expect(item!.dueSince).toBe(day3); // the new position just became due
+  expect(item!.dueSince).toBe(addDays(day3, 1)); // the new position isn't due until the day after it was solved
   expect(lastCompletedDate).toBe(day3);
 });
 
@@ -120,6 +120,45 @@ test("completedCount reflects how many positions are solved", () => {
   );
   const after = getCurrentLeetcode150(db, localToday());
   expect(after.completedCount).toBe(30);
+});
+
+test("leetcode150CompletedCredit credits a same-day advance captured without a review row (plain Add-problem path)", () => {
+  const db = openDb(":memory:");
+  migrateLeetcode150(db);
+  const today = localToday();
+  createProblem(
+    db,
+    { title: LEETCODE_150[29]!.title, url: leetcode150Url(LEETCODE_150[29]!), solution: "x" },
+    today,
+  ); // no review row — this is the manual "Add problem" path
+  const current = getCurrentLeetcode150(db, today);
+  const credit = leetcode150CompletedCredit(db, today, current);
+  expect(credit).not.toBeNull();
+  expect(credit!.number).toBe(LEETCODE_150[29]!.number);
+  expect(credit!.url).toBe(leetcode150Url(LEETCODE_150[29]!));
+});
+
+test("leetcode150CompletedCredit skips a same-day advance that already has a review row (userscript pass path)", () => {
+  const db = openDb(":memory:");
+  migrateLeetcode150(db);
+  const today = localToday();
+  const problem = createProblem(
+    db,
+    { title: LEETCODE_150[29]!.title, url: leetcode150Url(LEETCODE_150[29]!), solution: "x" },
+    today,
+  );
+  reviewProblem(db, problem.id, "pass", today); // the userscript's Completed capture creates a review row too
+  const current = getCurrentLeetcode150(db, today);
+  const credit = leetcode150CompletedCredit(db, today, current);
+  expect(credit).toBeNull(); // already counted by the ordinary review-based completed-today path
+});
+
+test("leetcode150CompletedCredit returns null when nothing was solved today", () => {
+  const db = openDb(":memory:");
+  migrateLeetcode150(db);
+  const today = localToday();
+  const current = getCurrentLeetcode150(db, today);
+  expect(leetcode150CompletedCredit(db, today, current)).toBeNull();
 });
 
 test("advancing past all 150 sets item to null but still reports lastCompletedDate and completedCount", () => {
