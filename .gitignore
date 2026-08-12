@@ -2,3 +2,5 @@ node_modules/
 srs.db*
 .worktrees/
 .env
+.superpowers/
+.exam-generate/
