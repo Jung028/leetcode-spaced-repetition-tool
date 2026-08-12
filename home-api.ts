@@ -5,9 +5,9 @@ import { listDueTheory, countTheoryReviewsToday, listTheoryCompletedToday } from
 import { listDueSteps, countStepsCompletedToday, listStepsCompletedOn } from "./goals-db";
 import { listExamPaperRows, countExamPapersSubmittedToday, listExamPapersSubmittedToday } from "./exam-db";
 import { buildExamSchedule, listExamCourses, COURSES, weekStartDate, groupExamPapersByWeek } from "./exam-content";
-import { getCurrentLeetcode150 } from "./leetcode150-db";
+import { getCurrentLeetcode150, leetcode150CompletedCredit } from "./leetcode150-db";
 import type { CurrentLeetcode150 } from "./leetcode150-db";
-import { LEETCODE_150, leetcode150Url } from "./leetcode150-content";
+import { leetcode150Url } from "./leetcode150-content";
 import { isDue, localToday, overdueDays } from "./scheduling";
 
 export type DueSource = "leetcode" | "theory" | "goals" | "exam";
@@ -56,7 +56,7 @@ function leetcodeDue(db: Database, today: string): DueItem[] {
 // param and it fetches fresh, for callers that only need this one value.
 function leetcode150Due(db: Database, today: string, current: CurrentLeetcode150 = getCurrentLeetcode150(db, today)): DueItem[] {
   const { item } = current;
-  if (!item) return [];
+  if (!item || !isDue(item.dueSince, today)) return [];
   return [
     {
       source: "leetcode" as const,
@@ -131,19 +131,18 @@ function leetcodeCompletedToday(db: Database, today: string): DueItem[] {
 
 // See leetcode150Due's `current` param note above — same reasoning applies here.
 function leetcode150CompletedToday(db: Database, today: string, current: CurrentLeetcode150 = getCurrentLeetcode150(db, today)): DueItem[] {
-  const { completedCount, lastCompletedDate } = current;
-  if (lastCompletedDate !== today || completedCount === 0) return [];
-  const solved = LEETCODE_150[completedCount - 1]!;
+  const credit = leetcode150CompletedCredit(db, today, current);
+  if (!credit) return [];
   return [
     {
       source: "leetcode" as const,
       id: -1,
-      title: `${solved.number}. ${solved.title}`,
-      subtitle: `${solved.topic} · ${solved.difficulty}`,
+      title: `${credit.number}. ${credit.title}`,
+      subtitle: `${credit.topic} · ${credit.difficulty}`,
       dueDate: today,
       overdueDays: 0,
       linkId: -1,
-      externalUrl: leetcode150Url(solved),
+      externalUrl: credit.url,
     },
   ];
 }
@@ -217,7 +216,7 @@ function homeStats(db: Database, today: string): HomeStats {
     (sum, { code }) => sum + countExamPapersSubmittedToday(db, code, today),
     0,
   );
-  const leetcode150CompletedCredit = leetcode150CompletedToday(db, today, leetcode150).length;
+  const leetcode150CompletedCount = leetcode150CompletedToday(db, today, leetcode150).length;
   return {
     dueToday: items.filter((i) => i.overdueDays === 0).length,
     overdue: items.filter((i) => i.overdueDays > 0).length,
@@ -226,7 +225,7 @@ function homeStats(db: Database, today: string): HomeStats {
       countTheoryReviewsToday(db, today) +
       countStepsCompletedToday(db, today) +
       examSubmittedToday +
-      leetcode150CompletedCredit,
+      leetcode150CompletedCount,
   };
 }
 

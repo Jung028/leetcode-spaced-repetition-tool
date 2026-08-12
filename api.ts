@@ -12,6 +12,7 @@ import {
   type ProblemInput,
 } from "./db";
 import { localToday } from "./scheduling";
+import { getCurrentLeetcode150, leetcode150CompletedCredit } from "./leetcode150-db";
 
 const json = (data: unknown, status = 200) =>
   Response.json(data, { status });
@@ -37,7 +38,24 @@ export function apiRoutes(db: Database) {
       },
     },
     "/api/problems/completed-today": {
-      GET: () => json(listCompletedToday(db, localToday())),
+      GET: () => {
+        const today = localToday();
+        const current = getCurrentLeetcode150(db, today);
+        const credit = leetcode150CompletedCredit(db, today, current);
+        const items = listCompletedToday(db, today);
+        if (credit) {
+          items.push({
+            id: -1,
+            title: `${credit.number}. ${credit.title}`,
+            url: credit.url,
+            language: "—",
+            rung: 0,
+            next_review: today,
+            created_at: today,
+          });
+        }
+        return json(items);
+      },
     },
     "/api/problems/:id": {
       GET: (req: { params: { id: string } }) => {
@@ -83,7 +101,12 @@ export function apiRoutes(db: Database) {
       },
     },
     "/api/stats": {
-      GET: () => json({ completedToday: countReviewsToday(db, localToday()) }),
+      GET: () => {
+        const today = localToday();
+        const current = getCurrentLeetcode150(db, today);
+        const credit = leetcode150CompletedCredit(db, today, current);
+        return json({ completedToday: countReviewsToday(db, today) + (credit ? 1 : 0) });
+      },
     },
   };
 }
