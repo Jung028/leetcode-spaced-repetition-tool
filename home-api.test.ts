@@ -255,6 +255,8 @@ test("solving the LeetCode150 daily pointer removes it from due and credits comp
     (i) => i.source === "leetcode" && i.title.startsWith("209."),
   );
   expect(stillPending).toBeFalsy(); // pointer advanced past position 30, so it's no longer today's due item
+  // The newly-advanced position (31) isn't due until the day after it was
+  // solved either — no leetcode150 pointer item should show up as due today.
   expect(dueItems.some((i) => i.source === "leetcode" && i.externalUrl)).toBe(false);
 
   const row = db.query(`SELECT due_since FROM leetcode150_state WHERE id = 1`).get() as { due_since: string };
@@ -275,12 +277,14 @@ test("solving the LeetCode150 daily pointer via a captured review (pass) does no
     { title: LEETCODE_150[29]!.title, url: leetcode150Url(LEETCODE_150[29]!), solution: "x" },
     TODAY,
   );
-  reviewProblem(db, problem.id, "pass", TODAY);
+  reviewProblem(db, problem.id, "pass", TODAY); // simulates the userscript's "Completed" capture path: problem + review row together
 
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
+  // Counted once via the ordinary review-based leetcode completedToday count,
+  // not a second time via the leetcode150 pointer credit.
   expect(stats.completedToday).toBe(1);
 
   const completedItems: any[] = await (await fetch(`${base}/api/home/completed-today`)).json();
   const leetcodeItems = completedItems.filter((i) => i.source === "leetcode");
-  expect(leetcodeItems.length).toBe(1);
+  expect(leetcodeItems.length).toBe(1); // the review-backed entry only, no synthesized pointer duplicate
 });
