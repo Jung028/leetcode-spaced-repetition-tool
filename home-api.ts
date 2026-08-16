@@ -1,8 +1,7 @@
 // home-api.ts
 import type { Database } from "bun:sqlite";
 import { listProblems, countReviewsToday, listCompletedToday } from "./db";
-import { listDueTheory, countTheoryReviewsToday, listTheoryCompletedToday } from "./theory-db";
-import { listDueSteps, countStepsCompletedToday, listStepsCompletedOn } from "./goals-db";
+import { listDueTodos, countTodosCompletedToday, listTodosCompletedToday } from "./todo-db";
 import { listExamPaperRows, countExamPapersSubmittedToday, listExamPapersSubmittedToday } from "./exam-db";
 import { buildExamSchedule, listExamCourses, COURSES, weekStartDate, groupExamPapersByWeek } from "./exam-content";
 import { getCurrentLeetcode150, leetcode150CompletedCredit } from "./leetcode150-db";
@@ -10,7 +9,7 @@ import type { CurrentLeetcode150 } from "./leetcode150-db";
 import { leetcode150Url } from "./leetcode150-content";
 import { isDue, localToday, overdueDays } from "./scheduling";
 
-export type DueSource = "leetcode" | "theory" | "goals" | "exam";
+export type DueSource = "leetcode" | "todo" | "exam";
 
 export interface DueItem {
   source: DueSource;
@@ -71,27 +70,15 @@ function leetcode150Due(db: Database, today: string, current: CurrentLeetcode150
   ];
 }
 
-function theoryDue(db: Database, today: string): DueItem[] {
-  return listDueTheory(db, today).map((entry) => ({
-    source: "theory" as const,
-    id: entry.concept_day,
-    title: entry.question,
-    subtitle: entry.category,
-    dueDate: entry.next_review,
-    overdueDays: overdueDays(entry.next_review, today),
-    linkId: entry.concept_day,
-  }));
-}
-
-function goalsDue(db: Database, today: string): DueItem[] {
-  return listDueSteps(db, today).map((step) => ({
-    source: "goals" as const,
-    id: step.id,
-    title: step.label,
-    subtitle: step.project_title,
-    dueDate: step.due_date,
-    overdueDays: overdueDays(step.due_date, today),
-    linkId: step.project_id,
+function todoDue(db: Database, today: string): DueItem[] {
+  return listDueTodos(db, today).map((t) => ({
+    source: "todo" as const,
+    id: t.id,
+    title: t.task,
+    subtitle: t.notes ?? "",
+    dueDate: t.due_date,
+    overdueDays: overdueDays(t.due_date, today),
+    linkId: t.id,
   }));
 }
 
@@ -147,27 +134,15 @@ function leetcode150CompletedToday(db: Database, today: string, current: Current
   ];
 }
 
-function theoryCompletedToday(db: Database, today: string): DueItem[] {
-  return listTheoryCompletedToday(db, today).map((entry) => ({
-    source: "theory" as const,
-    id: entry.concept_day,
-    title: entry.question,
-    subtitle: entry.category,
+function todoCompletedToday(db: Database, today: string): DueItem[] {
+  return listTodosCompletedToday(db, today).map((t) => ({
+    source: "todo" as const,
+    id: t.id,
+    title: t.task,
+    subtitle: t.notes ?? "",
     dueDate: today,
     overdueDays: 0,
-    linkId: entry.concept_day,
-  }));
-}
-
-function goalsCompletedToday(db: Database, today: string): DueItem[] {
-  return listStepsCompletedOn(db, today).map((step) => ({
-    source: "goals" as const,
-    id: step.id,
-    title: step.label,
-    subtitle: step.project_title,
-    dueDate: today,
-    overdueDays: 0,
-    linkId: step.project_id,
+    linkId: t.id,
   }));
 }
 
@@ -208,8 +183,7 @@ function homeStats(db: Database, today: string): HomeStats {
   const items = [
     ...leetcodeDue(db, today),
     ...leetcode150Due(db, today, leetcode150),
-    ...theoryDue(db, today),
-    ...goalsDue(db, today),
+    ...todoDue(db, today),
     ...examDue(db, today),
   ];
   const examSubmittedToday = listExamCourses().reduce(
@@ -222,8 +196,7 @@ function homeStats(db: Database, today: string): HomeStats {
     overdue: items.filter((i) => i.overdueDays > 0).length,
     completedToday:
       countReviewsToday(db, today) +
-      countTheoryReviewsToday(db, today) +
-      countStepsCompletedToday(db, today) +
+      countTodosCompletedToday(db, today) +
       examSubmittedToday +
       leetcode150CompletedCount,
   };
@@ -237,8 +210,7 @@ export function homeApiRoutes(db: Database) {
         const items = [
           ...leetcodeDue(db, today),
           ...leetcode150Due(db, today),
-          ...theoryDue(db, today),
-          ...goalsDue(db, today),
+          ...todoDue(db, today),
           ...examDue(db, today),
         ];
         items.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
@@ -254,8 +226,7 @@ export function homeApiRoutes(db: Database) {
         const items = [
           ...leetcodeCompletedToday(db, today),
           ...leetcode150CompletedToday(db, today),
-          ...theoryCompletedToday(db, today),
-          ...goalsCompletedToday(db, today),
+          ...todoCompletedToday(db, today),
           ...examCompletedToday(db, today),
         ];
         items.sort((a, b) => a.source.localeCompare(b.source) || a.title.localeCompare(b.title));
