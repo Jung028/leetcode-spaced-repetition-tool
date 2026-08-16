@@ -94,7 +94,7 @@ test("GET /api/home/due gives every exam item a collision-free id", async () => 
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   const examItems = items.filter((i) => i.source === "exam");
   const ids = examItems.map((i) => i.id);
-  expect(new Set(ids).size).toBe(ids.length);
+  expect(new Set(ids).size).toBe(ids.length); // no id collisions across any course's items
 });
 
 test("GET /api/home/due drops the week item once every paper in it is submitted", async () => {
@@ -103,6 +103,8 @@ test("GET /api/home/due drops the week item once every paper in it is submitted"
   submitExamPaper(db, "INFO5995", 1, 1, TODAY);
 
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  // Scoped to week 1 (linkId) since INFO5995 Week 2 now has its own real,
+  // visible, unsubmitted week item that would otherwise show up here too.
   expect(items.some((i) => i.source === "exam" && i.course === "INFO5995" && i.linkId === 1)).toBe(false);
 });
 
@@ -198,7 +200,7 @@ test("GET /api/home/completed-today merges completions across all three sources"
 
 test("GET /api/home/completed-today includes a submitted exam paper", async () => {
   const paper1 = buildExamSchedule().find((p) => p.course === "INFO5995" && p.week === 1 && p.paperNumber === 1)!;
-  paper1.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, i !== 0));
+  paper1.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, i !== 0)); // question 0 wrong, rest correct
   submitExamPaper(db, "INFO5995", 1, 1, TODAY);
 
   const items: any[] = await (await fetch(`${base}/api/home/completed-today`)).json();
