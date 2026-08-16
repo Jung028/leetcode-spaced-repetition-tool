@@ -88,15 +88,13 @@ function WeeklyContentReminder() {
 
 const SOURCE_LABEL: Record<DueSource, string> = {
   leetcode: "LeetCode",
-  theory: "Theory",
-  goals: "Goals",
+  todo: "Todo",
   exam: "Modules",
 };
 
 const SOURCE_COLOR: Record<DueSource, string> = {
   leetcode: "var(--cat-src-leetcode)",
-  theory: "var(--cat-src-theory)",
-  goals: "var(--cat-src-goals)",
+  todo: "var(--cat-src-theory)",
   exam: "var(--cat-src-exam)",
 };
 
