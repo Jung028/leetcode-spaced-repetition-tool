@@ -99,6 +99,11 @@ test("DELETE /api/todo/:id removes it", async () => {
   expect(due.due.length).toBe(0);
 });
 
+test("DELETE /api/todo/:id on unknown id returns 404", async () => {
+  const res = await fetch(`${base}/api/todo/9999`, { method: "DELETE" });
+  expect(res.status).toBe(404);
+});
+
 test("GET /api/todo/completed-today returns only today's completions", async () => {
   const created = await (
     await fetch(`${base}/api/todo`, {

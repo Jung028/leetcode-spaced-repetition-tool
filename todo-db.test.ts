@@ -87,8 +87,13 @@ test("countTodosCompletedToday and listTodosCompletedToday only count today's co
   expect(listTodosCompletedToday(db, TODAY).map((t) => t.task)).toEqual(["Done today"]);
 });
 
-test("deleteTodo removes the row", () => {
+test("deleteTodo removes the row and returns true", () => {
   const t = createTodo(db, "Delete me", TODAY, null, TODAY);
-  deleteTodo(db, t.id);
+  const deleted = deleteTodo(db, t.id);
+  expect(deleted).toBe(true);
   expect(listDueTodos(db, TODAY)).toEqual([]);
+});
+
+test("deleteTodo on an unknown id returns false and does not throw", () => {
+  expect(deleteTodo(db, 9999)).toBe(false);
 });
