@@ -11,13 +11,6 @@ import { homeApiRoutes } from "./home-api";
 import { localToday, addDays } from "./scheduling";
 
 const TODAY = localToday();
-// Each course's due date per week is fixed (SEMESTER_START is a literal),
-// but "today" is the real wall clock, and different courses can sit at
-// different numbers of weeks-with-content — so rather than assuming one
-// due-item per course, this walks every course's actual weeks and buckets
-// each visible, unsubmitted week by whether its due date has passed yet.
-// This keeps the stats tests below correct as more weeks are authored and
-// as the real calendar advances, without hardcoding a per-course count.
 function examWeekItemCounts(): { dueToday: number; overdue: number } {
   let dueToday = 0;
   let overdue = 0;
@@ -32,11 +25,6 @@ function examWeekItemCounts(): { dueToday: number; overdue: number } {
   return { dueToday, overdue };
 }
 const EXAM_ITEM_COUNTS = examWeekItemCounts();
-// A freshly migrated db always has exactly one LeetCode150 pointer item due
-// today (due_since seeds to TODAY, so it's never overdue and never
-// completed unless a test explicitly solves LEETCODE_150[29] itself — none
-// of the existing tests below do, they all use "Two Sum" as their generic
-// mock problem, which is never the current pointer's title).
 const LEETCODE150_DAILY_DUE = 1;
 let db: Database;
 let server: ReturnType<typeof Bun.serve>;
@@ -94,7 +82,7 @@ test("GET /api/home/due gives every exam item a collision-free id", async () => 
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   const examItems = items.filter((i) => i.source === "exam");
   const ids = examItems.map((i) => i.id);
-  expect(new Set(ids).size).toBe(ids.length); // no id collisions across any course's items
+  expect(new Set(ids).size).toBe(ids.length);
 });
 
 test("GET /api/home/due drops the week item once every paper in it is submitted", async () => {
@@ -103,16 +91,10 @@ test("GET /api/home/due drops the week item once every paper in it is submitted"
   submitExamPaper(db, "INFO5995", 1, 1, TODAY);
 
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
-  // Scoped to week 1 (linkId) since INFO5995 Week 2 now has its own real,
-  // visible, unsubmitted week item that would otherwise show up here too.
   expect(items.some((i) => i.source === "exam" && i.course === "INFO5995" && i.linkId === 1)).toBe(false);
 });
 
 test("GET /api/home/due sorts all sources together by due date ascending", async () => {
-  // Due date must precede every exam week's earliest possible due date
-  // (SEMESTER_START + 6, for week 1), not just TODAY, so this step stays
-  // the most-overdue item regardless of how far "today" has drifted into
-  // the semester or how many weeks of exam content now exist.
   const beforeSemester = addDays(SEMESTER_START, -1);
   createTodo(db, "Overdue todo", beforeSemester, null, beforeSemester);
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
@@ -200,7 +182,7 @@ test("GET /api/home/completed-today merges completions across all three sources"
 
 test("GET /api/home/completed-today includes a submitted exam paper", async () => {
   const paper1 = buildExamSchedule().find((p) => p.course === "INFO5995" && p.week === 1 && p.paperNumber === 1)!;
-  paper1.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, i !== 0)); // question 0 wrong, rest correct
+  paper1.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, i !== 0));
   submitExamPaper(db, "INFO5995", 1, 1, TODAY);
 
   const items: any[] = await (await fetch(`${base}/api/home/completed-today`)).json();
@@ -254,9 +236,7 @@ test("solving the LeetCode150 daily pointer removes it from due and credits comp
   const stillPending = dueItems.find(
     (i) => i.source === "leetcode" && i.title.startsWith("209."),
   );
-  expect(stillPending).toBeFalsy(); // pointer advanced past position 30, so it's no longer today's due item
-  // The newly-advanced position (31) isn't due until the day after it was
-  // solved either — no leetcode150 pointer item should show up as due today.
+  expect(stillPending).toBeFalsy();
   expect(dueItems.some((i) => i.source === "leetcode" && i.externalUrl)).toBe(false);
 
   const row = db.query(`SELECT due_since FROM leetcode150_state WHERE id = 1`).get() as { due_since: string };
@@ -277,14 +257,12 @@ test("solving the LeetCode150 daily pointer via a captured review (pass) does no
     { title: LEETCODE_150[29]!.title, url: leetcode150Url(LEETCODE_150[29]!), solution: "x" },
     TODAY,
   );
-  reviewProblem(db, problem.id, "pass", TODAY); // simulates the userscript's "Completed" capture path: problem + review row together
+  reviewProblem(db, problem.id, "pass", TODAY);
 
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  // Counted once via the ordinary review-based leetcode completedToday count,
-  // not a second time via the leetcode150 pointer credit.
   expect(stats.completedToday).toBe(1);
 
   const completedItems: any[] = await (await fetch(`${base}/api/home/completed-today`)).json();
   const leetcodeItems = completedItems.filter((i) => i.source === "leetcode");
-  expect(leetcodeItems.length).toBe(1); // the review-backed entry only, no synthesized pointer duplicate
+  expect(leetcodeItems.length).toBe(1);
 });
