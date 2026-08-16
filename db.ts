@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { applyReview, initialSchedule, type ReviewResult } from "./scheduling";
+import { applyReview, initialSchedule, nextAvailableDate, type ReviewResult } from "./scheduling";
 import { slugFromUrl } from "./leetcode";
 
 const DEFAULT_LANGUAGE = "java";
@@ -73,12 +73,27 @@ function migrate(db: Database) {
   }
 }
 
+// How many problems already have next_review = date — used to cap how
+// many LeetCode reviews can land on the same day (see scheduling.ts's
+// nextAvailableDate). `excludeId` lets a problem being rescheduled ignore
+// its own current slot on that date.
+function countScheduledOn(db: Database, date: string, excludeId?: number): number {
+  const row = (
+    excludeId !== undefined
+      ? db.query(`SELECT COUNT(*) AS n FROM problems WHERE next_review = ? AND id != ?`).get(date, excludeId)
+      : db.query(`SELECT COUNT(*) AS n FROM problems WHERE next_review = ?`).get(date)
+  ) as { n: number };
+  return row.n;
+}
+
 export function createProblem(
   db: Database,
   input: ProblemInput,
   today: string,
 ): Problem {
-  const { rung, nextReview } = initialSchedule(today);
+  const proposed = initialSchedule(today);
+  const rung = proposed.rung;
+  const nextReview = nextAvailableDate(proposed.nextReview, (d) => countScheduledOn(db, d));
   const language = input.language ?? DEFAULT_LANGUAGE;
   const slug = slugFromUrl(input.url);
   const row = db
@@ -129,7 +144,9 @@ export function reviewProblem(
     | { rung: number }
     | null;
   if (!row) return null;
-  const { rung, nextReview } = applyReview(row.rung, result, today);
+  const proposed = applyReview(row.rung, result, today);
+  const rung = proposed.rung;
+  const nextReview = nextAvailableDate(proposed.nextReview, (d) => countScheduledOn(db, d, id));
   db.query(
     `INSERT INTO reviews (problem_id, reviewed_at, result) VALUES (?, ?, ?)`,
   ).run(id, today, result);

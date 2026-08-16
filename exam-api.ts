@@ -7,15 +7,11 @@ import {
   gradeExamAnswer,
   submitExamPaper,
   retakeExamPaper,
+  retakeWrongOnlyExamPaper,
   countExamPapersSubmittedToday,
   listExamPapersSubmittedToday,
-  listDueExamReviewItems,
-  countOverdueExamReviewItems,
-  countExamReviewsToday,
-  reviewExamItem,
   listExamAttemptHistory,
   type ExamPaperRow,
-  type ExamReviewItemRow,
   type ExamAttemptSummary,
 } from "./exam-db";
 import {
@@ -118,35 +114,6 @@ export interface ExamHistoryWeek {
   papers: ExamHistoryPaper[];
 }
 
-export interface ExamReviewView {
-  week: number;
-  paperNumber: number;
-  questionIndex: number;
-  rung: number;
-  nextReview: string;
-  prompt: string;
-  modelAnswer: string;
-  options: string[] | null;
-  correctIndex: number | null;
-}
-
-function reviewView(course: string, item: ExamReviewItemRow): ExamReviewView | null {
-  const content = buildExamSchedule().find((p) => p.course === course && p.week === item.week && p.paperNumber === item.paper_number);
-  const question = content?.questions[item.question_index];
-  if (!content || !question) return null;
-  return {
-    week: item.week,
-    paperNumber: item.paper_number,
-    questionIndex: item.question_index,
-    rung: item.rung,
-    nextReview: item.next_review,
-    prompt: question.prompt,
-    modelAnswer: question.modelAnswer,
-    options: question.options ?? null,
-    correctIndex: question.correctIndex ?? null,
-  };
-}
-
 export function examApiRoutes(
   db: Database,
   generateDeps: StartJobDeps & { courseDirs?: Record<string, string> } = defaultGenerateDeps,
@@ -189,19 +156,14 @@ export function examApiRoutes(
         const weeksDue: ExamWeekView[] = groupExamPapersByWeek(course, visibleRows, today).filter((w) =>
           w.papers.some((p) => !p.submitted),
         );
-        const reviewItems = listDueExamReviewItems(db, course, today);
-        const reviewDue = reviewItems
-          .map((item) => reviewView(course, item))
-          .filter((r): r is ExamReviewView => r !== null);
         const dueWeekCount = weeksDue.filter((w) => !w.overdue).length;
         const overdueWeekCount = weeksDue.filter((w) => w.overdue).length;
         return json({
           weeksDue,
-          reviewDue,
           stats: {
-            dueCount: dueWeekCount + reviewItems.length,
-            overdueCount: overdueWeekCount + countOverdueExamReviewItems(db, course, today),
-            completedToday: countExamPapersSubmittedToday(db, course, today) + countExamReviewsToday(db, course, today),
+            dueCount: dueWeekCount,
+            overdueCount: overdueWeekCount,
+            completedToday: countExamPapersSubmittedToday(db, course, today),
           },
         });
       },
@@ -333,24 +295,21 @@ export function examApiRoutes(
         return json({ ok: true });
       },
     },
-    "/api/exam/review/:course/:week/:paperNumber/:questionIndex": {
-      POST: async (
-        req: Request & { params: { course: string; week: string; paperNumber: string; questionIndex: string } },
-      ) => {
+    "/api/exam/:course/:week/:paperNumber/retake-wrong": {
+      POST: (req: Request & { params: { course: string; week: string; paperNumber: string } }) => {
         const course = req.params.course;
         if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
         const week = parseWeek(req.params.week);
         if (week === null) return json({ error: "invalid week" }, 400);
         const paperNumber = parsePaperNumber(req.params.paperNumber, course, week);
         if (paperNumber === null) return json({ error: "paper not found" }, 404);
-        const questionIndex = parseQuestionIndex(req.params.questionIndex, course, week, paperNumber);
-        if (questionIndex === null) return json({ error: "questionIndex out of range" }, 400);
-        const body = (await req.json().catch(() => null)) as { result?: string } | null;
-        if (body?.result !== "correct" && body?.result !== "wrong") {
-          return json({ error: "result must be 'correct' or 'wrong'" }, 400);
+        const result = retakeWrongOnlyExamPaper(db, course, week, paperNumber);
+        if (!result.ok) {
+          const status = result.reason === "not_found" ? 404 : 400;
+          const message = result.reason === "not_found" ? "not found" : "paper not yet submitted";
+          return json({ error: message }, status);
         }
-        const updated = reviewExamItem(db, course, week, paperNumber, questionIndex, body.result, localToday());
-        return updated ? json(updated) : json({ error: "not found" }, 404);
+        return json({ ok: true });
       },
     },
   };

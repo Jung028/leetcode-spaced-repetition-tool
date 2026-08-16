@@ -681,6 +681,18 @@ a.btn {
   border-color: var(--dim);
 }
 
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+  border-color: var(--line);
+  filter: none;
+  transform: none;
+  box-shadow: none;
+}
+
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
@@ -1238,4 +1250,29 @@ a.btn {
 .exam-explanation {
   margin-top: 0.75rem;
   color: var(--dim);
+}
+
+.exam-progress-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--panel);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+.exam-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width var(--dur-base) var(--ease);
+}
+
+.exam-focus .exam-question {
+  border-top: none;
+  padding: 0.5rem 0 1.5rem;
+  min-height: 40vh;
+}
+
+.exam-focus .exam-prompt {
+  font-size: 1.3rem;
+  margin-bottom: 1.5rem;
 }
