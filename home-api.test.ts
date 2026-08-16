@@ -11,6 +11,13 @@ import { homeApiRoutes } from "./home-api";
 import { localToday, addDays } from "./scheduling";
 
 const TODAY = localToday();
+// Each course's due date per week is fixed (SEMESTER_START is a literal),
+// but "today" is the real wall clock, and different courses can sit at
+// different numbers of weeks-with-content — so rather than assuming one
+// due-item per course, this walks every course's actual weeks and buckets
+// each visible, unsubmitted week by whether its due date has passed yet.
+// This keeps the stats tests below correct as more weeks are authored and
+// as the real calendar advances, without hardcoding a per-course count.
 function examWeekItemCounts(): { dueToday: number; overdue: number } {
   let dueToday = 0;
   let overdue = 0;
@@ -25,6 +32,11 @@ function examWeekItemCounts(): { dueToday: number; overdue: number } {
   return { dueToday, overdue };
 }
 const EXAM_ITEM_COUNTS = examWeekItemCounts();
+// A freshly migrated db always has exactly one LeetCode150 pointer item due
+// today (due_since seeds to TODAY, so it's never overdue and never
+// completed unless a test explicitly solves LEETCODE_150[29] itself — none
+// of the existing tests below do, they all use "Two Sum" as their generic
+// mock problem, which is never the current pointer's title).
 const LEETCODE150_DAILY_DUE = 1;
 let db: Database;
 let server: ReturnType<typeof Bun.serve>;
@@ -95,6 +107,10 @@ test("GET /api/home/due drops the week item once every paper in it is submitted"
 });
 
 test("GET /api/home/due sorts all sources together by due date ascending", async () => {
+  // Due date must precede every exam week's earliest possible due date
+  // (SEMESTER_START + 6, for week 1), not just TODAY, so this step stays
+  // the most-overdue item regardless of how far "today" has drifted into
+  // the semester or how many weeks of exam content now exist.
   const beforeSemester = addDays(SEMESTER_START, -1);
   createTodo(db, "Overdue todo", beforeSemester, null, beforeSemester);
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
