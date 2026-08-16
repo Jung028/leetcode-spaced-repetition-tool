@@ -5,7 +5,7 @@ import { openDb, createProblem, reviewProblem } from "./db";
 import { migrateTheory, reviewTheoryConcept, saveTheoryContent } from "./theory-db";
 import { migrateGoals, createProject, createStep, toggleStep } from "./goals-db";
 import { migrateExam, gradeExamAnswer, submitExamPaper } from "./exam-db";
-import { buildExamSchedule, weekStartDate, weekDueDate, listExamCourses } from "./exam-content";
+import { buildExamSchedule, weekStartDate, weekDueDate, listExamCourses, SEMESTER_START } from "./exam-content";
 import { migrateLeetcode150 } from "./leetcode150-db";
 import { LEETCODE_150, leetcode150Url } from "./leetcode150-content";
 import { homeApiRoutes } from "./home-api";
@@ -123,8 +123,13 @@ test("GET /api/home/due drops the week item once every paper in it is submitted"
 });
 
 test("GET /api/home/due sorts all sources together by due date ascending", async () => {
-  const project = createProject(db, "Complete tracely onboarding", addDays(TODAY, 10), addDays(TODAY, -5));
-  createStep(db, project.id, "Overdue step", 20, addDays(TODAY, -5));
+  // Due date must precede every exam week's earliest possible due date
+  // (SEMESTER_START + 6, for week 1), not just TODAY, so this step stays
+  // the most-overdue item regardless of how far "today" has drifted into
+  // the semester or how many weeks of exam content now exist.
+  const beforeSemester = addDays(SEMESTER_START, -1);
+  const project = createProject(db, "Complete tracely onboarding", addDays(TODAY, 10), beforeSemester);
+  createStep(db, project.id, "Overdue step", 20, beforeSemester);
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   const dueDates = items.map((i) => i.dueDate);
   expect(dueDates).toEqual([...dueDates].sort());
