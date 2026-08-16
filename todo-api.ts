@@ -51,8 +51,8 @@ export function todoApiRoutes(db: Database) {
     },
     "/api/todo/:id": {
       DELETE: (req: { params: { id: string } }) => {
-        deleteTodo(db, Number(req.params.id));
-        return json({ ok: true });
+        const deleted = deleteTodo(db, Number(req.params.id));
+        return deleted ? json({ ok: true }) : json({ error: "not found" }, 404);
       },
     },
   };

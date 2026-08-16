@@ -90,6 +90,6 @@ export function toggleTodo(db: Database, id: number, today: string): Todo | null
   return toTodo(row);
 }
 
-export function deleteTodo(db: Database, id: number): void {
-  db.query(`DELETE FROM todos WHERE id = ?`).run(id);
+export function deleteTodo(db: Database, id: number): boolean {
+  return db.query(`DELETE FROM todos WHERE id = ?`).run(id).changes > 0;
 }
