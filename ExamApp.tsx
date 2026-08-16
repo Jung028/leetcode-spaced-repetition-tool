@@ -419,14 +419,6 @@ function PaperView({
 
   const reload = () => api.paper(course, paper.week, paper.paperNumber).then(setCurrent);
 
-  // Grading a question auto-advances to the next ungraded one — landing on
-  // the last question once everything's graded, so Submit is reachable.
-  const advance = (updated: ExamPaperView) => {
-    setCurrent(updated);
-    const next = updated.questions.findIndex((q) => q.correct === null);
-    setIndex(next === -1 ? updated.questions.length - 1 : next);
-  };
-
   const submit = async () => {
     onError(null);
     try {
@@ -511,7 +503,7 @@ function PaperView({
               course={course}
               week={paper.week}
               paperNumber={paper.paperNumber}
-              onGraded={advance}
+              onGraded={setCurrent}
               onError={onError}
             />
           ) : (
@@ -521,7 +513,7 @@ function PaperView({
               course={course}
               week={paper.week}
               paperNumber={paper.paperNumber}
-              onGraded={advance}
+              onGraded={setCurrent}
               onError={onError}
             />
           )}
