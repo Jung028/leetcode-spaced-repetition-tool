@@ -11,10 +11,14 @@ import { leetcode150ApiRoutes } from "./leetcode150-api";
 import { localToday } from "./scheduling";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
-// One-time cleanup: the Goals feature (projects/steps) was removed along
-// with its data — see docs/superpowers/plans/2026-08-16-theory-to-todo-and-goals-removal.md.
+// One-time cleanup: the Theory and Goals features were removed along with
+// their data — see docs/superpowers/plans/2026-08-16-theory-to-todo-and-goals-removal.md.
 // IF EXISTS makes this a no-op on every subsequent startup.
-db.exec(`DROP TABLE IF EXISTS project_steps; DROP TABLE IF EXISTS projects;`);
+db.exec(`
+  DROP TABLE IF EXISTS project_steps; DROP TABLE IF EXISTS projects;
+  DROP TABLE IF EXISTS theory_reviews; DROP TABLE IF EXISTS theory_progress;
+  DROP TABLE IF EXISTS theory_schedule; DROP TABLE IF EXISTS theory_state;
+`);
 migrateTodo(db);
 migrateExam(db, localToday());
 migrateLeetcode150(db);

@@ -1,7 +1,6 @@
 # LeetCode Review Board
 
-A small spaced-repetition tool for LeetCode problems, plus a Theory tab for
-working through system design/DSA/interview concepts. Solve a problem, save
+A small spaced-repetition tool for LeetCode problems. Solve a problem, save
 it (by hand or straight from LeetCode's own page via the included
 userscript), and the app schedules re-solves on a fixed ladder, shows what's
 due today, and mirrors the schedule onto an embedded Google Calendar.
@@ -34,50 +33,24 @@ bun run dev      # http://localhost:3000 (hot reload)
 - **Calendar** — the schedule is also mirrored onto a Google Calendar (kept
   in sync on request, not automatically) and embedded directly in the app.
 
-## Theory tab
+## Todo tab
 
-A spaced-repetition deck of 150 concept cards — System Design (50), Data
-Structures & Algorithms (30), Distributed Systems (20), Databases (20),
-Networking & OS (15), and Behavioral/interview questions (15) — content
-lives in `theory-content.ts`. One concept is introduced per day (concept 1
-due day one, concept 2 the next day, and so on), and each concept then
-follows its own ladder: write your own answer, reveal the model answer to
-compare, then mark **Correct** or **Wrong**. Correct climbs a ladder of
-3 → 5 → 7 → 14 → 30 days; Wrong resets it, due again tomorrow — same shape
-as the LeetCode ladder, just its own interval sequence
-(`theory-scheduling.ts`). The Due board shows everything due today or
-overdue (there's no cap — miss a few days and they stack up, same as the
-LeetCode board). Reviewing a card opens a Google Calendar quick-add for its
-new next-review date (21:00-21:30 Sydney time, tagged `[theory-150]`,
-distinct from the LeetCode review slot at 22:00-00:00), so LeetCode reviews
-and Theory reviews both show up on the same embedded calendar. Your saved
-answers and scheduling state persist in `srs.db`; the question/answer
-content itself is static and ships with the code.
-
-## Goals tab
-
-A project/deadline tracker, independent of the spaced-repetition decks.
-Create a project with a title and a deadline (e.g. "Complete tracely
-onboarding", due in two weeks), then break it into weighted steps (e.g.
-"Complete signup page" — 20%). Each step gets its own due date
-automatically — the first step is due the day you create it, and each
-later step is due the day after the previous one (never backdated: if
-that would land in the past, it's due today instead). Check steps off as
-you finish them; a project's progress is the sum of its done steps'
-weights, and it drops off the active board once that reaches 100%.
-Weights aren't forced to sum to 100 — the detail view just shows how much
-is allocated as a hint.
+A simple due-date todo list, independent of the spaced-repetition decks.
+Add a task with when it's due and an optional link or description, and it
+shows up on the Due board once its due date arrives (or has passed). Check
+a task off to mark it done, or delete it outright. No ladder, no
+scheduling — just a flat list of due/overdue/completed-today items.
 
 ## Exam tab
 
 Daily practice papers for university course content (currently INFO5995 —
 Intro to Cybersecurity). One full paper (a mix of multiple choice,
 true/false, short-answer, and scenario questions) unlocks per day, gated by
-the same backlog cap the Theory and Goals tabs use — fall behind and a few
+its own backlog cap — fall behind and a few
 papers queue up, but the whole bank doesn't dump on you at once. Multiple
 choice and true/false grade themselves instantly on selection; short-answer
 and scenario questions ask you to write your own answer first, then reveal
-a model answer and self-mark Correct/Wrong, same as the Theory tab. Submit
+a model answer and self-mark Correct/Wrong. Submit
 the paper once every question is graded to lock in a score. Any question
 marked wrong reschedules individually onto its own ladder (3 → 5 → 7 → 14 →
 30 days, `exam-scheduling.ts`) and resurfaces under "Review due" until you
@@ -109,7 +82,7 @@ week into the schedule.
 
 The default tab when the app loads. Shows the Google Calendar embed
 (previously only on the LeetCode tab) plus one unified "Everything due"
-list merging due/overdue items from LeetCode, Theory, and Goals, sorted
+list merging due/overdue items from LeetCode, Todo, and Exam, sorted
 together by due date. Clicking an item jumps straight to its detail view
 in the right tab, so you don't have to check three tabs separately to see
 what needs attention.
