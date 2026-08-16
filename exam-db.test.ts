@@ -9,10 +9,8 @@ import {
   gradeExamAnswer,
   submitExamPaper,
   countExamPapersSubmittedToday,
-  listDueExamReviewItems,
-  countExamReviewsToday,
-  reviewExamItem,
   retakeExamPaper,
+  retakeWrongOnlyExamPaper,
   listExamAttemptHistory,
 } from "./exam-db";
 import { buildExamSchedule } from "./exam-content";
@@ -29,9 +27,10 @@ beforeEach(() => {
 
 test("seeds every paper for the course, unsubmitted", () => {
   const rows = listExamPaperRows(db, COURSE);
-  expect(rows.length).toBe(1); // INFO5995 Week 1's combined paper
+  expect(rows.length).toBe(2); // INFO5995 Week 1 and Week 2's combined papers
   expect(rows.every((r) => r.submitted_at === null)).toBe(true);
-  expect(rows.map((r) => r.paper_number).sort()).toEqual([1]);
+  expect(rows.map((r) => r.week).sort()).toEqual([1, 2]);
+  expect(rows.map((r) => r.paper_number).sort()).toEqual([1, 1]);
 });
 
 test("migrateExam does not reseed or reset progress on a second call", () => {
@@ -58,7 +57,7 @@ test("submitExamPaper rejects submission until every question is graded", () => 
   if (!result.ok) expect(result.reason).toBe("incomplete");
 });
 
-test("submitExamPaper computes score, marks submitted, and creates review items for wrong answers", () => {
+test("submitExamPaper computes score and marks submitted", () => {
   const paper1 = buildExamSchedule().find((p) => p.course === COURSE && p.week === 1 && p.paperNumber === 1)!;
   paper1.questions.forEach((_, i) => gradeExamAnswer(db, COURSE, 1, 1, i, i !== 0)); // question 0 wrong, rest correct
 
@@ -71,11 +70,6 @@ test("submitExamPaper computes score, marks submitted, and creates review items 
 
   const paperRow = getExamPaperRow(db, COURSE, 1, 1)!;
   expect(paperRow.submitted_at).toBe(TODAY);
-
-  const dueReviews = listDueExamReviewItems(db, COURSE, addDays(TODAY, 1));
-  expect(dueReviews.length).toBe(1);
-  expect(dueReviews[0]!.question_index).toBe(0);
-  expect(dueReviews[0]!.paper_number).toBe(1);
 });
 
 test("submitExamPaper rejects a second submission of the same paper", () => {
@@ -96,22 +90,6 @@ test("countExamPapersSubmittedToday counts submitted papers for the day", () => 
   expect(countExamPapersSubmittedToday(db, COURSE, TODAY)).toBe(1);
 });
 
-test("reviewExamItem applies the ladder and logs the attempt", () => {
-  const paper1 = buildExamSchedule().find((p) => p.course === COURSE && p.week === 1 && p.paperNumber === 1)!;
-  paper1.questions.forEach((_, i) => gradeExamAnswer(db, COURSE, 1, 1, i, i !== 0));
-  submitExamPaper(db, COURSE, 1, 1, TODAY);
-
-  const tomorrow = addDays(TODAY, 1);
-  const updated = reviewExamItem(db, COURSE, 1, 1, 0, "correct", tomorrow)!;
-  expect(updated.rung).toBe(0);
-  expect(updated.next_review).toBe(addDays(tomorrow, 3));
-  expect(countExamReviewsToday(db, COURSE, tomorrow)).toBe(1);
-});
-
-test("reviewExamItem returns null for an item that isn't in the review queue", () => {
-  expect(reviewExamItem(db, COURSE, 1, 1, 5, "correct", TODAY)).toBeNull();
-});
-
 test("two different courses' rows are independent — course scoping partitions correctly", () => {
   // Uses a course code with no seeded content, so this stays a pure DB-scoping
   // test rather than colliding with a real course's migrateExam()-seeded rows.
@@ -123,7 +101,7 @@ test("two different courses' rows are independent — course scoping partitions 
   expect(listExamAnswers(db, COURSE, 1, 1)[0]!.your_answer).toBe("info draft");
   expect(getExamPaperRow(db, "OTHERCOURSE", 1, 1)!.course).toBe("OTHERCOURSE");
   expect(listExamPaperRows(db, "OTHERCOURSE").length).toBe(1);
-  expect(listExamPaperRows(db, COURSE).length).toBe(1); // unaffected by OTHERCOURSE's row
+  expect(listExamPaperRows(db, COURSE).length).toBe(2); // unaffected by OTHERCOURSE's row — INFO5995's own Week 1 + Week 2 papers
 });
 
 test("migrateExam upgrades a pre-existing paper_day-keyed db, recovering (week, paperNumber) by content position", () => {
@@ -184,14 +162,15 @@ test("migrateExam upgrades a pre-existing paper_day-keyed db, recovering (week, 
   const answers = listExamAnswers(legacyDb, "INFO5995", 1, 1);
   expect(answers[0]!.your_answer).toBe("my answer");
 
-  const dueReviews = listDueExamReviewItems(legacyDb, "INFO5995", TODAY);
-  expect(dueReviews.some((r) => r.week === 1 && r.paper_number === 1 && r.question_index === 3)).toBe(true);
+  // exam_review_items/exam_review_log (the old spaced-repetition ladder) are
+  // dropped unconditionally by migrateExam now, regardless of legacy content.
+  const tablesAfter = legacyDb.query(`SELECT name FROM sqlite_master WHERE type = 'table'`).all() as { name: string }[];
+  expect(tablesAfter.some((t) => t.name === "exam_review_items")).toBe(false);
+  expect(tablesAfter.some((t) => t.name === "exam_review_log")).toBe(false);
 
-  expect(countExamReviewsToday(legacyDb, "INFO5995", TODAY)).toBe(1);
-
-  // INFO5995 now has just this one paper, so nothing is left for
-  // migrateExam's seedNewPapers step to fresh-seed.
-  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(1);
+  // The migrated Week 1 paper survives, and migrateExam's seedNewPapers step
+  // fresh-seeds INFO5995's Week 2 paper (not present in the legacy fixture).
+  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(2);
 
   // exam_state has no successor in the weekly-pacing schema. This is the
   // exact shape (course+paper_day, exam_state already present) the real
@@ -291,7 +270,8 @@ test("a migration failure rolls back cleanly, leaving the original paper_day-sha
   // The valid row (paper_day 1) migrated; the out-of-range row (999) was
   // dropped rather than crashing the whole migration or corrupting state.
   expect(getExamPaperRow(legacyDb, "INFO5995", 1, 1)).not.toBeNull();
-  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(1); // just the migrated row — INFO5995 only has 1 paper now
+  // The migrated row plus INFO5995's Week 2 paper, fresh-seeded by seedNewPapers.
+  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(2);
 });
 
 function submitPaper1AsWrongThenRight(db: Database, correctAllExceptFirst: boolean) {
@@ -346,16 +326,22 @@ test("two consecutive retakes number attempts 1 and 2 in order", () => {
   expect(history[1]!.scoreCorrect).toBe(paper1.questions.length); // attempt 2: all correct
 });
 
-test("retaking and resubmitting still-wrong reuses the existing review-item pipeline unchanged", () => {
-  submitPaper1AsWrongThenRight(db, true); // question 0 wrong -> creates a review item
-  const beforeRetake = listDueExamReviewItems(db, COURSE, addDays(TODAY, 1));
-  expect(beforeRetake.length).toBe(1);
+test("retakeWrongOnlyExamPaper clears only wrong answers, keeps correct ones", () => {
+  submitPaper1AsWrongThenRight(db, true); // question 0 wrong, rest correct
 
-  retakeExamPaper(db, COURSE, 1, 1);
-  submitPaper1AsWrongThenRight(db, true); // question 0 wrong again
+  const result = retakeWrongOnlyExamPaper(db, COURSE, 1, 1);
+  expect(result.ok).toBe(true);
 
-  // ON CONFLICT DO NOTHING: still one review item, not duplicated, for the same question.
-  const afterRetake = listDueExamReviewItems(db, COURSE, addDays(TODAY, 1));
-  expect(afterRetake.length).toBe(1);
-  expect(afterRetake[0]!.question_index).toBe(0);
+  const paperRow = getExamPaperRow(db, COURSE, 1, 1)!;
+  expect(paperRow.submitted_at).toBeNull();
+
+  const answers = listExamAnswers(db, COURSE, 1, 1);
+  expect(answers.some((a) => a.question_index === 0)).toBe(false); // wrong one cleared
+  expect(answers.filter((a) => a.correct === 1).length).toBeGreaterThan(0); // correct ones kept
+});
+
+test("retakeWrongOnlyExamPaper rejects a paper that was never submitted", () => {
+  const result = retakeWrongOnlyExamPaper(db, COURSE, 1, 1);
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.reason).toBe("not_submitted");
 });

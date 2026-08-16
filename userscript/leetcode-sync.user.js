@@ -2,7 +2,7 @@
 // @name         LeetCode → Review Board Sync
 // @namespace    https://github.com/Jung028/leetcode-spaced-repetition-tool
 // @version      3.2.0
-// @description  Three always-available buttons on LeetCode problem pages: Add (save title/link/code, no scheduling effect), Completed (Pass), and Failed — Completed/Failed create the problem if it's new and immediately apply spaced repetition. Each action opens a one-click Google Calendar quick-add for the new review date. Also auto-resets the editor to default starter code the first time you open a problem in a tab, so review sessions never start by looking at a past attempt.
+// @description  Three always-available buttons on LeetCode problem pages: Add (save title/link/code, no scheduling effect), Completed (Pass), and Failed — Completed/Failed create the problem if it's new and immediately apply spaced repetition. Also auto-resets the editor to default starter code the first time you open a problem in a tab, so review sessions never start by looking at a past attempt.
 // @match        https://leetcode.com/problems/*
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
@@ -18,74 +18,6 @@
   // Monaco's internal language id doesn't always match LeetCode's own langSlug
   // (used by its codeSnippets API) — these two are the only ones that differ.
   const MONACO_TO_LEETCODE_SLUG = { python: "python3", go: "golang" };
-
-  // --- Calendar quick-add (mirrors sydneyTime.ts / the openCalendarQuickAdd
-  // helper in frontend.tsx — duplicated here since this file ships standalone,
-  // not bundled through the app's build) ---
-
-  const SYDNEY_FMT = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Australia/Sydney",
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-
-  function asUtcInstant(y, m, d, h, min, s) {
-    return Date.UTC(y, m - 1, d, h, min, s);
-  }
-
-  function sydneyWallClockToUtc(dateStr, hour, minute) {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const target = asUtcInstant(y, m, d, hour, minute, 0);
-    let instant = target;
-    for (let i = 0; i < 3; i++) {
-      const parts = Object.fromEntries(
-        SYDNEY_FMT.formatToParts(new Date(instant)).map((p) => [p.type, p.value]),
-      );
-      const shown = asUtcInstant(
-        Number(parts.year),
-        Number(parts.month),
-        Number(parts.day),
-        Number(parts.hour),
-        Number(parts.minute),
-        Number(parts.second),
-      );
-      const diff = target - shown;
-      if (diff === 0) break;
-      instant += diff;
-    }
-    return new Date(instant);
-  }
-
-  function toGoogleUtcStamp(date) {
-    return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-  }
-
-  function addOneDay(dateStr) {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const next = new Date(y, m - 1, d + 1);
-    const pad = (n) => String(n).padStart(2, "0");
-    return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
-  }
-
-  function openCalendarQuickAdd(title, url, nextReview) {
-    const start = sydneyWallClockToUtc(nextReview, 22, 0);
-    const end = sydneyWallClockToUtc(addOneDay(nextReview), 0, 0);
-    const params = new URLSearchParams({
-      action: "TEMPLATE",
-      text: `LeetCode review: ${title}`,
-      dates: `${toGoogleUtcStamp(start)}/${toGoogleUtcStamp(end)}`,
-      details: `Open on LeetCode: ${url}`,
-    });
-    window.open(
-      `https://calendar.google.com/calendar/render?${params.toString()}`,
-      "_blank",
-    );
-  }
 
   const style = document.createElement("style");
   style.textContent = `
@@ -312,7 +244,6 @@
 
       const captured = await postCapture(payload);
       showToast(toastFor(result, captured));
-      openCalendarQuickAdd(captured.title, captured.url, captured.next_review);
       resetEditor(question.questionId, language, question.codeSnippets);
     } catch (err) {
       showToast((err && err.message) || "Something went wrong", true);

@@ -3,14 +3,7 @@ import type { Database } from "bun:sqlite";
 import { listProblems, countReviewsToday, listCompletedToday } from "./db";
 import { listDueTheory, countTheoryReviewsToday, listTheoryCompletedToday } from "./theory-db";
 import { listDueSteps, countStepsCompletedToday, listStepsCompletedOn } from "./goals-db";
-import {
-  listExamPaperRows,
-  listDueExamReviewItems,
-  countExamPapersSubmittedToday,
-  countExamReviewsToday,
-  listExamPapersSubmittedToday,
-  listExamReviewsCompletedToday,
-} from "./exam-db";
+import { listExamPaperRows, countExamPapersSubmittedToday, listExamPapersSubmittedToday } from "./exam-db";
 import { buildExamSchedule, listExamCourses, COURSES, weekStartDate, groupExamPapersByWeek } from "./exam-content";
 import { getCurrentLeetcode150, leetcode150CompletedCredit } from "./leetcode150-db";
 import type { CurrentLeetcode150 } from "./leetcode150-db";
@@ -40,18 +33,6 @@ export interface DueItem {
 // so a wide fixed stride leaves plenty of headroom under each course's slot.
 function courseOffset(course: string): number {
   return COURSES.findIndex((c) => c.code === course) * 100_000_000;
-}
-
-// Shared by examDue/examCompletedToday so both group exam review items into
-// one row per week the same way — keeps due/completed counts reconcilable.
-function groupByWeek<T extends { week: number }>(rows: T[]): Map<number, T[]> {
-  const byWeek = new Map<number, T[]>();
-  for (const row of rows) {
-    const list = byWeek.get(row.week) ?? [];
-    list.push(row);
-    byWeek.set(row.week, list);
-  }
-  return byWeek;
 }
 
 function leetcodeDue(db: Database, today: string): DueItem[] {
@@ -132,22 +113,6 @@ function examDue(db: Database, today: string): DueItem[] {
         course: code,
       });
     }
-    const reviewRows = listDueExamReviewItems(db, code, today);
-    const reviewsByWeek = groupByWeek(reviewRows);
-    for (const [week, weekReviews] of reviewsByWeek) {
-      // listDueExamReviewItems orders by next_review ASC, so the first row is already the earliest.
-      const dueDate = weekReviews[0]!.next_review;
-      items.push({
-        source: "exam" as const,
-        id: courseOffset(code) + week * 1_000_000,
-        title: `Week ${week} review (${weekReviews.length} due)`,
-        subtitle: name,
-        dueDate,
-        overdueDays: overdueDays(dueDate, today),
-        linkId: week,
-        course: code,
-      });
-    }
   }
   return items;
 }
@@ -224,18 +189,7 @@ function examCompletedToday(db: Database, today: string): DueItem[] {
         course: code,
       };
     });
-    const reviewsByWeek = groupByWeek(listExamReviewsCompletedToday(db, code, today));
-    const reviews = [...reviewsByWeek.entries()].map(([week, weekReviews]) => ({
-      source: "exam" as const,
-      id: courseOffset(code) + week * 1_000_000,
-      title: `Week ${week} review (${weekReviews.length} completed)`,
-      subtitle: name,
-      dueDate: today,
-      overdueDays: 0,
-      linkId: week,
-      course: code,
-    }));
-    items.push(...papers, ...reviews);
+    items.push(...papers);
   }
   return items;
 }
@@ -262,7 +216,6 @@ function homeStats(db: Database, today: string): HomeStats {
     (sum, { code }) => sum + countExamPapersSubmittedToday(db, code, today),
     0,
   );
-  const examReviewsToday = listExamCourses().reduce((sum, { code }) => sum + countExamReviewsToday(db, code, today), 0);
   const leetcode150CompletedCount = leetcode150CompletedToday(db, today, leetcode150).length;
   return {
     dueToday: items.filter((i) => i.overdueDays === 0).length,

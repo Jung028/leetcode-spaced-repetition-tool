@@ -192,7 +192,7 @@ function GoogleCalendarEmbed() {
         <h2>Calendar</h2>
       </div>
       <p className="rule-note">
-        Add/Passed/Failed opens a one-click Google Calendar quick-add tab — click Save there to add it.
+        Adam's primary calendar and university timetable, for reference.
       </p>
       <div className="gcal-frame">
         <iframe src={src} title="Google Calendar — LeetCode reviews and study timetable" />
