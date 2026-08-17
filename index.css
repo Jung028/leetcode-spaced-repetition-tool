@@ -1252,6 +1252,29 @@ a.btn {
   color: var(--dim);
 }
 
+.exam-diagram {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.exam-diagram svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.exam-diagram-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: var(--accent);
+}
+
 .exam-progress-bar {
   height: 6px;
   border-radius: 3px;

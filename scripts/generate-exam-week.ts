@@ -12,9 +12,10 @@ export interface ScannedWeek {
 
 // Recursively lists every file under weekDir (skipping dotfiles like
 // .DS_Store), split into material files Claude can read directly (PDF /
-// markdown / slides) and video files it can't transcribe — those are still
-// named in the scaffold so a human knows they exist, just not expected to
-// be a content source.
+// markdown / slides) and video files, which need transcribing first via
+// scripts/transcribe-lecture.ts — once transcribed, the resulting
+// <name>.transcript.md file lands in the same folder and is picked up as an
+// ordinary material file on the next scan.
 export function scanWeekFolder(weekDir: string): ScannedWeek {
   const materials: string[] = [];
   const videos: string[] = [];
@@ -70,7 +71,7 @@ export function buildScaffold(course: string, week: number, paperCount: number, 
 export function renderScaffoldModule(week: number, papers: ExamPaperSeed[], videos: string[]): string {
   const videoNote =
     videos.length > 0
-      ? `// Video lectures found but not readable as text — watch/skim if the PDFs\n// don't cover something: ${videos.join(", ")}\n`
+      ? `// Video recordings found — transcribe with \`bun scripts/transcribe-lecture.ts <path>\`\n// (writes a <name>.transcript.md next to it), then re-run this scaffolder so\n// the transcript is picked up as a material file: ${videos.join(", ")}\n`
       : "";
   return `// Week ${week} exam practice content — scaffolded by scripts/generate-exam-week.ts.
 //

@@ -113,11 +113,19 @@ For more information, read the Bun API docs in `node_modules/bun-types/docs/**.m
 
 ## Exam content question format
 
-All generated exam/SRS practice questions must be `mcq` (exam-style, multiple choice with options + `correctIndex`) — do not generate `truefalse`, `short`, or `scenario` types. Every question must still include a written `modelAnswer` explaining why the correct option is correct, traceable to the source material, alongside the options. This overrides the type-ratio guidance in `docs/exam-content-authoring-guide.md`.
+Use the type mix and ratio from `docs/exam-content-authoring-guide.md` (mcq/truefalse/short/scenario) — questions are no longer restricted to `mcq` only. Every question must still include a written `modelAnswer`: for mcq/truefalse, why the correct option is correct; for short/scenario, the revealed answer itself. Always traceable to the source material, never invented.
 
 Questions must be genuinely exam-hard, not easy recall:
 - Distractor options must be *close* — plausible, same-category wrong answers that require real understanding to rule out (e.g. a term from the same lecture, a common misconception, an almost-right-but-subtly-wrong mechanism) — never filler options that are obviously unrelated or absurd, since those let a student guess correctly without knowing the material.
 - Favor questions that require distinguishing between similar concepts, applying a concept to a new example, or spotting a subtle error, over questions that are answerable from the shape of the question alone (e.g. "which of these is a security term" when only one option is security-related).
+- Keep every option the same rough length and level of detail — never let the correct option be noticeably longer, more specific, or more hedged than the distractors. That length tell lets a student guess right without knowing the material; distractors need the same care and specificity as the correct answer, not shorter afterthoughts.
+
+### Diagrams, symbols, and drawing
+
+`exam-content/types.ts`'s `ExamQuestionSeed` supports visual content beyond plain text — use it whenever the source material's own diagrams matter to the question:
+- Unicode symbols (→ ≥ λ Σ ∴ etc.) directly in `prompt`/`modelAnswer` text need no schema support — use them freely wherever they make a question clearer or more compact than spelling the relation out in words.
+- `promptDiagram` / `answerDiagram` take Mermaid syntax (flowchart, sequence, etc. — see https://mermaid.js.org) and render live via `MermaidDiagram.tsx`. Use `promptDiagram` when the question references an existing diagram from the material (architecture diagram, sequence diagram); use `answerDiagram` when the diagram itself *is* the answer (e.g. "sketch the request flow for X").
+- Set `requiresDrawing: true` on any question that expects the student to sketch something by hand before checking the answer — the app shows a link to excalidraw.com as a scratchpad alongside the revealed answer.
 
 ## Spec requirement: continuous testing
 

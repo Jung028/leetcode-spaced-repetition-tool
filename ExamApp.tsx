@@ -3,6 +3,17 @@ import type { ExamPaperView, ExamQuestionView, ExamHistoryWeek } from "./exam-ap
 import type { ExamWeekView } from "./exam-content";
 import type { JobStatus } from "./exam-generate";
 import { TIMELINE_URL, TIMELINE_ANCHORS } from "./timeline-link";
+import { MermaidDiagram } from "./MermaidDiagram";
+
+const EXCALIDRAW_URL = "https://excalidraw.com";
+
+function DrawingLink() {
+  return (
+    <a className="exam-diagram-link" href={EXCALIDRAW_URL} target="_blank" rel="noreferrer">
+      Open Excalidraw to sketch this ↗
+    </a>
+  );
+}
 
 interface Stats {
   dueCount: number;
@@ -291,6 +302,7 @@ function McqQuestion({
   return (
     <div className="exam-question">
       <p className="exam-prompt">{question.prompt}</p>
+      {question.promptDiagram && <MermaidDiagram chart={question.promptDiagram} />}
       <div className="exam-options">
         {question.options!.map((opt, i) => {
           const isChosen = question.yourAnswer === String(i);
@@ -316,6 +328,8 @@ function McqQuestion({
         })}
       </div>
       {graded && <p className="exam-explanation">{question.modelAnswer}</p>}
+      {graded && question.answerDiagram && <MermaidDiagram chart={question.answerDiagram} />}
+      {graded && question.requiresDrawing && <DrawingLink />}
     </div>
   );
 }
@@ -362,6 +376,7 @@ function ShortOrScenarioQuestion({
   return (
     <div className="exam-question">
       <p className="exam-prompt">{question.prompt}</p>
+      {question.promptDiagram && <MermaidDiagram chart={question.promptDiagram} />}
       <textarea
         className="theory-answer"
         rows={4}
@@ -379,6 +394,8 @@ function ShortOrScenarioQuestion({
         <div className="theory-model-answer">
           <h3>Model answer</h3>
           <p>{question.modelAnswer}</p>
+          {question.answerDiagram && <MermaidDiagram chart={question.answerDiagram} />}
+          {question.requiresDrawing && <DrawingLink />}
         </div>
       )}
       {!graded && revealed && (
