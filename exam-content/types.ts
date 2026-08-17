@@ -10,6 +10,16 @@ export interface ExamQuestionSeed {
   // short/scenario: the revealed model answer. mcq/truefalse: the revealed
   // explanation shown alongside the correct/incorrect highlighting.
   modelAnswer: string;
+  // Optional Mermaid diagram syntax (flowchart/sequence/etc.) shown with the
+  // prompt — for a question that references an existing architecture or
+  // sequence diagram from the material.
+  promptDiagram?: string;
+  // Optional Mermaid diagram syntax shown with modelAnswer — the actual
+  // diagram that answers a "draw/sketch the X" question.
+  answerDiagram?: string;
+  // True when the question expects the student to sketch something by
+  // hand; the UI links out to excalidraw.com as a scratchpad.
+  requiresDrawing?: boolean;
 }
 
 export interface ExamPaperSeed {

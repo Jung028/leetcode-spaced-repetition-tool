@@ -42,9 +42,10 @@ test("renderScaffoldModule emits a module exporting WEEK_<n>_PAPERS", () => {
   expect(source).not.toContain("Video lectures found");
 });
 
-test("renderScaffoldModule notes video files that won't be transcribed", () => {
+test("renderScaffoldModule notes video files that still need transcribing", () => {
   const source = renderScaffoldModule(1, [], ["lecture/clip.mp4"]);
-  expect(source).toContain("Video lectures found but not readable as text");
+  expect(source).toContain("Video recordings found");
+  expect(source).toContain("transcribe-lecture.ts");
   expect(source).toContain("lecture/clip.mp4");
 });
 

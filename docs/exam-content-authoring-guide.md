@@ -5,8 +5,16 @@ the Modules tab's Sync button, or found by hand).
 
 ## Process
 
-1. Read the week's real source material directly — PDFs, slides, docs.
-   Skip video files; they can't be transcribed.
+1. Read the week's real source material directly — PDFs, slides, docs. For
+   any video recording (lecture/tutorial capture), transcribe it first:
+   `bun scripts/transcribe-lecture.ts <path-to-video>` writes a
+   `<name>.transcript.md` next to it, which then reads like any other
+   material. Video is the one source that captures things the slides don't
+   — announcements, asides, stories, in-class quizzes/questions, verbal
+   emphasis on what actually matters — so treat the transcript as a
+   dedicated pass for exactly that, not just a re-read of the slide content
+   in prose form. Re-run `scripts/generate-exam-week.ts` after transcribing
+   so the new file is picked up as a material source.
 2. Read that course's `exam-content/<course>/unit_outline.md` for the
    unit's stated learning outcomes.
 3. If a prior week's `exam-content/<course>/week-N.ts` exists, skim it for
@@ -15,9 +23,11 @@ the Modules tab's Sync button, or found by hand).
    explicit — don't treat every week as fully isolated from the last.
 4. Beyond single-concept recall, include questions that force connecting
    the dots: between two or more concepts within the same lecture, and
-   between this week's material and earlier weeks' (per point 3). These
-   are still `mcq` — write the prompt/options so the correct choice
-   requires combining concepts, not just single-fact lookup.
+   between this week's material and earlier weeks' (per point 3). Write
+   these as `mcq` when the options can express the distinction cleanly, or
+   `short`/`scenario` when the connection is better explained in prose —
+   either way, the correct answer must require combining concepts, not
+   just single-fact lookup.
 5. Read that course's `exam-content/<course>/assessment_overview.md` (if it
    exists) for how the *final exam* is actually structured — closed/open
    book, case-study based, etc. Write at least a couple of questions in
@@ -59,15 +69,24 @@ the Modules tab's Sync button, or found by hand).
 - Each paper's `questions` array holds every question for that half of the
   week — roughly 20-25 questions per paper is typical (down from ~40-50
   for a single combined paper, since it's now split in two).
-- Every question must be type `mcq` (exam-style, multiple choice with
-  `options` + `correctIndex`) — do not author `truefalse`, `short`, or
-  `scenario` questions (see CLAUDE.md, "Exam content question format").
+- Each paper's question types follow the mix `buildScaffold()` in
+  `scripts/generate-exam-week.ts` seeds by default: 8 `mcq`, 4 `short`, 2
+  `scenario`. `truefalse` is also available (see
+  `exam-content/types.ts`'s `ExamQuestionType`) where it genuinely fits a
+  question better than mcq — it isn't part of the default scaffold ratio,
+  so add it deliberately rather than as a default choice.
 - Match the exact shape of `exam-content/types.ts`'s `ExamPaperSeed` /
   `ExamQuestionSeed` — see any existing `exam-content/<course>/week-N.ts`
   for a worked example.
 - Every question's `modelAnswer` should be traceable to something the
-  source material actually says, not invented — it's shown alongside the
-  options as the written explanation of why the correct choice is correct.
+  source material actually says, not invented — mcq/truefalse show it
+  alongside the options as the explanation of why the correct choice is
+  correct; short/scenario reveal it as the answer itself.
+- Use `promptDiagram` / `answerDiagram` (Mermaid syntax) and
+  `requiresDrawing` (links to excalidraw.com) where a question is about an
+  actual diagram or expects the student to sketch one — see CLAUDE.md,
+  "Diagrams, symbols, and drawing". Plain Unicode symbols (→ ≥ λ Σ) in
+  `prompt`/`modelAnswer` need no schema support at all.
 - Distractors must be close, not filler: every wrong option should be
   plausible enough that only real understanding rules it out (a related
   term from the same lecture, a common misconception, a mechanism that's
