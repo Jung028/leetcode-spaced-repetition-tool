@@ -26,6 +26,7 @@ import {
 import { findPendingWeeks } from "./exam-sync";
 import { resolveWeekDir, startGenerateJob, readJobStatus, defaultGenerateDeps, type StartJobDeps } from "./exam-generate";
 import type { ExamQuestionType } from "./exam-content/types";
+import { logExamEvent } from "./exam-attempt-log";
 import { localToday } from "./scheduling";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
@@ -259,7 +260,24 @@ export function examApiRoutes(
         if (typeof body?.correct !== "boolean") return json({ error: "correct must be a boolean" }, 400);
         const yourAnswer = typeof body?.yourAnswer === "string" ? body.yourAnswer : undefined;
         gradeExamAnswer(db, course, week, paperNumber, questionIndex, body.correct, yourAnswer);
-        return json(paperView(db, course, getExamPaperRow(db, course, week, paperNumber)!));
+        const view = paperView(db, course, getExamPaperRow(db, course, week, paperNumber)!)!;
+        const q = view.questions[questionIndex]!;
+        logExamEvent({
+          kind: "attempt",
+          timestamp: new Date().toISOString(),
+          course,
+          week,
+          paperNumber,
+          questionIndex,
+          type: q.type,
+          prompt: q.prompt,
+          yourAnswer: q.yourAnswer,
+          correct: body.correct,
+          modelAnswer: q.modelAnswer,
+          ...(q.options ? { options: q.options } : {}),
+          ...(q.correctIndex !== null ? { correctIndex: q.correctIndex } : {}),
+        });
+        return json(view);
       },
     },
     "/api/exam/:course/:week/:paperNumber/submit": {
@@ -281,6 +299,15 @@ export function examApiRoutes(
                 : "grade every question before submitting";
           return json({ error: message }, status);
         }
+        logExamEvent({
+          kind: "submission",
+          timestamp: new Date().toISOString(),
+          course,
+          week,
+          paperNumber,
+          scoreCorrect: result.scoreCorrect,
+          scoreTotal: result.scoreTotal,
+        });
         return json({ scoreCorrect: result.scoreCorrect, scoreTotal: result.scoreTotal });
       },
     },

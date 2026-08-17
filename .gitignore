@@ -1,5 +1,6 @@
 node_modules/
 srs.db*
+exam-attempts.jsonl*
 .worktrees/
 .env
 .superpowers/

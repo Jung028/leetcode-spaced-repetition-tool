@@ -1,5 +1,8 @@
 import { test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { migrateExam } from "./exam-db";
 import { examApiRoutes } from "./exam-api";
 import { buildExamSchedule, weekStartDate, weekDueDate } from "./exam-content";
@@ -131,6 +134,66 @@ test("POST /api/exam/:course/:week/:paperNumber/:questionIndex/grade records a v
   const updated: any = await res.json();
   expect(updated.questions[0].correct).toBe(1);
   expect(updated.questions[0].yourAnswer).toBe("1");
+});
+
+test("POST .../grade appends an attempt event to EXAM_ATTEMPTS_LOG_PATH", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "exam-attempt-log-"));
+  const logPath = join(dir, "attempts.jsonl");
+  const prev = process.env.EXAM_ATTEMPTS_LOG_PATH;
+  process.env.EXAM_ATTEMPTS_LOG_PATH = logPath;
+  try {
+    await fetch(`${base}/api/exam/${COURSE}/1/1/0/grade`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ correct: true, yourAnswer: "1" }),
+    });
+    expect(existsSync(logPath)).toBe(true);
+    const lines = readFileSync(logPath, "utf8").trim().split("\n");
+    expect(lines.length).toBe(1);
+    const entry = JSON.parse(lines[0]!);
+    expect(entry.kind).toBe("attempt");
+    expect(entry.course).toBe(COURSE);
+    expect(entry.week).toBe(1);
+    expect(entry.paperNumber).toBe(1);
+    expect(entry.questionIndex).toBe(0);
+    expect(entry.correct).toBe(true);
+    expect(entry.yourAnswer).toBe("1");
+    expect(typeof entry.prompt).toBe("string");
+    expect(typeof entry.timestamp).toBe("string");
+  } finally {
+    if (prev === undefined) delete process.env.EXAM_ATTEMPTS_LOG_PATH;
+    else process.env.EXAM_ATTEMPTS_LOG_PATH = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("POST .../submit appends a submission event with the score to EXAM_ATTEMPTS_LOG_PATH", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "exam-attempt-log-"));
+  const logPath = join(dir, "attempts.jsonl");
+  const prev = process.env.EXAM_ATTEMPTS_LOG_PATH;
+  process.env.EXAM_ATTEMPTS_LOG_PATH = logPath;
+  try {
+    const paperRes: any = await (await fetch(`${base}/api/exam/${COURSE}/1/1`)).json();
+    const count = paperRes.questions.length;
+    for (let i = 0; i < count; i++) {
+      await fetch(`${base}/api/exam/${COURSE}/1/1/${i}/grade`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ correct: i !== 0 }),
+      });
+    }
+    await fetch(`${base}/api/exam/${COURSE}/1/1/submit`, { method: "POST" });
+
+    const lines = readFileSync(logPath, "utf8").trim().split("\n");
+    const submission = lines.map((l) => JSON.parse(l)).find((e) => e.kind === "submission");
+    expect(submission).toBeTruthy();
+    expect(submission.scoreTotal).toBe(count);
+    expect(submission.scoreCorrect).toBe(count - 1);
+  } finally {
+    if (prev === undefined) delete process.env.EXAM_ATTEMPTS_LOG_PATH;
+    else process.env.EXAM_ATTEMPTS_LOG_PATH = prev;
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("POST /api/exam/:course/:week/:paperNumber/submit fails while any question is ungraded, then succeeds once all are", async () => {
