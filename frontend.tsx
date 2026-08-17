@@ -3,8 +3,7 @@ import { createRoot } from "react-dom/client";
 import { LADDER, isDue, localToday } from "./scheduling";
 import type { ProblemSummary, ProblemDetail } from "./db";
 import { highlightCode } from "./highlight";
-import TheoryApp from "./TheoryApp";
-import GoalsApp from "./GoalsApp";
+import TodoApp from "./TodoApp";
 import HomeApp from "./HomeApp";
 import ExamApp from "./ExamApp";
 import "./index.css";
@@ -68,6 +67,8 @@ interface Leetcode150Current {
   topic: string;
   difficulty: "Easy" | "Medium" | "Hard";
   url: string;
+  dueSince: string;
+  overdueDays: number;
 }
 
 const leetcode150Api = {
@@ -530,9 +531,29 @@ function LeetCodeApp({
   const [problems, setProblems] = useState<ProblemSummary[]>([]);
   const [completedToday, setCompletedToday] = useState(0);
 
-  const refresh = () => {
-    api.list().then(setProblems);
-    api.stats().then((s) => setCompletedToday(s.completedToday));
+  const refresh = async () => {
+    const [list, stats, current] = await Promise.all([
+      api.list(),
+      api.stats(),
+      leetcode150Api.current(),
+    ]);
+    setCompletedToday(stats.completedToday);
+    if ("done" in current) {
+      setProblems(list);
+    } else {
+      setProblems([
+        {
+          id: -1,
+          title: `${current.number}. ${current.title}`,
+          url: current.url,
+          language: "—",
+          rung: 0,
+          next_review: current.dueSince,
+          created_at: current.dueSince,
+        },
+        ...list,
+      ]);
+    }
   };
   useEffect(() => { refresh(); }, []);
 
@@ -543,7 +564,14 @@ function LeetCodeApp({
     }
   }, [openProblemId]);
 
-  const open = (id: number) => setView({ name: "detail", id });
+  const open = (id: number) => {
+    if (id === -1) {
+      const pointer = problems.find((p) => p.id === -1);
+      if (pointer) openExternal(pointer.url);
+      return;
+    }
+    setView({ name: "detail", id });
+  };
 
   return (
     <>
@@ -602,12 +630,11 @@ function LeetCodeApp({
   );
 }
 
-type Tab = "home" | "leetcode" | "theory" | "goals" | "exam";
+type Tab = "home" | "leetcode" | "todo" | "exam";
 
 type DeepLink =
   | { tab: "leetcode"; problemId: number }
-  | { tab: "theory"; conceptDay: number }
-  | { tab: "goals"; projectId: number }
+  | { tab: "todo"; todoId: number }
   | { tab: "exam"; course: string; week: number };
 
 function ThemeToggle() {
@@ -662,16 +689,10 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
         LeetCode
       </button>
       <button
-        className={tab === "theory" ? "tab tab-active" : "tab"}
-        onClick={() => onChange("theory")}
+        className={tab === "todo" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("todo")}
       >
-        Theory
-      </button>
-      <button
-        className={tab === "goals" ? "tab tab-active" : "tab"}
-        onClick={() => onChange("goals")}
-      >
-        Goals
+        Todo
       </button>
       <button
         className={tab === "exam" ? "tab tab-active" : "tab"}
@@ -688,10 +709,18 @@ function App() {
   const [tab, setTab] = useState<Tab>("home");
   const [deepLink, setDeepLink] = useState<DeepLink | null>(null);
 
-  const navigate = (item: { source: "leetcode" | "theory" | "goals" | "exam"; linkId: number; course?: string }) => {
+  const navigate = (item: {
+    source: "leetcode" | "todo" | "exam";
+    linkId: number;
+    course?: string;
+    externalUrl?: string;
+  }) => {
+    if (item.source === "leetcode" && item.externalUrl) {
+      openExternal(item.externalUrl);
+      return;
+    }
     if (item.source === "leetcode") setDeepLink({ tab: "leetcode", problemId: item.linkId });
-    else if (item.source === "theory") setDeepLink({ tab: "theory", conceptDay: item.linkId });
-    else if (item.source === "goals") setDeepLink({ tab: "goals", projectId: item.linkId });
+    else if (item.source === "todo") setDeepLink({ tab: "todo", todoId: item.linkId });
     else setDeepLink({ tab: "exam", course: item.course!, week: item.linkId });
     setTab(item.source);
   };
@@ -706,15 +735,9 @@ function App() {
           onOpened={() => setDeepLink(null)}
         />
       )}
-      {tab === "theory" && (
-        <TheoryApp
-          openConceptDay={deepLink?.tab === "theory" ? deepLink.conceptDay : null}
-          onOpened={() => setDeepLink(null)}
-        />
-      )}
-      {tab === "goals" && (
-        <GoalsApp
-          openProjectId={deepLink?.tab === "goals" ? deepLink.projectId : null}
+      {tab === "todo" && (
+        <TodoApp
+          openTodoId={deepLink?.tab === "todo" ? deepLink.todoId : null}
           onOpened={() => setDeepLink(null)}
         />
       )}

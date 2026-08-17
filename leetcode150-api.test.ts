@@ -46,3 +46,9 @@ test("GET /api/leetcode150/current returns done:true once all 150 are complete",
   const body: any = await (await fetch(`${base}/api/leetcode150/current`)).json();
   expect(body).toEqual({ done: true });
 });
+
+test("GET /api/leetcode150/current includes dueSince and overdueDays", async () => {
+  const body: any = await (await fetch(`${base}/api/leetcode150/current`)).json();
+  expect(body.dueSince).toBe(localToday());
+  expect(body.overdueDays).toBe(0);
+});
