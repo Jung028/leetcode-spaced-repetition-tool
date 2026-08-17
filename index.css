@@ -948,7 +948,7 @@ a.btn {
 
 /* Pattern */
 .pattern-section {
-  margin-top: 1.5rem;
+  margin: 1.5rem 0 2rem;
 }
 
 .pattern-section h3 {
@@ -957,12 +957,12 @@ a.btn {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--dim);
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.6rem;
 }
 
 .pattern-tag {
   display: inline-block;
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.75rem;
 }
 
 .pattern-why {
