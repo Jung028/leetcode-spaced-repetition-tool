@@ -1,6 +1,8 @@
 node_modules/
 srs.db*
 .worktrees/
+.claude/worktrees/
 .env
 .superpowers/
 .exam-generate/
+exam-attempts.jsonl*

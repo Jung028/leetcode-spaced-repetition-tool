@@ -97,19 +97,6 @@ function countScheduledOn(db: Database, date: string, excludeId?: number): numbe
   return row.n;
 }
 
-// How many problems already have next_review = date — used to cap how
-// many LeetCode reviews can land on the same day (see scheduling.ts's
-// nextAvailableDate). `excludeId` lets a problem being rescheduled ignore
-// its own current slot on that date.
-function countScheduledOn(db: Database, date: string, excludeId?: number): number {
-  const row = (
-    excludeId !== undefined
-      ? db.query(`SELECT COUNT(*) AS n FROM problems WHERE next_review = ? AND id != ?`).get(date, excludeId)
-      : db.query(`SELECT COUNT(*) AS n FROM problems WHERE next_review = ?`).get(date)
-  ) as { n: number };
-  return row.n;
-}
-
 export function createProblem(
   db: Database,
   input: ProblemInput,
