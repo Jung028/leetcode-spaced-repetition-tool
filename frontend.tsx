@@ -1,36 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { LADDER, addDays, isDue, localToday } from "./scheduling";
+import { LADDER, isDue, localToday } from "./scheduling";
 import type { ProblemSummary, ProblemDetail } from "./db";
 import { highlightCode } from "./highlight";
-import { sydneyWallClockToUtc, toGoogleUtcStamp } from "./sydneyTime";
-import TheoryApp from "./TheoryApp";
-import GoalsApp from "./GoalsApp";
+import TodoApp from "./TodoApp";
 import HomeApp from "./HomeApp";
 import ExamApp from "./ExamApp";
 import "./index.css";
-
-// Opens a one-click Google Calendar "quick add" tab for a review date — no
-// OAuth needed, just the browser's own logged-in Google session. Always a
-// full 22:00–00:00 Sydney-time slot; doesn't try to detect/avoid overlaps
-// with other problems on the same day (Google's calendar UI stacks
-// overlapping events fine, and computing a shared split here would need
-// fetching every other problem due that day just to lay out one popup).
-function openCalendarQuickAdd(title: string, url: string, nextReview: string) {
-  const start = sydneyWallClockToUtc(nextReview, 22, 0);
-  const end = sydneyWallClockToUtc(addDays(nextReview, 1), 0, 0);
-  const params = new URLSearchParams({
-    action: "TEMPLATE",
-    text: `LeetCode review: ${title}`,
-    dates: `${toGoogleUtcStamp(start)}/${toGoogleUtcStamp(end)}`,
-    details: `Open on LeetCode: ${url}`,
-  });
-  window.open(
-    `https://calendar.google.com/calendar/render?${params.toString()}`,
-    "_blank",
-    "noopener,noreferrer",
-  );
-}
 
 type View =
   | { name: "board" }
@@ -466,16 +442,9 @@ function Detail({
     );
 
   const review = async (result: "pass" | "fail") => {
-    const res = await api.review(id, result);
-    const updated: ProblemSummary = await res.json();
-    // Update and navigate away BEFORE opening the calendar tab: window.open
-    // backgrounds this tab, and a backgrounded tab can sit on its last
-    // painted frame (still showing the revealed solution) until it regains
-    // focus — so the board/removal transition must already be committed
-    // first, or reopening this tab briefly re-shows the old revealed answer.
+    await api.review(id, result);
     onChanged();
     onBack();
-    openCalendarQuickAdd(updated.title, updated.url, updated.next_review);
   };
 
   return (
@@ -642,9 +611,7 @@ function LeetCodeApp({
           submitLabel="Add problem"
           onCancel={() => setView({ name: "board" })}
           onSubmit={async (v) => {
-            const res = await api.create(v);
-            const created: ProblemSummary = await res.json();
-            openCalendarQuickAdd(created.title, created.url, created.next_review);
+            await api.create(v);
             await refresh();
             setView({ name: "board" });
           }}
@@ -663,12 +630,11 @@ function LeetCodeApp({
   );
 }
 
-type Tab = "home" | "leetcode" | "theory" | "goals" | "exam";
+type Tab = "home" | "leetcode" | "todo" | "exam";
 
 type DeepLink =
   | { tab: "leetcode"; problemId: number }
-  | { tab: "theory"; conceptDay: number }
-  | { tab: "goals"; projectId: number }
+  | { tab: "todo"; todoId: number }
   | { tab: "exam"; course: string; week: number };
 
 function ThemeToggle() {
@@ -723,16 +689,10 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
         LeetCode
       </button>
       <button
-        className={tab === "theory" ? "tab tab-active" : "tab"}
-        onClick={() => onChange("theory")}
+        className={tab === "todo" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("todo")}
       >
-        Theory
-      </button>
-      <button
-        className={tab === "goals" ? "tab tab-active" : "tab"}
-        onClick={() => onChange("goals")}
-      >
-        Goals
+        Todo
       </button>
       <button
         className={tab === "exam" ? "tab tab-active" : "tab"}
@@ -750,7 +710,7 @@ function App() {
   const [deepLink, setDeepLink] = useState<DeepLink | null>(null);
 
   const navigate = (item: {
-    source: "leetcode" | "theory" | "goals" | "exam";
+    source: "leetcode" | "todo" | "exam";
     linkId: number;
     course?: string;
     externalUrl?: string;
@@ -760,8 +720,7 @@ function App() {
       return;
     }
     if (item.source === "leetcode") setDeepLink({ tab: "leetcode", problemId: item.linkId });
-    else if (item.source === "theory") setDeepLink({ tab: "theory", conceptDay: item.linkId });
-    else if (item.source === "goals") setDeepLink({ tab: "goals", projectId: item.linkId });
+    else if (item.source === "todo") setDeepLink({ tab: "todo", todoId: item.linkId });
     else setDeepLink({ tab: "exam", course: item.course!, week: item.linkId });
     setTab(item.source);
   };
@@ -776,15 +735,9 @@ function App() {
           onOpened={() => setDeepLink(null)}
         />
       )}
-      {tab === "theory" && (
-        <TheoryApp
-          openConceptDay={deepLink?.tab === "theory" ? deepLink.conceptDay : null}
-          onOpened={() => setDeepLink(null)}
-        />
-      )}
-      {tab === "goals" && (
-        <GoalsApp
-          openProjectId={deepLink?.tab === "goals" ? deepLink.projectId : null}
+      {tab === "todo" && (
+        <TodoApp
+          openTodoId={deepLink?.tab === "todo" ? deepLink.todoId : null}
           onOpened={() => setDeepLink(null)}
         />
       )}

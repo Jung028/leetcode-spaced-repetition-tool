@@ -2,14 +2,27 @@ import { test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { migrateExam } from "./exam-db";
 import { examApiRoutes } from "./exam-api";
-import { weekDueDate } from "./exam-content";
+import { buildExamSchedule, weekStartDate, weekDueDate } from "./exam-content";
 import { addDays, localToday } from "./scheduling";
 
 const COURSE = "INFO5995";
 const TODAY = localToday();
-// Week 1's due date is fixed, but "today" is the real wall clock — once
-// today passes it, Week 1 moves from the due bucket to the overdue bucket.
-const WEEK1_OVERDUE = TODAY > weekDueDate(1);
+// Each week's due date is fixed, but "today" is the real wall clock, and the
+// course can have more than one week of content — so rather than assuming a
+// single week, this walks every visible week and buckets it by whether its
+// due date has passed yet, mirroring home-api.test.ts's examWeekItemCounts.
+function courseWeekBuckets(course: string): { dueToday: number; overdue: number } {
+  let dueToday = 0;
+  let overdue = 0;
+  const weeks = new Set(buildExamSchedule().filter((p) => p.course === course).map((p) => p.week));
+  for (const week of weeks) {
+    if (weekStartDate(week) > TODAY) continue; // not visible yet
+    if (weekDueDate(week) < TODAY) overdue++;
+    else dueToday++;
+  }
+  return { dueToday, overdue };
+}
+const COURSE_WEEK_COUNTS = courseWeekBuckets(COURSE);
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
 let db: Database;
@@ -40,14 +53,13 @@ test("GET /api/exam/sync returns a pending list (shape check — content depends
 
 test("GET /api/exam/:course/due groups Week 1's combined paper into one weeksDue entry", async () => {
   const body: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
-  expect(body.weeksDue.length).toBe(1);
-  expect(body.weeksDue[0].week).toBe(1);
-  expect(body.weeksDue[0].papers.length).toBe(1);
-  expect(body.weeksDue[0].papers.every((p: any) => !p.submitted)).toBe(true);
-  expect(body.reviewDue).toEqual([]);
-  // 1 week, in whichever bucket (due vs overdue) its due date currently falls into.
-  expect(body.stats.dueCount).toBe(WEEK1_OVERDUE ? 0 : 1);
-  expect(body.stats.overdueCount).toBe(WEEK1_OVERDUE ? 1 : 0);
+  const week1 = body.weeksDue.find((w: any) => w.week === 1);
+  expect(week1).toBeTruthy();
+  expect(week1.papers.length).toBe(1);
+  expect(week1.papers.every((p: any) => !p.submitted)).toBe(true);
+  // Every visible, unsubmitted week for this course, bucketed by due vs overdue.
+  expect(body.stats.dueCount).toBe(COURSE_WEEK_COUNTS.dueToday);
+  expect(body.stats.overdueCount).toBe(COURSE_WEEK_COUNTS.overdue);
 });
 
 test("GET /api/exam/:course/due hides a week whose start date hasn't arrived yet", async () => {
@@ -76,7 +88,7 @@ test("GET /api/exam/:course/due drops a week once every paper in it is submitted
     await fetch(`${base}/api/exam/${COURSE}/1/${paperNumber}/submit`, { method: "POST" });
   }
   const body: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
-  expect(body.weeksDue).toEqual([]);
+  expect(body.weeksDue.some((w: any) => w.week === 1)).toBe(false);
 });
 
 test("GET /api/exam/:course/due with an unknown course returns 400", async () => {
@@ -157,7 +169,7 @@ test("submitting the same paper twice returns 400", async () => {
   expect(second.status).toBe(400);
 });
 
-test("after submitting with one wrong answer, that question shows up as a review item tomorrow", async () => {
+test("POST /api/exam/:course/:week/:paperNumber/retake-wrong clears only the wrong answer", async () => {
   const paperRes: any = await (await fetch(`${base}/api/exam/${COURSE}/1/1`)).json();
   const count = paperRes.questions.length;
   for (let i = 0; i < count; i++) {
@@ -169,24 +181,13 @@ test("after submitting with one wrong answer, that question shows up as a review
   }
   await fetch(`${base}/api/exam/${COURSE}/1/1/submit`, { method: "POST" });
 
-  const reviewRes = await fetch(`${base}/api/exam/review/${COURSE}/1/1/0`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ result: "correct" }),
-  });
-  expect(reviewRes.status).toBe(200);
-  const updated: any = await reviewRes.json();
-  expect(updated.rung).toBe(0);
-  expect(updated.next_review).toBe(addDays(TODAY, 3));
-});
+  const retakeRes = await fetch(`${base}/api/exam/${COURSE}/1/1/retake-wrong`, { method: "POST" });
+  expect(retakeRes.status).toBe(200);
 
-test("review rejects a bad result value", async () => {
-  const res = await fetch(`${base}/api/exam/review/${COURSE}/1/1/0`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ result: "meh" }),
-  });
-  expect(res.status).toBe(400);
+  const reopened: any = await (await fetch(`${base}/api/exam/${COURSE}/1/1`)).json();
+  expect(reopened.submittedAt).toBeNull();
+  expect(reopened.questions[0].correct).toBeNull(); // the wrong one, reopened
+  expect(reopened.questions[1].correct).toBe(1); // the rest, still locked in as correct
 });
 
 test("an invalid week is rejected with 400", async () => {
@@ -288,13 +289,13 @@ test("GET /api/exam/:course/history includes a fully-submitted week (which /due 
   await submitWeek1Paper1(true);
 
   const dueBody: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
-  expect(dueBody.weeksDue).toEqual([]); // confirms the gap this feature closes
+  expect(dueBody.weeksDue.some((w: any) => w.week === 1)).toBe(false); // confirms the gap this feature closes
 
   const historyBody: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
-  expect(historyBody.weeks.length).toBe(1);
-  expect(historyBody.weeks[0].week).toBe(1);
-  expect(historyBody.weeks[0].papers[0].submitted).toBe(true);
-  expect(historyBody.weeks[0].papers[0].pastAttempts).toEqual([]);
+  const week1 = historyBody.weeks.find((w: any) => w.week === 1);
+  expect(week1).toBeTruthy();
+  expect(week1.papers[0].submitted).toBe(true);
+  expect(week1.papers[0].pastAttempts).toEqual([]);
 });
 
 test("GET /api/exam/:course/history includes a retake's past attempt", async () => {
@@ -302,7 +303,8 @@ test("GET /api/exam/:course/history includes a retake's past attempt", async () 
   await fetch(`${base}/api/exam/${COURSE}/1/1/retake`, { method: "POST" });
 
   const historyBody: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
-  const paper = historyBody.weeks[0].papers[0];
+  const week1 = historyBody.weeks.find((w: any) => w.week === 1);
+  const paper = week1.papers[0];
   expect(paper.submitted).toBe(false); // reset, awaiting the next attempt
   expect(paper.pastAttempts.length).toBe(1);
   expect(paper.pastAttempts[0].attemptNumber).toBe(1);

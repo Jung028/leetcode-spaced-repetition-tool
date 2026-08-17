@@ -15,8 +15,9 @@ the Modules tab's Sync button, or found by hand).
    explicit — don't treat every week as fully isolated from the last.
 4. Beyond single-concept recall, include questions that force connecting
    the dots: between two or more concepts within the same lecture, and
-   between this week's material and earlier weeks' (per point 3). Prefer
-   `short`/`scenario` types for these — the point is synthesis, not lookup.
+   between this week's material and earlier weeks' (per point 3). These
+   are still `mcq` — write the prompt/options so the correct choice
+   requires combining concepts, not just single-fact lookup.
 5. Read that course's `exam-content/<course>/assessment_overview.md` (if it
    exists) for how the *final exam* is actually structured — closed/open
    book, case-study based, etc. Write at least a couple of questions in
@@ -27,15 +28,13 @@ the Modules tab's Sync button, or found by hand).
    Communication & Clarity, Professionalism & Engagement), author toward
    the rubric, not just toward a right/wrong answer key:
    - For a "depth beyond the answer guide" / "integrates multiple ideas"
-     criterion: make `scenario` questions require combining 2+ concepts
-     (possibly from different weeks) to answer well, not just restating one
-     slide's definition.
-   - For a "concise, structured, time-boxed" communication criterion: note
-     in the question (or a comment) that a strong spoken answer should fit
-     in the stated time limit (e.g. 1–2 minutes) — this shapes which
-     concepts get a `short` prompt (say it in one breath) vs a `scenario`
-     prompt (worth structuring as: claim, 2–3 supporting points, one
-     example).
+     criterion: write `mcq` questions whose options require combining 2+
+     concepts (possibly from different weeks) to correctly distinguish,
+     not just restating one slide's definition.
+   - For a "concise, structured, time-boxed" communication criterion: keep
+     the `modelAnswer` itself concise and structured (claim, 2–3
+     supporting points, one example) — something sayable within the
+     stated time limit (e.g. 1–2 minutes), not a written-exam-style essay.
    - Don't author anything that resembles reading from notes — the rubric
      may explicitly reward *unaided* recall (no AI/notes reliance), so
      model answers should model what a well-prepared unaided answer sounds
@@ -43,17 +42,40 @@ the Modules tab's Sync button, or found by hand).
 
 ## Format
 
-- One paper per week (`PAPER`), exported as a single-element array:
-  `export const WEEK_N_PAPERS: ExamPaperSeed[] = [PAPER];`
-- The paper's `questions` array holds every question for that week —
-  roughly 40-50 questions is typical, keeping the same rough ratio as a
-  14-question set (about 8 `mcq`/`truefalse` : 4 `short` : 2 `scenario`
-  per 14, scaled up).
+- **Two papers per week, tutorial split from lecture** — the tutorial is
+  more important to drill in isolation, so it gets its own paper rather
+  than being mixed into the week's combined set:
+  `export const WEEK_N_PAPERS: ExamPaperSeed[] = [TUTORIAL_PAPER, LECTURE_PAPER];`
+  - `paperNumber: 1`, title ending in "Tutorial" — questions written only
+    from the week's tutorial material (worksheets, tutorial slides,
+    in-class exercises).
+  - `paperNumber: 2`, title ending in "Lecture" — questions written only
+    from the week's lecture material.
+  - List the tutorial paper first in the array — it's the one the student
+    wants to practice first.
+  - If a week genuinely has no separate tutorial material (lecture-only
+    week), a single lecture-only paper (`paperNumber: 1`) is fine — don't
+    invent a tutorial paper from nothing.
+- Each paper's `questions` array holds every question for that half of the
+  week — roughly 20-25 questions per paper is typical (down from ~40-50
+  for a single combined paper, since it's now split in two).
+- Every question must be type `mcq` (exam-style, multiple choice with
+  `options` + `correctIndex`) — do not author `truefalse`, `short`, or
+  `scenario` questions (see CLAUDE.md, "Exam content question format").
 - Match the exact shape of `exam-content/types.ts`'s `ExamPaperSeed` /
   `ExamQuestionSeed` — see any existing `exam-content/<course>/week-N.ts`
   for a worked example.
 - Every question's `modelAnswer` should be traceable to something the
-  source material actually says, not invented.
+  source material actually says, not invented — it's shown alongside the
+  options as the written explanation of why the correct choice is correct.
+- Distractors must be close, not filler: every wrong option should be
+  plausible enough that only real understanding rules it out (a related
+  term from the same lecture, a common misconception, a mechanism that's
+  almost right but subtly wrong) — never an obviously-unrelated or absurd
+  option a student could eliminate without knowing the material. Favor
+  prompts that require distinguishing similar concepts or applying a
+  concept to a new example over ones answerable from the question's shape
+  alone (see CLAUDE.md, "Exam content question format").
 
 ## Wiring in
 

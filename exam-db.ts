@@ -1,7 +1,5 @@
 import type { Database } from "bun:sqlite";
 import { buildExamSchedule } from "./exam-content";
-import { addDays } from "./scheduling";
-import { applyExamReview, type ExamReviewResult } from "./exam-scheduling";
 
 export interface ExamPaperRow {
   course: string;
@@ -19,16 +17,6 @@ export interface ExamAnswerRow {
   question_index: number;
   your_answer: string;
   correct: number | null;
-}
-
-export interface ExamReviewItemRow {
-  id: number;
-  course: string;
-  week: number;
-  paper_number: number;
-  question_index: number;
-  rung: number;
-  next_review: string;
 }
 
 export function migrateExam(db: Database, today: string): void {
@@ -50,25 +38,6 @@ export function migrateExam(db: Database, today: string): void {
       your_answer TEXT NOT NULL DEFAULT '',
       correct INTEGER,
       PRIMARY KEY (course, week, paper_number, question_index)
-    );
-    CREATE TABLE IF NOT EXISTS exam_review_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      course TEXT NOT NULL,
-      week INTEGER NOT NULL,
-      paper_number INTEGER NOT NULL,
-      question_index INTEGER NOT NULL,
-      rung INTEGER NOT NULL DEFAULT -1,
-      next_review TEXT NOT NULL,
-      UNIQUE(course, week, paper_number, question_index)
-    );
-    CREATE TABLE IF NOT EXISTS exam_review_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      course TEXT NOT NULL,
-      week INTEGER NOT NULL,
-      paper_number INTEGER NOT NULL,
-      question_index INTEGER NOT NULL,
-      reviewed_at TEXT NOT NULL,
-      result TEXT NOT NULL CHECK (result IN ('correct','wrong'))
     );
     CREATE TABLE IF NOT EXISTS exam_attempt_history (
       course TEXT NOT NULL,
@@ -92,6 +61,11 @@ export function migrateExam(db: Database, today: string): void {
   // and never fires there — an exam_state drop nested only inside that
   // tier would leave the table behind forever on exactly that database.
   db.exec(`DROP TABLE IF EXISTS exam_state;`);
+  // The spaced-repetition review ladder (3 -> 5 -> 7 -> 14 -> 30 days) is
+  // gone — replaced by explicit "retake wrong only" / "retake whole paper"
+  // choices on a submitted paper. Drop these unconditionally so anyone's
+  // existing srs.db stops surfacing stale review items.
+  db.exec(`DROP TABLE IF EXISTS exam_review_items; DROP TABLE IF EXISTS exam_review_log;`);
   seedNewPapers(db);
 }
 
@@ -414,14 +388,6 @@ export function submitExamPaper(
     `UPDATE exam_papers SET submitted_at = ?, score_correct = ?, score_total = ? WHERE course = ? AND week = ? AND paper_number = ?`,
   ).run(today, scoreCorrect, scoreTotal, course, week, paperNumber);
 
-  const insertReview = db.query(
-    `INSERT INTO exam_review_items (course, week, paper_number, question_index, rung, next_review) VALUES (?, ?, ?, ?, -1, ?)
-     ON CONFLICT (course, week, paper_number, question_index) DO NOTHING`,
-  );
-  for (const a of answers) {
-    if (a.correct === 0) insertReview.run(course, week, paperNumber, a.question_index, addDays(today, 1));
-  }
-
   return { ok: true, scoreCorrect, scoreTotal };
 }
 
@@ -458,6 +424,37 @@ export function retakeExamPaper(db: Database, course: string, week: number, pape
   return { ok: true };
 }
 
+// Same as retakeExamPaper, except it only clears the questions answered
+// wrong — correct answers stay locked in place — so the paper reopens with
+// just the missed questions editable again.
+export function retakeWrongOnlyExamPaper(db: Database, course: string, week: number, paperNumber: number): RetakeResult {
+  const paper = getExamPaperRow(db, course, week, paperNumber);
+  if (!paper) return { ok: false, reason: "not_found" };
+  if (!paper.submitted_at) return { ok: false, reason: "not_submitted" };
+
+  const { n: attemptCount } = db
+    .query(`SELECT COUNT(*) AS n FROM exam_attempt_history WHERE course = ? AND week = ? AND paper_number = ?`)
+    .get(course, week, paperNumber) as { n: number };
+
+  db.query(
+    `INSERT INTO exam_attempt_history (course, week, paper_number, attempt_number, submitted_at, score_correct, score_total)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(course, week, paperNumber, attemptCount + 1, paper.submitted_at, paper.score_correct!, paper.score_total!);
+
+  db.query(
+    `UPDATE exam_papers SET submitted_at = NULL, score_correct = NULL, score_total = NULL
+     WHERE course = ? AND week = ? AND paper_number = ?`,
+  ).run(course, week, paperNumber);
+
+  db.query(`DELETE FROM exam_answers WHERE course = ? AND week = ? AND paper_number = ? AND correct = 0`).run(
+    course,
+    week,
+    paperNumber,
+  );
+
+  return { ok: true };
+}
+
 export function listExamAttemptHistory(db: Database, course: string, week: number, paperNumber: number): ExamAttemptSummary[] {
   const rows = db
     .query(
@@ -489,61 +486,3 @@ export function listExamPapersSubmittedToday(db: Database, course: string, today
     .all(course, today) as ExamPaperRow[];
 }
 
-export function listDueExamReviewItems(db: Database, course: string, today: string): ExamReviewItemRow[] {
-  return db
-    .query(
-      `SELECT id, course, week, paper_number, question_index, rung, next_review FROM exam_review_items
-       WHERE course = ? AND next_review <= ? ORDER BY next_review, id`,
-    )
-    .all(course, today) as ExamReviewItemRow[];
-}
-
-export function countOverdueExamReviewItems(db: Database, course: string, today: string): number {
-  const row = db
-    .query(`SELECT COUNT(*) AS n FROM exam_review_items WHERE course = ? AND next_review < ?`)
-    .get(course, today) as { n: number };
-  return row.n;
-}
-
-export function countExamReviewsToday(db: Database, course: string, today: string): number {
-  const row = db
-    .query(`SELECT COUNT(*) AS n FROM exam_review_log WHERE course = ? AND reviewed_at = ?`)
-    .get(course, today) as { n: number };
-  return row.n;
-}
-
-export function listExamReviewsCompletedToday(
-  db: Database,
-  course: string,
-  today: string,
-): { week: number; paper_number: number; question_index: number }[] {
-  return db
-    .query(`SELECT week, paper_number, question_index FROM exam_review_log WHERE course = ? AND reviewed_at = ?`)
-    .all(course, today) as { week: number; paper_number: number; question_index: number }[];
-}
-
-export function reviewExamItem(
-  db: Database,
-  course: string,
-  week: number,
-  paperNumber: number,
-  questionIndex: number,
-  result: ExamReviewResult,
-  today: string,
-): ExamReviewItemRow | null {
-  const current = db
-    .query(
-      `SELECT id, course, week, paper_number, question_index, rung, next_review FROM exam_review_items
-       WHERE course = ? AND week = ? AND paper_number = ? AND question_index = ?`,
-    )
-    .get(course, week, paperNumber, questionIndex) as ExamReviewItemRow | null;
-  if (!current) return null;
-
-  db.query(
-    `INSERT INTO exam_review_log (course, week, paper_number, question_index, reviewed_at, result) VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(course, week, paperNumber, questionIndex, today, result);
-
-  const { rung, nextReview } = applyExamReview(current.rung, result, today);
-  db.query(`UPDATE exam_review_items SET rung = ?, next_review = ? WHERE id = ?`).run(rung, nextReview, current.id);
-  return { ...current, rung, next_review: nextReview };
-}

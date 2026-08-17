@@ -51,6 +51,24 @@ export function releaseCount(
   return Math.min(Math.max(cap - backlog, 0), remaining);
 }
 
+// Daily cap on LeetCode spaced-repetition reviews landing on the same date.
+export const MAX_DAILY_LEETCODE_REVIEWS = 5;
+
+// Walks forward day-by-day from `start` until it finds a date whose
+// existing count (via the caller-supplied lookup) is under the cap —
+// first-fit-forward, so overflow cascades onto the earliest day with room.
+export function nextAvailableDate(
+  start: string,
+  countOnDate: (date: string) => number,
+  cap: number = MAX_DAILY_LEETCODE_REVIEWS,
+): string {
+  let date = start;
+  while (countOnDate(date) >= cap) {
+    date = addDays(date, 1);
+  }
+  return date;
+}
+
 export function overdueDays(dueDate: string, today: string): number {
   return Math.max(0, Math.round((Date.parse(today) - Date.parse(dueDate)) / 86_400_000));
 }

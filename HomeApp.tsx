@@ -88,15 +88,13 @@ function WeeklyContentReminder() {
 
 const SOURCE_LABEL: Record<DueSource, string> = {
   leetcode: "LeetCode",
-  theory: "Theory",
-  goals: "Goals",
+  todo: "Todo",
   exam: "Modules",
 };
 
 const SOURCE_COLOR: Record<DueSource, string> = {
   leetcode: "var(--cat-src-leetcode)",
-  theory: "var(--cat-src-theory)",
-  goals: "var(--cat-src-goals)",
+  todo: "var(--cat-src-theory)",
   exam: "var(--cat-src-exam)",
 };
 
@@ -192,7 +190,7 @@ function GoogleCalendarEmbed() {
         <h2>Calendar</h2>
       </div>
       <p className="rule-note">
-        Add/Passed/Failed opens a one-click Google Calendar quick-add tab — click Save there to add it.
+        Adam's primary calendar and university timetable, for reference.
       </p>
       <div className="gcal-frame">
         <iframe src={src} title="Google Calendar — LeetCode reviews and study timetable" />

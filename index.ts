@@ -1,10 +1,8 @@
 import index from "./index.html";
 import { openDb } from "./db";
 import { apiRoutes } from "./api";
-import { migrateTheory } from "./theory-db";
-import { theoryApiRoutes } from "./theory-api";
-import { migrateGoals } from "./goals-db";
-import { goalsApiRoutes } from "./goals-api";
+import { migrateTodo } from "./todo-db";
+import { todoApiRoutes } from "./todo-api";
 import { migrateExam } from "./exam-db";
 import { examApiRoutes } from "./exam-api";
 import { homeApiRoutes } from "./home-api";
@@ -13,8 +11,15 @@ import { leetcode150ApiRoutes } from "./leetcode150-api";
 import { localToday } from "./scheduling";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
-migrateTheory(db, localToday());
-migrateGoals(db, localToday());
+// One-time cleanup: the Theory and Goals features were removed along with
+// their data — see docs/superpowers/plans/2026-08-16-theory-to-todo-and-goals-removal.md.
+// IF EXISTS makes this a no-op on every subsequent startup.
+db.exec(`
+  DROP TABLE IF EXISTS project_steps; DROP TABLE IF EXISTS projects;
+  DROP TABLE IF EXISTS theory_reviews; DROP TABLE IF EXISTS theory_progress;
+  DROP TABLE IF EXISTS theory_schedule; DROP TABLE IF EXISTS theory_state;
+`);
+migrateTodo(db);
 migrateExam(db, localToday());
 migrateLeetcode150(db);
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
@@ -31,8 +36,7 @@ const server = Bun.serve({
         headers: { "content-type": "text/javascript; charset=utf-8" },
       }),
     ...apiRoutes(db),
-    ...theoryApiRoutes(db),
-    ...goalsApiRoutes(db),
+    ...todoApiRoutes(db),
     ...examApiRoutes(db),
     ...homeApiRoutes(db),
     ...leetcode150ApiRoutes(db),

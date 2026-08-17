@@ -2,10 +2,9 @@
 import { test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { openDb, createProblem, reviewProblem } from "./db";
-import { migrateTheory, reviewTheoryConcept, saveTheoryContent } from "./theory-db";
-import { migrateGoals, createProject, createStep, toggleStep } from "./goals-db";
-import { migrateExam, gradeExamAnswer, submitExamPaper, reviewExamItem } from "./exam-db";
-import { buildExamSchedule, weekStartDate, weekDueDate, listExamCourses } from "./exam-content";
+import { migrateTodo, createTodo, toggleTodo } from "./todo-db";
+import { migrateExam, gradeExamAnswer, submitExamPaper } from "./exam-db";
+import { buildExamSchedule, weekStartDate, weekDueDate, listExamCourses, SEMESTER_START } from "./exam-content";
 import { migrateLeetcode150 } from "./leetcode150-db";
 import { LEETCODE_150, leetcode150Url } from "./leetcode150-content";
 import { homeApiRoutes } from "./home-api";
@@ -25,7 +24,7 @@ function examWeekItemCounts(): { dueToday: number; overdue: number } {
   for (const { code } of listExamCourses()) {
     const weeks = new Set(buildExamSchedule().filter((p) => p.course === code).map((p) => p.week));
     for (const week of weeks) {
-      if (weekStartDate(week) > TODAY) continue; // not visible yet
+      if (weekStartDate(week) > TODAY) continue;
       if (weekDueDate(week) < TODAY) overdue++;
       else dueToday++;
     }
@@ -45,8 +44,7 @@ let base: string;
 
 beforeEach(() => {
   db = openDb(":memory:");
-  migrateTheory(db, TODAY);
-  migrateGoals(db, TODAY);
+  migrateTodo(db);
   migrateExam(db, TODAY);
   migrateLeetcode150(db);
   server = Bun.serve({ port: 0, routes: homeApiRoutes(db) });
@@ -55,10 +53,10 @@ beforeEach(() => {
 
 afterEach(() => server.stop(true));
 
-test("GET /api/home/due includes a theory concept once it has content", async () => {
-  saveTheoryContent(db, 1, "Q1", "A1");
+test("GET /api/home/due includes a due todo", async () => {
+  createTodo(db, "Write the SA for project", TODAY, null, TODAY);
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
-  expect(items.some((i) => i.source === "theory" && i.linkId === 1)).toBe(true);
+  expect(items.some((i) => i.source === "todo" && i.title === "Write the SA for project")).toBe(true);
 });
 
 test("GET /api/home/due includes a due LeetCode problem", async () => {
@@ -74,76 +72,29 @@ test("GET /api/home/due includes a due LeetCode problem", async () => {
   expect(item.subtitle).toBe("java");
 });
 
-test("GET /api/home/due includes a due Goals step, with the project title as subtitle", async () => {
-  const project = createProject(db, "Complete tracely onboarding", addDays(TODAY, 10), TODAY);
-  createStep(db, project.id, "Complete signup page", 20, TODAY);
+test("GET /api/home/due excludes a todo that isn't due yet", async () => {
+  createTodo(db, "Not due yet", addDays(TODAY, 20), null, TODAY);
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
-  const item = items.find((i) => i.source === "goals");
-  expect(item).toBeTruthy();
-  expect(item.title).toBe("Complete signup page");
-  expect(item.subtitle).toBe("Complete tracely onboarding");
-  expect(item.linkId).toBe(project.id);
-});
-
-test("GET /api/home/due excludes a Goals step that isn't due yet", async () => {
-  const project = createProject(db, "Later project", addDays(TODAY, 30), addDays(TODAY, 20));
-  createStep(db, project.id, "Not due yet", 20, addDays(TODAY, 20));
-  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
-  expect(items.some((i) => i.source === "goals")).toBe(false);
+  expect(items.some((i) => i.source === "todo")).toBe(false);
 });
 
 test("GET /api/home/due includes this week's exam item", async () => {
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   const examItems = items.filter((i) => i.source === "exam");
-  expect(examItems.length).toBe(EXAM_ITEM_COUNTS.dueToday + EXAM_ITEM_COUNTS.overdue); // each visible, unsubmitted week collapses into one due-item
+  expect(examItems.length).toBe(EXAM_ITEM_COUNTS.dueToday + EXAM_ITEM_COUNTS.overdue);
   const info5995Item = examItems.find((i) => i.course === "INFO5995" && i.linkId === 1)!;
   expect(info5995Item).toBeTruthy();
-  expect(info5995Item.linkId).toBe(1); // week 1
+  expect(info5995Item.linkId).toBe(1);
   expect(info5995Item.title).toContain("Week 1");
 });
 
-test("GET /api/home/due gives the week item and exam review items collision-free ids", async () => {
-  // Every real week is a single combined paper now, so a submitted week's
-  // item disappears entirely. To get a week item and a review item
-  // coexisting under the same course/week without depending on a second
-  // week's real-calendar visibility date, manually seed a synthetic second
-  // paper row for INFO5995's week 1 — groupExamPapersByWeek falls back to a
-  // generic title for rows without matching content, so this doesn't need
-  // real multi-paper content to exist.
+test("GET /api/home/due gives every exam item a collision-free id", async () => {
   db.query(`INSERT INTO exam_papers (course, week, paper_number) VALUES ('INFO5995', 1, 2)`).run();
-
-  const paper1 = buildExamSchedule().find((p) => p.course === "INFO5995" && p.week === 1 && p.paperNumber === 1)!;
-  paper1.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, i !== 0)); // question 0 wrong, rest correct
-  submitExamPaper(db, "INFO5995", 1, 1, addDays(TODAY, -1)); // review item's next_review lands on TODAY
 
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   const examItems = items.filter((i) => i.source === "exam");
-  const info5995Items = examItems.filter((i) => i.course === "INFO5995");
-  // The week item (synthetic paper 2 still unsubmitted) and review item (paper 1's wrong question) coexist distinctly.
-  expect(info5995Items.length).toBe(2);
-  const weekItem = info5995Items.find((i) => i.title.includes("submitted"));
-  const reviewItem = info5995Items.find((i) => i.title.includes("review"));
-  expect(weekItem).toBeTruthy();
-  expect(weekItem.title).toBe("Week 1 (1/2 submitted)");
-  expect(reviewItem).toBeTruthy();
-  expect(reviewItem.title).toBe("Week 1 review (1 due)");
   const ids = examItems.map((i) => i.id);
-  expect(new Set(ids).size).toBe(ids.length); // no id collisions across any course's items
-});
-
-test("GET /api/home/due collapses a week's multiple due exam review items into one row", async () => {
-  const paper = buildExamSchedule().find((p) => p.course === "INFO5995" && p.week === 1 && p.paperNumber === 1)!;
-  // Grade the first three questions wrong (and everything else right) so submitting
-  // creates three separate exam_review_items rows, all due today.
-  paper.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, i >= 3));
-  submitExamPaper(db, "INFO5995", 1, 1, addDays(TODAY, -1)); // review items' next_review lands on TODAY
-
-  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
-  const info5995Items = items.filter((i) => i.source === "exam" && i.course === "INFO5995");
-  // Three wrong answers in the same week must show up as one due-item, not three.
-  expect(info5995Items.length).toBe(1);
-  expect(info5995Items[0].title).toBe("Week 1 review (3 due)");
-  expect(info5995Items[0].linkId).toBe(1);
+  expect(new Set(ids).size).toBe(ids.length);
 });
 
 test("GET /api/home/due drops the week item once every paper in it is submitted", async () => {
@@ -152,50 +103,53 @@ test("GET /api/home/due drops the week item once every paper in it is submitted"
   submitExamPaper(db, "INFO5995", 1, 1, TODAY);
 
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
-  expect(items.some((i) => i.source === "exam" && i.course === "INFO5995")).toBe(false);
+  expect(items.some((i) => i.source === "exam" && i.course === "INFO5995" && i.linkId === 1)).toBe(false);
 });
 
 test("GET /api/home/due sorts all sources together by due date ascending", async () => {
-  const project = createProject(db, "Complete tracely onboarding", addDays(TODAY, 10), addDays(TODAY, -5));
-  createStep(db, project.id, "Overdue step", 20, addDays(TODAY, -5));
+  // Due date must precede every exam week's earliest possible due date
+  // (SEMESTER_START + 6, for week 1), not just TODAY, so this step stays
+  // the most-overdue item regardless of how far "today" has drifted into
+  // the semester or how many weeks of exam content now exist.
+  const beforeSemester = addDays(SEMESTER_START, -1);
+  createTodo(db, "Overdue todo", beforeSemester, null, beforeSemester);
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   const dueDates = items.map((i) => i.dueDate);
   expect(dueDates).toEqual([...dueDates].sort());
-  expect(items[0]!.source).toBe("goals");
+  expect(items[0]!.source).toBe("todo");
 });
 
-test("GET /api/home/stats starts with one exam item per course (this week, besides theory) when theory concepts are all blank", async () => {
+test("GET /api/home/stats starts with one exam item per course (besides the daily LeetCode150 pointer) when there are no todos", async () => {
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
   expect(stats).toEqual({
     dueToday: EXAM_ITEM_COUNTS.dueToday + LEETCODE150_DAILY_DUE,
     overdue: EXAM_ITEM_COUNTS.overdue,
     completedToday: 0,
-  }); // one grouped item per visible, unsubmitted week + the daily LeetCode150 pointer, in whichever bucket its own due date currently falls into
+  });
 });
 
-test("GET /api/home/stats counts theory concepts once they have content, up to the released cap", async () => {
-  for (let day = 1; day <= 5; day++) saveTheoryContent(db, day, `Q${day}`, `A${day}`);
+test("GET /api/home/stats counts due todos", async () => {
+  for (let i = 0; i < 5; i++) createTodo(db, `Task ${i}`, TODAY, null, TODAY);
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
   expect(stats).toEqual({
     dueToday: 5 + EXAM_ITEM_COUNTS.dueToday + LEETCODE150_DAILY_DUE,
     overdue: EXAM_ITEM_COUNTS.overdue,
     completedToday: 0,
-  }); // 5 theory + one exam item per visible, unsubmitted week + the daily LeetCode150 pointer, in whichever bucket its own due date currently falls into
+  });
 });
 
-test("GET /api/home/stats counts dueToday and overdue across all four sources", async () => {
+test("GET /api/home/stats counts dueToday and overdue across all three sources", async () => {
   createProblem(
     db,
     { title: "Two Sum", url: "https://leetcode.com/problems/two-sum/", solution: "code" },
     addDays(TODAY, -1),
-  ); // due today
-  for (let day = 1; day <= 5; day++) saveTheoryContent(db, day, `Q${day}`, `A${day}`);
-  const overdueProject = createProject(db, "Overdue project", addDays(TODAY, 10), addDays(TODAY, -3));
-  createStep(db, overdueProject.id, "Overdue step", 20, addDays(TODAY, -3)); // overdue
+  );
+  for (let i = 0; i < 5; i++) createTodo(db, `Task ${i}`, TODAY, null, TODAY);
+  createTodo(db, "Overdue todo", addDays(TODAY, -3), null, addDays(TODAY, -3));
 
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats.dueToday).toBe(6 + EXAM_ITEM_COUNTS.dueToday + LEETCODE150_DAILY_DUE); // leetcode problem + 5 theory concepts + one exam item per due, unsubmitted week + the daily LeetCode150 pointer
-  expect(stats.overdue).toBe(1 + EXAM_ITEM_COUNTS.overdue); // the goals step, plus one exam item per overdue, unsubmitted week
+  expect(stats.dueToday).toBe(6 + EXAM_ITEM_COUNTS.dueToday + LEETCODE150_DAILY_DUE);
+  expect(stats.overdue).toBe(1 + EXAM_ITEM_COUNTS.overdue);
 });
 
 test("GET /api/home/stats counts completedToday across all three sources", async () => {
@@ -205,23 +159,17 @@ test("GET /api/home/stats counts completedToday across all three sources", async
     addDays(TODAY, -1),
   );
   reviewProblem(db, problem.id, "pass", TODAY);
-  reviewTheoryConcept(db, 1, "correct", TODAY);
-  const project = createProject(db, "Complete tracely onboarding", addDays(TODAY, 10), TODAY);
-  const step = createStep(db, project.id, "Complete signup page", 20, TODAY)!;
-  toggleStep(db, step.id, TODAY);
+  const todo = createTodo(db, "Task", TODAY, null, TODAY);
+  toggleTodo(db, todo.id, TODAY);
 
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats.completedToday).toBe(3);
+  expect(stats.completedToday).toBe(2);
 });
 
 test("GET /api/home/stats counts a submitted exam paper as completed today", async () => {
   const before: any = await (await fetch(`${base}/api/home/stats`)).json();
   expect(before.completedToday).toBe(0);
 
-  // home-api.test.ts doesn't mount exam routes (only homeApiRoutes), so grade
-  // and submit directly via exam-db against the same db instance, mirroring
-  // how the goals/theory completions above are set up through their own db
-  // layers rather than through HTTP.
   const paper1 = buildExamSchedule().find((p) => p.course === "INFO5995" && p.week === 1 && p.paperNumber === 1)!;
   paper1.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, true));
   submitExamPaper(db, "INFO5995", 1, 1, TODAY);
@@ -237,32 +185,26 @@ test("GET /api/home/completed-today merges completions across all three sources"
     addDays(TODAY, -1),
   );
   reviewProblem(db, problem.id, "pass", TODAY);
-  saveTheoryContent(db, 1, "Q1", "A1");
-  reviewTheoryConcept(db, 1, "correct", TODAY);
-  const project = createProject(db, "Complete tracely onboarding", addDays(TODAY, 10), TODAY);
-  const step = createStep(db, project.id, "Complete signup page", 20, TODAY)!;
-  toggleStep(db, step.id, TODAY);
+  const todo = createTodo(db, "Task", TODAY, null, TODAY);
+  toggleTodo(db, todo.id, TODAY);
 
   const items: any[] = await (await fetch(`${base}/api/home/completed-today`)).json();
-  expect(items.length).toBe(3);
+  expect(items.length).toBe(2);
   expect(items.every((i) => i.dueDate === TODAY)).toBe(true);
   expect(items.every((i) => i.overdueDays === 0)).toBe(true);
   expect(items.some((i) => i.source === "leetcode" && i.title === "Two Sum")).toBe(true);
-  expect(items.some((i) => i.source === "theory" && i.linkId === 1)).toBe(true);
-  expect(items.some((i) => i.source === "goals" && i.title === "Complete signup page")).toBe(true);
+  expect(items.some((i) => i.source === "todo" && i.title === "Task")).toBe(true);
 });
 
-test("GET /api/home/completed-today includes a submitted exam paper and a reviewed exam item", async () => {
+test("GET /api/home/completed-today includes a submitted exam paper", async () => {
   const paper1 = buildExamSchedule().find((p) => p.course === "INFO5995" && p.week === 1 && p.paperNumber === 1)!;
-  paper1.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, i !== 0)); // question 0 wrong, rest correct
-  submitExamPaper(db, "INFO5995", 1, 1, TODAY); // creates a review item for question 0
-  reviewExamItem(db, "INFO5995", 1, 1, 0, "correct", TODAY);
+  paper1.questions.forEach((_, i) => gradeExamAnswer(db, "INFO5995", 1, 1, i, i !== 0));
+  submitExamPaper(db, "INFO5995", 1, 1, TODAY);
 
   const items: any[] = await (await fetch(`${base}/api/home/completed-today`)).json();
   const examItems = items.filter((i) => i.source === "exam");
-  expect(examItems.length).toBe(2); // the submitted paper + the reviewed question
+  expect(examItems.length).toBe(1);
   expect(examItems.every((i) => i.subtitle === "Intro to Cybersecurity")).toBe(true);
-  expect(new Set(examItems.map((i) => i.id)).size).toBe(2); // distinct ids
   expect(items.every((i) => i.dueDate === TODAY && i.overdueDays === 0)).toBe(true);
 });
 
@@ -272,15 +214,14 @@ test("GET /api/home/completed-today is empty when nothing was completed today", 
 });
 
 test("overdueDays is 0 for an item due today and positive for an overdue item", async () => {
-  saveTheoryContent(db, 1, "Q1", "A1");
+  createTodo(db, "Due today", TODAY, null, TODAY);
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
-  const conceptOne = items.find((i) => i.source === "theory" && i.linkId === 1)!;
-  expect(conceptOne.overdueDays).toBe(0);
+  const todoToday = items.find((i) => i.source === "todo" && i.title === "Due today")!;
+  expect(todoToday.overdueDays).toBe(0);
 
-  const project = createProject(db, "Overdue project", addDays(TODAY, 10), addDays(TODAY, -3));
-  createStep(db, project.id, "Overdue step", 20, addDays(TODAY, -3));
+  createTodo(db, "Overdue", addDays(TODAY, -3), null, addDays(TODAY, -3));
   const items2: any[] = await (await fetch(`${base}/api/home/due`)).json();
-  const overdueItem = items2.find((i) => i.source === "goals")!;
+  const overdueItem = items2.find((i) => i.source === "todo" && i.title === "Overdue")!;
   expect(overdueItem.overdueDays).toBe(3);
 });
 
@@ -311,9 +252,7 @@ test("solving the LeetCode150 daily pointer removes it from due and credits comp
   const stillPending = dueItems.find(
     (i) => i.source === "leetcode" && i.title.startsWith("209."),
   );
-  expect(stillPending).toBeFalsy(); // pointer advanced past position 30, so it's no longer today's due item
-  // The newly-advanced position (31) isn't due until the day after it was
-  // solved either — no leetcode150 pointer item should show up as due today.
+  expect(stillPending).toBeFalsy();
   expect(dueItems.some((i) => i.source === "leetcode" && i.externalUrl)).toBe(false);
 
   const row = db.query(`SELECT due_since FROM leetcode150_state WHERE id = 1`).get() as { due_since: string };
@@ -334,14 +273,12 @@ test("solving the LeetCode150 daily pointer via a captured review (pass) does no
     { title: LEETCODE_150[29]!.title, url: leetcode150Url(LEETCODE_150[29]!), solution: "x" },
     TODAY,
   );
-  reviewProblem(db, problem.id, "pass", TODAY); // simulates the userscript's "Completed" capture path: problem + review row together
+  reviewProblem(db, problem.id, "pass", TODAY);
 
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  // Counted once via the ordinary review-based leetcode completedToday count,
-  // not a second time via the leetcode150 pointer credit.
   expect(stats.completedToday).toBe(1);
 
   const completedItems: any[] = await (await fetch(`${base}/api/home/completed-today`)).json();
   const leetcodeItems = completedItems.filter((i) => i.source === "leetcode");
-  expect(leetcodeItems.length).toBe(1); // the review-backed entry only, no synthesized pointer duplicate
+  expect(leetcodeItems.length).toBe(1);
 });

@@ -2,11 +2,13 @@ import { test, expect } from "bun:test";
 import {
   LADDER,
   MAX_ACTIVE_BACKLOG,
+  MAX_DAILY_LEETCODE_REVIEWS,
   addDays,
   applyReview,
   initialSchedule,
   isDue,
   localToday,
+  nextAvailableDate,
   releaseCount,
 } from "./scheduling";
 
@@ -87,4 +89,36 @@ test("releaseCount never releases more than what's remaining", () => {
 
 test("releaseCount defaults to MAX_ACTIVE_BACKLOG when no cap is given", () => {
   expect(releaseCount(0, 100)).toBe(5);
+});
+
+test("MAX_DAILY_LEETCODE_REVIEWS is 5", () => {
+  expect(MAX_DAILY_LEETCODE_REVIEWS).toBe(5);
+});
+
+test("nextAvailableDate returns the start date when it's under the cap", () => {
+  const countOnDate = () => 4;
+  expect(nextAvailableDate("2026-07-21", countOnDate, 5)).toBe("2026-07-21");
+});
+
+test("nextAvailableDate cascades to the next day when the start date is exactly at the cap", () => {
+  const counts: Record<string, number> = { "2026-07-21": 5, "2026-07-22": 2 };
+  const countOnDate = (date: string) => counts[date] ?? 0;
+  expect(nextAvailableDate("2026-07-21", countOnDate, 5)).toBe("2026-07-22");
+});
+
+test("nextAvailableDate cascades multiple days when consecutive days are also full", () => {
+  const counts: Record<string, number> = {
+    "2026-07-21": 5,
+    "2026-07-22": 5,
+    "2026-07-23": 5,
+    "2026-07-24": 1,
+  };
+  const countOnDate = (date: string) => counts[date] ?? 0;
+  expect(nextAvailableDate("2026-07-21", countOnDate, 5)).toBe("2026-07-24");
+});
+
+test("nextAvailableDate defaults to MAX_DAILY_LEETCODE_REVIEWS when no cap is given", () => {
+  const counts: Record<string, number> = { "2026-07-21": 5 };
+  const countOnDate = (date: string) => counts[date] ?? 0;
+  expect(nextAvailableDate("2026-07-21", countOnDate)).toBe("2026-07-22");
 });

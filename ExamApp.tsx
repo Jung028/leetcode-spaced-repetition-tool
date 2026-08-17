@@ -1,7 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { EXAM_REVIEW_LADDER } from "./exam-scheduling";
-import { localToday } from "./scheduling";
-import type { ExamPaperView, ExamQuestionView, ExamReviewView, ExamHistoryWeek } from "./exam-api";
+import React, { useEffect, useRef, useState } from "react";
+import type { ExamPaperView, ExamQuestionView, ExamHistoryWeek } from "./exam-api";
 import type { ExamWeekView } from "./exam-content";
 import type { JobStatus } from "./exam-generate";
 import { TIMELINE_URL, TIMELINE_ANCHORS } from "./timeline-link";
@@ -17,12 +15,10 @@ interface ExamCourse {
   name: string;
 }
 
-type Result = "correct" | "wrong";
 type View =
   | { name: "board" }
   | { name: "week"; week: number }
   | { name: "paper"; week: number; paperNumber: number }
-  | { name: "review"; item: ExamReviewView }
   | { name: "history" }
   | { name: "history-paper"; week: number; paperNumber: number };
 
@@ -39,9 +35,7 @@ const errorMessage = (err: unknown): string => (err instanceof Error ? err.messa
 const api = {
   courses: () => fetch("/api/exam/courses").then((r) => json<ExamCourse[]>(r)),
   due: (course: string) =>
-    fetch(`/api/exam/${course}/due`).then((r) =>
-      json<{ weeksDue: ExamWeekView[]; reviewDue: ExamReviewView[]; stats: Stats }>(r),
-    ),
+    fetch(`/api/exam/${course}/due`).then((r) => json<{ weeksDue: ExamWeekView[]; stats: Stats }>(r)),
   completedToday: (course: string) =>
     fetch(`/api/exam/${course}/completed-today`).then((r) => json<{ papers: ExamPaperView[] }>(r)),
   paper: (course: string, week: number, paperNumber: number) =>
@@ -69,12 +63,6 @@ const api = {
     fetch(`/api/exam/${course}/${week}/${paperNumber}/submit`, { method: "POST" }).then((r) =>
       json<{ scoreCorrect: number; scoreTotal: number }>(r),
     ),
-  reviewItem: (course: string, week: number, paperNumber: number, questionIndex: number, result: Result) =>
-    fetch(`/api/exam/review/${course}/${week}/${paperNumber}/${questionIndex}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ result }),
-    }).then((r) => json<any>(r)),
   sync: () => fetch("/api/exam/sync").then((r) => json<{ pending: { course: string; week: number }[] }>(r)),
   generate: (course: string, week: number) =>
     fetch(`/api/exam/${course}/${week}/generate`, { method: "POST" }).then((r) => json<{}>(r)),
@@ -83,6 +71,8 @@ const api = {
   history: (course: string) => fetch(`/api/exam/${course}/history`).then((r) => json<{ weeks: ExamHistoryWeek[] }>(r)),
   retake: (course: string, week: number, paperNumber: number) =>
     fetch(`/api/exam/${course}/${week}/${paperNumber}/retake`, { method: "POST" }).then((r) => json<{ ok: true }>(r)),
+  retakeWrong: (course: string, week: number, paperNumber: number) =>
+    fetch(`/api/exam/${course}/${week}/${paperNumber}/retake-wrong`, { method: "POST" }).then((r) => json<{ ok: true }>(r)),
 };
 
 function ExamStats({ stats, onOpenCompleted }: { stats: Stats; onOpenCompleted: () => void }) {
@@ -108,6 +98,18 @@ function jobKey(course: string, week: number): string {
   return `${course}:${week}`;
 }
 
+function formatElapsed(startedAt: string, now: number): string {
+  const secs = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1000));
+  return `${Math.floor(secs / 60)}:${(secs % 60).toString().padStart(2, "0")}`;
+}
+
+function notifyGenerateDone(course: string, week: number, status: JobStatus): void {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  new Notification(`${course} Week ${week} ${status.state === "done" ? "generated" : "failed"}`, {
+    body: status.state === "failed" ? status.logTail : undefined,
+  });
+}
+
 function SyncBanner({
   pending,
   onDismiss,
@@ -118,29 +120,9 @@ function SyncBanner({
   onGenerated: () => void;
 }) {
   const [jobs, setJobs] = useState<Record<string, JobStatus>>({});
-
-  const poll = async (course: string, week: number) => {
-    const status = await api.generateStatus(course, week).catch(() => null);
-    if (!status) return;
-    setJobs((prev) => ({ ...prev, [jobKey(course, week)]: status }));
-    if (status.state === "done") onGenerated();
-  };
-
-  // Recover in-progress/failed state on mount — e.g. after a page reload
-  // mid-generation, since job status lives on disk, not in this component's
-  // state.
-  useEffect(() => {
-    pending.forEach((p) => poll(p.course, p.week));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    const running = pending.filter((p) => jobs[jobKey(p.course, p.week)]?.state === "running");
-    if (running.length === 0) return;
-    const id = setInterval(() => running.forEach((p) => poll(p.course, p.week)), 5000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobs, pending]);
+  const [queue, setQueue] = useState<string[]>([]);
+  const [tick, setTick] = useState(() => Date.now());
+  const notifiedRef = useRef<Set<string>>(new Set());
 
   const generate = async (course: string, week: number) => {
     setJobs((prev) => ({ ...prev, [jobKey(course, week)]: { state: "running", startedAt: new Date().toISOString() } }));
@@ -154,12 +136,62 @@ function SyncBanner({
     }
   };
 
-  // Backend generation is a global lock (only one job may run at a time,
-  // regardless of week) — disable every row's button while any row is
-  // running, not just the row that's actually running, so a second click
-  // can't hit the 409 and show a confusing "failed" state for a job that
-  // never started.
+  const poll = async (course: string, week: number) => {
+    const status = await api.generateStatus(course, week).catch(() => null);
+    if (!status) return;
+    const key = jobKey(course, week);
+    setJobs((prev) => ({ ...prev, [key]: status }));
+    if (status.state === "done") onGenerated();
+    if ((status.state === "done" || status.state === "failed") && !notifiedRef.current.has(key)) {
+      notifiedRef.current.add(key);
+      notifyGenerateDone(course, week, status);
+      setQueue((prev) => {
+        const [next, ...rest] = prev;
+        if (next) {
+          const [c, w] = next.split(":");
+          generate(c!, Number(w));
+        }
+        return rest;
+      });
+    }
+  };
+
+  // Recover in-progress/failed state on mount — e.g. after a page reload
+  // mid-generation, since job status lives on disk, not in this component's
+  // state.
+  useEffect(() => {
+    pending.forEach((p) => poll(p.course, p.week));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const anyRunning = pending.some((p) => jobs[jobKey(p.course, p.week)]?.state === "running");
+
+  useEffect(() => {
+    if (!anyRunning) return;
+    const id = setInterval(() => pending.forEach((p) => poll(p.course, p.week)), 5000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs, pending]);
+
+  // Drives the live "Generating… m:ss" label — separate from the 5s status
+  // poll above since the timer needs to tick every second, not every poll.
+  useEffect(() => {
+    if (!anyRunning) return;
+    const id = setInterval(() => setTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [anyRunning]);
+
+  const handleClick = (course: string, week: number) => {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+    if (anyRunning) {
+      const key = jobKey(course, week);
+      setQueue((prev) => (prev.includes(key) ? prev : [...prev, key]));
+    } else {
+      generate(course, week);
+    }
+  };
 
   return (
     <div className="board" style={{ marginBottom: "1rem" }}>
@@ -174,17 +206,27 @@ function SyncBanner({
       {pending.length > 0 && (
         <ul className="board-rows">
           {pending.map((p) => {
-            const job = jobs[jobKey(p.course, p.week)];
+            const key = jobKey(p.course, p.week);
+            const job = jobs[key];
             const running = job?.state === "running";
             const failed = job?.state === "failed";
+            const queuePosition = queue.indexOf(key);
+            const queued = queuePosition !== -1;
+            const label = running
+              ? `Generating… ${formatElapsed(job!.startedAt!, tick)}`
+              : queued
+                ? `Queued · #${queuePosition + 1}`
+                : failed
+                  ? "Retry"
+                  : "Generate";
             return (
-              <li key={jobKey(p.course, p.week)}>
+              <li key={key}>
                 <div className="board-row" style={{ justifyContent: "space-between" }}>
                   <span className="board-title">{p.course} Week {p.week}</span>
                   <span>
                     {failed && <span className="tag">failed</span>}
-                    <button className="btn btn-primary" disabled={anyRunning} onClick={() => generate(p.course, p.week)}>
-                      {running ? "Generating…" : failed ? "Retry" : "Generate"}
+                    <button className="btn btn-primary" disabled={running || queued} onClick={() => handleClick(p.course, p.week)}>
+                      {label}
                     </button>
                   </span>
                 </div>
@@ -363,59 +405,152 @@ function PaperView({
   onError: (message: string | null) => void;
 }) {
   const [current, setCurrent] = useState(paper);
+  const [index, setIndex] = useState(() => {
+    // Resume at the first ungraded question — or, if every question is
+    // already graded but the paper was never submitted, land on the last
+    // question, since that's where Submit actually lives.
+    const firstUngraded = paper.questions.findIndex((q) => q.correct === null);
+    return firstUngraded === -1 ? paper.questions.length - 1 : firstUngraded;
+  });
   const allGraded = current.questions.every((q) => q.correct !== null);
+  const reviewing = current.submittedAt !== null;
+  const wrongCount = current.questions.filter((q) => q.correct === 0).length;
+  const remaining = current.questions.filter((q) => q.correct === null).length;
+
+  const reload = () => api.paper(course, paper.week, paper.paperNumber).then(setCurrent);
 
   const submit = async () => {
     onError(null);
     try {
       await api.submit(course, paper.week, paper.paperNumber);
       onChanged();
-      onBack();
+      await reload();
     } catch (err) {
       onError(errorMessage(err));
     }
   };
 
+  const retakeWrongOnly = async () => {
+    onError(null);
+    try {
+      await api.retakeWrong(course, paper.week, paper.paperNumber);
+      onChanged();
+      await reload();
+    } catch (err) {
+      onError(errorMessage(err));
+    }
+  };
+
+  const retakeWhole = async () => {
+    onError(null);
+    try {
+      await api.retake(course, paper.week, paper.paperNumber);
+      onChanged();
+      await reload();
+    } catch (err) {
+      onError(errorMessage(err));
+    }
+  };
+
+  const question = current.questions[index]!;
+
   return (
-    <article className="detail">
+    <article className={reviewing ? "detail" : "detail exam-focus"}>
       <header className="detail-head">
         <h2>{current.title}</h2>
-        <span className="tag">{current.questions.length} questions</span>
-        <span className="lang-tag">Due {current.dueDate}</span>
-      </header>
-      {current.questions.map((q) =>
-        q.type === "mcq" || q.type === "truefalse" ? (
-          <McqQuestion
-            key={q.index}
-            question={q}
-            course={course}
-            week={paper.week}
-            paperNumber={paper.paperNumber}
-            onGraded={setCurrent}
-            onError={onError}
-          />
+        {reviewing ? (
+          <>
+            <span className="tag">{current.questions.length} questions</span>
+            <span className="lang-tag">{current.scoreCorrect}/{current.scoreTotal} correct</span>
+          </>
         ) : (
-          <ShortOrScenarioQuestion
-            key={q.index}
-            question={q}
-            course={course}
-            week={paper.week}
-            paperNumber={paper.paperNumber}
-            onGraded={setCurrent}
-            onError={onError}
-          />
-        ),
+          <span className="lang-tag">Question {index + 1} of {current.questions.length} — {remaining} left</span>
+        )}
+      </header>
+      {reviewing ? (
+        current.questions.map((q) =>
+          q.type === "mcq" || q.type === "truefalse" ? (
+            <McqQuestion
+              key={`${q.index}-${q.correct}`}
+              question={q}
+              course={course}
+              week={paper.week}
+              paperNumber={paper.paperNumber}
+              onGraded={setCurrent}
+              onError={onError}
+            />
+          ) : (
+            <ShortOrScenarioQuestion
+              key={`${q.index}-${q.correct}`}
+              question={q}
+              course={course}
+              week={paper.week}
+              paperNumber={paper.paperNumber}
+              onGraded={setCurrent}
+              onError={onError}
+            />
+          ),
+        )
+      ) : (
+        <>
+          <div className="exam-progress-bar">
+            <div className="exam-progress-fill" style={{ width: `${(index / current.questions.length) * 100}%` }} />
+          </div>
+          {question.type === "mcq" || question.type === "truefalse" ? (
+            <McqQuestion
+              key={`${question.index}-${question.correct}`}
+              question={question}
+              course={course}
+              week={paper.week}
+              paperNumber={paper.paperNumber}
+              onGraded={setCurrent}
+              onError={onError}
+            />
+          ) : (
+            <ShortOrScenarioQuestion
+              key={`${question.index}-${question.correct}`}
+              question={question}
+              course={course}
+              week={paper.week}
+              paperNumber={paper.paperNumber}
+              onGraded={setCurrent}
+              onError={onError}
+            />
+          )}
+          <div className="btn-row">
+            <button className="btn" disabled={index === 0} onClick={() => setIndex((i) => Math.max(0, i - 1))}>
+              Previous
+            </button>
+            <button
+              className="btn"
+              disabled={index === current.questions.length - 1}
+              onClick={() => setIndex((i) => Math.min(current.questions.length - 1, i + 1))}
+            >
+              Next
+            </button>
+            <span className="btn-spacer" />
+            {index === current.questions.length - 1 && (
+              <button className="btn btn-primary" disabled={!allGraded} onClick={submit}>
+                Submit paper
+              </button>
+            )}
+            <button className="btn" onClick={onBack}>Back</button>
+          </div>
+          {index === current.questions.length - 1 && !allGraded && (
+            <p className="board-empty">
+              Grade every question — multiple choice grades itself on selection; reveal and mark short/scenario answers — before submitting.
+            </p>
+          )}
+        </>
       )}
-      <div className="btn-row">
-        <button className="btn btn-primary" disabled={!allGraded} onClick={submit}>
-          Submit paper
-        </button>
-        <button className="btn" onClick={onBack}>Back</button>
-      </div>
-      {!allGraded && (
-        <p className="board-empty">
-          Grade every question — multiple choice grades itself on selection; reveal and mark short/scenario answers — before submitting.
-        </p>
+      {reviewing && (
+        <div className="btn-row">
+          {wrongCount > 0 && (
+            <button className="btn btn-fail" onClick={retakeWrongOnly}>Retake wrong only ({wrongCount})</button>
+          )}
+          <button className="btn" onClick={retakeWhole}>Retake whole paper</button>
+          <button className="btn" onClick={onBack}>Back</button>
+        </div>
       )}
     </article>
   );
@@ -471,11 +606,15 @@ function WeekPicker({
         {weekView.papers.map((p) => (
           <li key={p.paperNumber}>
             {p.submitted ? (
-              <div className="board-row board-row-main" style={{ "--urgency": "var(--green)" } as React.CSSProperties}>
+              <button
+                className="board-row board-row-main"
+                style={{ "--urgency": "var(--green)" } as React.CSSProperties}
+                onClick={() => onPickPaper(p.paperNumber)}
+              >
                 <span className="tag">done</span>
                 <span className="board-title">{p.title}</span>
                 <span className="lang-tag">{p.scoreCorrect}/{p.scoreTotal}</span>
-              </div>
+              </button>
             ) : (
               <button className="board-row board-row-main" onClick={() => onPickPaper(p.paperNumber)}>
                 <span className="tag">due</span>
@@ -497,11 +636,13 @@ function HistoryView({
   onBack,
   onOpenPaper,
   onRetake,
+  onRetakeWrong,
 }: {
   weeks: ExamHistoryWeek[];
   onBack: () => void;
   onOpenPaper: (week: number, paperNumber: number) => void;
   onRetake: (week: number, paperNumber: number) => void;
+  onRetakeWrong: (week: number, paperNumber: number) => void;
 }) {
   return (
     <article className="detail">
@@ -526,7 +667,13 @@ function HistoryView({
                       <span className="lang-tag">{p.scoreCorrect}/{p.scoreTotal}</span>
                     )}
                     {p.submitted ? (
-                      <button className="btn" onClick={() => onRetake(w.week, p.paperNumber)}>Retake</button>
+                      <>
+                        <button className="btn" onClick={() => onOpenPaper(w.week, p.paperNumber)}>View</button>
+                        {p.scoreCorrect! < p.scoreTotal! && (
+                          <button className="btn" onClick={() => onRetakeWrong(w.week, p.paperNumber)}>Retake wrong only</button>
+                        )}
+                        <button className="btn" onClick={() => onRetake(w.week, p.paperNumber)}>Retake whole paper</button>
+                      </>
                     ) : (
                       <button className="btn" onClick={() => onOpenPaper(w.week, p.paperNumber)}>Continue</button>
                     )}
@@ -551,73 +698,6 @@ function HistoryView({
   );
 }
 
-function ReviewDetail({
-  item,
-  course,
-  onBack,
-  onChanged,
-  onError,
-}: {
-  item: ExamReviewView;
-  course: string;
-  onBack: () => void;
-  onChanged: () => void;
-  onError: (message: string | null) => void;
-}) {
-  const [revealed, setRevealed] = useState(false);
-
-  const review = async (result: Result) => {
-    onError(null);
-    try {
-      await api.reviewItem(course, item.week, item.paperNumber, item.questionIndex, result);
-      onChanged();
-      onBack();
-    } catch (err) {
-      onError(errorMessage(err));
-    }
-  };
-
-  return (
-    <article className="detail theory-card">
-      <header className="detail-head">
-        <span className="rung" title={`rung ${item.rung + 1} of ${EXAM_REVIEW_LADDER.length}`}>
-          {EXAM_REVIEW_LADDER.map((_, i) => (
-            <span key={i} className={i <= item.rung ? "rung-on" : "rung-off"} />
-          ))}
-        </span>
-      </header>
-      <h2 className="theory-question">{item.prompt}</h2>
-      {item.options && (
-        <div className="exam-options">
-          {item.options.map((opt, i) => (
-            <label
-              key={i}
-              className={revealed && i === item.correctIndex ? "exam-option exam-option-correct" : "exam-option"}
-            >
-              {opt}
-            </label>
-          ))}
-        </div>
-      )}
-      {revealed ? (
-        <div className="theory-model-answer">
-          <h3>Model answer</h3>
-          <p>{item.modelAnswer}</p>
-        </div>
-      ) : (
-        <button className="solution-cover" onClick={() => setRevealed(true)}>
-          Model answer hidden — recall it yourself first, then reveal
-        </button>
-      )}
-      <div className="btn-row">
-        <button className="btn btn-pass" onClick={() => review("correct")}>Correct</button>
-        <button className="btn btn-fail" onClick={() => review("wrong")}>Wrong</button>
-        <span className="btn-spacer" />
-        <button className="btn" onClick={onBack}>Back</button>
-      </div>
-    </article>
-  );
-}
 
 export default function ExamApp({
   openCourse,
@@ -632,7 +712,6 @@ export default function ExamApp({
   const [courses, setCourses] = useState<ExamCourse[]>([]);
   const [course, setCourse] = useState<string | null>(null);
   const [weeksDue, setWeeksDue] = useState<ExamWeekView[]>([]);
-  const [reviewDue, setReviewDue] = useState<ExamReviewView[]>([]);
   const [stats, setStats] = useState<Stats>({ dueCount: 0, overdueCount: 0, completedToday: 0 });
   const [completedPapers, setCompletedPapers] = useState<ExamPaperView[] | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
@@ -668,9 +747,8 @@ export default function ExamApp({
     setError(null);
     return api
       .due(activeCourse)
-      .then(({ weeksDue, reviewDue, stats }) => {
+      .then(({ weeksDue, stats }) => {
         setWeeksDue(weeksDue);
-        setReviewDue(reviewDue);
         setStats(stats);
       })
       .catch((err) => setError(errorMessage(err)));
@@ -742,6 +820,19 @@ export default function ExamApp({
     }
   };
 
+  const retakeWrong = async (week: number, paperNumber: number) => {
+    if (!course) return;
+    setError(null);
+    try {
+      await api.retakeWrong(course, week, paperNumber);
+      setView({ name: "history-paper", week, paperNumber });
+      refresh(course);
+      loadHistory();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
   if (!course) {
     return (
       <div className="theory">
@@ -774,7 +865,7 @@ export default function ExamApp({
       <ExamStats stats={stats} onOpenCompleted={openCompleted} />
       {error && <p className="form-error">{error}</p>}
       <p className="rule-note">
-        Each week's papers are due by Sunday. Missed questions come back for spaced review: 3 → 5 → 7 → 14 → 30 days.
+        Each week's papers are due by Sunday. After submitting, wrong questions are highlighted — retake just those or the whole paper.
       </p>
       <div className="detail-meta">
         <a href={`${TIMELINE_URL}#${TIMELINE_ANCHORS[course] ?? ""}`} target="_blank" rel="noopener noreferrer">
@@ -817,9 +908,16 @@ export default function ExamApp({
               <ul className="board-rows">
                 {weeksDue.map((w) => {
                   const submittedCount = w.papers.filter((p) => p.submitted).length;
+                  // A single-paper week has nothing to pick between — skip
+                  // straight to the paper (resuming where they left off)
+                  // instead of an intermediate picker with one row in it.
+                  const goDirectly = () =>
+                    w.papers.length === 1
+                      ? setView({ name: "paper", week: w.week, paperNumber: w.papers[0]!.paperNumber })
+                      : setView({ name: "week", week: w.week });
                   return (
                     <li key={w.week}>
-                      <button className="board-row board-row-main" onClick={() => setView({ name: "week", week: w.week })}>
+                      <button className="board-row board-row-main" onClick={goDirectly}>
                         <span className="tag">{w.overdue ? "overdue" : "due"}</span>
                         <span className="board-title">Week {w.week}</span>
                         <span className="lang-tag">{submittedCount}/{w.papers.length} submitted · due {w.dueDate}</span>
@@ -827,27 +925,6 @@ export default function ExamApp({
                     </li>
                   );
                 })}
-              </ul>
-            )}
-          </section>
-
-          <section className="board" aria-label="Review due">
-            <div className="section-head">
-              <h2>Review due</h2>
-              <span className="board-count">{reviewDue.length}</span>
-            </div>
-            {reviewDue.length === 0 ? (
-              <p className="board-empty">No missed questions due for review.</p>
-            ) : (
-              <ul className="board-rows">
-                {reviewDue.map((item) => (
-                  <li key={`${item.week}-${item.paperNumber}-${item.questionIndex}`}>
-                    <button className="board-row board-row-main" onClick={() => setView({ name: "review", item })}>
-                      <span className="tag">{item.nextReview < localToday() ? "overdue" : "due"}</span>
-                      <span className="board-title">{item.prompt}</span>
-                    </button>
-                  </li>
-                ))}
               </ul>
             )}
           </section>
@@ -867,17 +944,12 @@ export default function ExamApp({
           course={course}
           week={view.week}
           paperNumber={view.paperNumber}
-          onBack={() => setView({ name: "week", week: view.week })}
-          onChanged={() => refresh(course)}
-          onError={setError}
-        />
-      )}
-
-      {view.name === "review" && (
-        <ReviewDetail
-          item={view.item}
-          course={course}
-          onBack={() => setView({ name: "board" })}
+          // A single-paper week is opened directly from the board (skipping
+          // the picker), so Back should return there too, not to a picker
+          // screen with just the one paper the user never chose to visit.
+          onBack={() =>
+            setView(currentWeek?.papers.length === 1 ? { name: "board" } : { name: "week", week: view.week })
+          }
           onChanged={() => refresh(course)}
           onError={setError}
         />
@@ -889,6 +961,7 @@ export default function ExamApp({
           onBack={() => setView({ name: "board" })}
           onOpenPaper={(week, paperNumber) => setView({ name: "history-paper", week, paperNumber })}
           onRetake={retake}
+          onRetakeWrong={retakeWrong}
         />
       )}
 

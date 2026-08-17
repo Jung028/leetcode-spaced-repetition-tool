@@ -268,3 +268,52 @@ test("listCompletedToday is empty when nothing was reviewed today", () => {
   add("Two Sum");
   expect(listCompletedToday(db, TODAY)).toEqual([]);
 });
+
+test("createProblem cascades to the next day once the default day already has 5 problems", () => {
+  add("P1");
+  add("P2");
+  add("P3");
+  add("P4");
+  add("P5"); // fills 2026-07-21 to the cap of 5
+  const sixth = add("P6");
+  expect(sixth.next_review).toBe("2026-07-22");
+});
+
+test("reviewProblem cascades a passed review to the next available day when the ladder date is full", () => {
+  // Five filler problems land on 2026-07-23 (the rung-0-pass target) directly.
+  for (let i = 0; i < 5; i++) {
+    const filler = add(`Filler ${i}`);
+    reviewProblem(db, filler.id, "pass", TODAY); // rung 1, next_review 2026-07-23
+  }
+  const { id } = add("Sixth");
+  const reviewed = reviewProblem(db, id, "pass", TODAY)!;
+  expect(reviewed.rung).toBe(1);
+  expect(reviewed.next_review).toBe("2026-07-24");
+});
+
+test("reviewProblem cascades a failed review to the next available day when tomorrow is full", () => {
+  const { id } = add("Sixth");
+  reviewProblem(db, id, "pass", TODAY); // moves off 2026-07-21, onto rung 1 (2026-07-23)
+  // Five *other* problems now fill 2026-07-21 (the fail-reset target) —
+  // Sixth itself isn't one of them, so self-exclusion doesn't apply here.
+  add("Filler 0");
+  add("Filler 1");
+  add("Filler 2");
+  add("Filler 3");
+  add("Filler 4");
+  const reviewed = reviewProblem(db, id, "fail", TODAY)!;
+  expect(reviewed.rung).toBe(0);
+  expect(reviewed.next_review).toBe("2026-07-22"); // 2026-07-21 is full of other problems
+});
+
+test("reviewProblem does not count a problem's own existing slot against its recomputed date", () => {
+  const { id } = add("Self"); // next_review 2026-07-21
+  add("Filler 0");
+  add("Filler 1");
+  add("Filler 2");
+  add("Filler 3"); // 2026-07-21 now has 5 total (Self + 4 fillers)
+  // Failing "Self" recomputes the same date (rung 0 -> tomorrow again).
+  // Excluding Self's own stale slot, only the 4 fillers occupy 07-21 — room remains.
+  const reviewed = reviewProblem(db, id, "fail", TODAY)!;
+  expect(reviewed.next_review).toBe("2026-07-21");
+});
