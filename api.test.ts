@@ -89,6 +89,30 @@ test("PUT and DELETE /api/problems/:id", async () => {
   expect((await fetch(`${base}/api/problems/${id}`)).status).toBe(404);
 });
 
+test("pattern and patternWhy default to empty strings, and round-trip through create and update", async () => {
+  const created: any = await (await addProblem()).json();
+  expect(created.pattern).toBe("");
+  expect(created.pattern_why).toBe("");
+
+  const put = await fetch(`${base}/api/problems/${created.id}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      title: "Two Sum",
+      url: "https://leetcode.com/problems/two-sum/",
+      solution: "code here",
+      pattern: "Hash Map",
+      patternWhy: "One pass with a complement lookup beats the O(n^2) brute force.",
+    }),
+  });
+  const updated: any = await put.json();
+  expect(updated.pattern).toBe("Hash Map");
+  expect(updated.pattern_why).toContain("complement lookup");
+
+  const fetched: any = await (await fetch(`${base}/api/problems/${created.id}`)).json();
+  expect(fetched.pattern).toBe("Hash Map");
+});
+
 const capture = (body: object) =>
   fetch(`${base}/api/capture`, {
     method: "POST",
