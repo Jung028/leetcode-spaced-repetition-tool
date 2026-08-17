@@ -62,6 +62,9 @@ export interface ExamQuestionView {
   options: string[] | null;
   correctIndex: number | null;
   modelAnswer: string;
+  promptDiagram: string | null;
+  answerDiagram: string | null;
+  requiresDrawing: boolean;
   yourAnswer: string;
   correct: number | null;
 }
@@ -98,6 +101,9 @@ function paperView(db: Database, course: string, row: ExamPaperRow): ExamPaperVi
       options: q.options ?? null,
       correctIndex: q.correctIndex ?? null,
       modelAnswer: q.modelAnswer,
+      promptDiagram: q.promptDiagram ?? null,
+      answerDiagram: q.answerDiagram ?? null,
+      requiresDrawing: q.requiresDrawing ?? false,
       yourAnswer: answers.get(index)?.your_answer ?? "",
       correct: answers.get(index)?.correct ?? null,
     })),
