@@ -13,7 +13,7 @@ type View =
   | { name: "add" }
   | { name: "detail"; id: number };
 
-type ProblemFields = { title: string; url: string; solution: string; language: string };
+type ProblemFields = { title: string; url: string; solution: string; language: string; pattern: string; patternWhy: string };
 
 const LANGUAGE_OPTIONS = [
   "java",
@@ -392,6 +392,14 @@ function ProblemForm({
         Your solution
         <textarea value={v.solution} onChange={set("solution")} rows={14} spellCheck={false} placeholder="Paste the solution you want to re-derive later" />
       </label>
+      <label>
+        Pattern
+        <input value={v.pattern} onChange={set("pattern")} placeholder="Sliding Window, Two Pointers, Greedy, ..." />
+      </label>
+      <label>
+        Why this pattern
+        <textarea value={v.patternWhy} onChange={set("patternWhy")} rows={4} placeholder="Why this pattern fits this specific problem" />
+      </label>
       {error && <p className="form-error">{error}</p>}
       <div className="btn-row">
         <button type="submit" className="btn btn-primary">{submitLabel}</button>
@@ -429,7 +437,7 @@ function Detail({
   if (editing)
     return (
       <ProblemForm
-        initial={p}
+        initial={{ title: p.title, url: p.url, solution: p.solution, language: p.language, pattern: p.pattern, patternWhy: p.pattern_why }}
         submitLabel="Save changes"
         onCancel={() => setEditing(false)}
         onSubmit={async (v) => {
@@ -475,6 +483,14 @@ function Detail({
         <button className="solution-cover" onClick={() => setRevealed(true)}>
           Solution hidden — try solving it first, then reveal
         </button>
+      )}
+
+      {revealed && (p.pattern || p.pattern_why) && (
+        <section className="pattern-section">
+          <h3>Pattern</h3>
+          {p.pattern && <span className="lang-tag pattern-tag">{p.pattern}</span>}
+          {p.pattern_why && <p className="pattern-why">{p.pattern_why}</p>}
+        </section>
       )}
 
       <div className="btn-row">
@@ -607,7 +623,7 @@ function LeetCodeApp({
 
       {view.name === "add" && (
         <ProblemForm
-          initial={{ title: "", url: "", solution: "", language: "java" }}
+          initial={{ title: "", url: "", solution: "", language: "java", pattern: "", patternWhy: "" }}
           submitLabel="Add problem"
           onCancel={() => setView({ name: "board" })}
           onSubmit={async (v) => {

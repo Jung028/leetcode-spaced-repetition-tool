@@ -23,8 +23,10 @@ function parseInput(body: unknown): ProblemInput | null {
   const url = typeof b?.url === "string" ? b.url.trim() : "";
   const solution = typeof b?.solution === "string" ? b.solution.trim() : "";
   const language = typeof b?.language === "string" && b.language.trim() ? b.language.trim() : "java";
+  const pattern = typeof b?.pattern === "string" ? b.pattern.trim() : "";
+  const patternWhy = typeof b?.patternWhy === "string" ? b.patternWhy.trim() : "";
   if (!title || !url || !solution) return null;
-  return { title, url, solution, language };
+  return { title, url, solution, language, pattern, patternWhy };
 }
 
 export function apiRoutes(db: Database) {

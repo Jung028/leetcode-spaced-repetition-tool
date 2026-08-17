@@ -39,6 +39,41 @@ test("createProblem starts at rung 0, due tomorrow", () => {
   expect(p.title).toBe("Two Sum");
 });
 
+test("createProblem defaults pattern and pattern_why to empty strings when omitted", () => {
+  const p = add();
+  expect(p.pattern).toBe("");
+  expect(p.pattern_why).toBe("");
+});
+
+test("createProblem stores an explicit pattern and pattern_why", () => {
+  const p = createProblem(
+    db,
+    {
+      title: "Longest Substring Without Repeating Characters",
+      url: "https://leetcode.com/problems/longest-substring-without-repeating-characters/",
+      solution: "code",
+      pattern: "Sliding Window",
+      patternWhy: "The window only ever grows/shrinks from one end, so a moving left/right pointer pair avoids re-scanning.",
+    },
+    TODAY,
+  );
+  expect(p.pattern).toBe("Sliding Window");
+  expect(p.pattern_why).toContain("moving left/right pointer");
+});
+
+test("updateProblem edits pattern and pattern_why", () => {
+  const { id } = add();
+  const p = updateProblem(db, id, {
+    title: "Two Sum",
+    url: "https://leetcode.com/problems/two-sum/",
+    solution: "code",
+    pattern: "Hash Map",
+    patternWhy: "One pass with a complement lookup beats the O(n^2) brute force.",
+  })!;
+  expect(p.pattern).toBe("Hash Map");
+  expect(p.pattern_why).toContain("complement lookup");
+});
+
 test("listProblems returns all problems without solution bodies", () => {
   add("Two Sum");
   add("3Sum");

@@ -9,6 +9,11 @@ export interface ProblemInput {
   url: string;
   solution: string;
   language?: string;
+  // Short label for the technique the solution relies on (e.g. "Sliding
+  // Window", "Two Pointers", "Greedy") and why it applies to this specific
+  // problem — both optional, filled in by hand via the edit form.
+  pattern?: string;
+  patternWhy?: string;
 }
 
 export interface ProblemSummary {
@@ -28,7 +33,7 @@ export interface Review {
   result: ReviewResult;
 }
 
-export type Problem = ProblemSummary & { solution: string };
+export type Problem = ProblemSummary & { solution: string; pattern: string; pattern_why: string };
 export type ProblemDetail = Problem & { reviews: Review[] };
 
 export function openDb(path = "srs.db"): Database {
@@ -71,6 +76,25 @@ function migrate(db: Database) {
     const setSlug = db.query(`UPDATE problems SET slug = ? WHERE id = ?`);
     for (const row of rows) setSlug.run(slugFromUrl(row.url), row.id);
   }
+  if (!has("pattern")) {
+    db.exec(`ALTER TABLE problems ADD COLUMN pattern TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!has("pattern_why")) {
+    db.exec(`ALTER TABLE problems ADD COLUMN pattern_why TEXT NOT NULL DEFAULT ''`);
+  }
+}
+
+// How many problems already have next_review = date — used to cap how
+// many LeetCode reviews can land on the same day (see scheduling.ts's
+// nextAvailableDate). `excludeId` lets a problem being rescheduled ignore
+// its own current slot on that date.
+function countScheduledOn(db: Database, date: string, excludeId?: number): number {
+  const row = (
+    excludeId !== undefined
+      ? db.query(`SELECT COUNT(*) AS n FROM problems WHERE next_review = ? AND id != ?`).get(date, excludeId)
+      : db.query(`SELECT COUNT(*) AS n FROM problems WHERE next_review = ?`).get(date)
+  ) as { n: number };
+  return row.n;
 }
 
 // How many problems already have next_review = date — used to cap how
@@ -96,12 +120,14 @@ export function createProblem(
   const nextReview = nextAvailableDate(proposed.nextReview, (d) => countScheduledOn(db, d));
   const language = input.language ?? DEFAULT_LANGUAGE;
   const slug = slugFromUrl(input.url);
+  const pattern = input.pattern ?? "";
+  const patternWhy = input.patternWhy ?? "";
   const row = db
     .query(
-      `INSERT INTO problems (title, url, solution, language, slug, rung, next_review, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+      `INSERT INTO problems (title, url, solution, language, slug, pattern, pattern_why, rung, next_review, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
     )
-    .get(input.title, input.url, input.solution, language, slug, rung, nextReview, today);
+    .get(input.title, input.url, input.solution, language, slug, pattern, patternWhy, rung, nextReview, today);
   return row as Problem;
 }
 
@@ -164,12 +190,14 @@ export function updateProblem(
 ): Problem | null {
   const language = input.language ?? DEFAULT_LANGUAGE;
   const slug = slugFromUrl(input.url);
+  const pattern = input.pattern ?? "";
+  const patternWhy = input.patternWhy ?? "";
   return db
     .query(
-      `UPDATE problems SET title = ?, url = ?, solution = ?, language = ?, slug = ?
+      `UPDATE problems SET title = ?, url = ?, solution = ?, language = ?, slug = ?, pattern = ?, pattern_why = ?
        WHERE id = ? RETURNING *`,
     )
-    .get(input.title, input.url, input.solution, language, slug, id) as Problem | null;
+    .get(input.title, input.url, input.solution, language, slug, pattern, patternWhy, id) as Problem | null;
 }
 
 export function deleteProblem(db: Database, id: number): boolean {
@@ -183,7 +211,7 @@ export function deleteProblem(db: Database, id: number): boolean {
 // default — a successful first solve IS the first spaced-repetition review).
 export function captureSubmission(
   db: Database,
-  input: Required<ProblemInput>,
+  input: Required<Pick<ProblemInput, "title" | "url" | "solution" | "language">> & Pick<ProblemInput, "pattern" | "patternWhy">,
   today: string,
   result?: ReviewResult,
 ): { problem: Problem; created: boolean } {
