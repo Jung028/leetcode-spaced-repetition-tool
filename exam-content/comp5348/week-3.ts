@@ -189,8 +189,8 @@ const LECTURE_PAPER: ExamPaperSeed = {
   week: 3,
   paperNumber: 2,
   title: "Week 3 Lecture Practice Paper",
-  topics: "Distributed computing's ideal vs its reality; the Eight Fallacies of Distributed Computing (Deutsch); local vs remote method calls, stubs/skeletons, marshalling/unmarshalling, request/response message structure, SOAP; RPC/CORBA/DCOM/EJB history; distributed architectures (peer-to-peer vs multi-tier); transparency's limits (network latency, partial failures, coarse- vs fine-grained interfaces); interface evolution strategy; Java EE application model and tiers (client/web/business/EIS), Enterprise Java Beans (stateless session beans, remote interfaces, JNDI lookup), deployment descriptors, JEE glossary (JNDI/RMI/JMS/JTA/JTS/JDBC); Spring Boot layering mapped onto the same tiered model",
-  sourceFiles: ["lecture/COMP5348_W3.pdf"],
+  topics: "Distributed computing's ideal vs its reality; motivations for distribution (autonomy/independence, load balancing, reliability via redundancy) and the historical arc from 1960s conceptual origins through 1970s networking and 1980s Ethernet commercialisation to RPC/CORBA/DCOM/EJB; the Eight Fallacies of Distributed Computing (Deutsch); local vs remote method calls, stubs/skeletons, marshalling/unmarshalling, request/response message structure, SOAP; distributed architectures (peer-to-peer vs multi-tier); transparency's limits (network latency, partial failures, coarse- vs fine-grained interfaces); interface evolution strategy; Java EE application model and tiers (client/web/business/EIS), Enterprise Java Beans (stateless session beans, remote interfaces, JNDI lookup), deployment descriptors, JEE glossary (JNDI/RMI/JMS/JTA/JTS/JDBC); Spring Boot layering mapped onto the same tiered model",
+  sourceFiles: ["lecture/COMP5348_W3.pdf", "lecture/Week 03 - Enterprise-s2-low.transcript.md"],
   questions: [
     {
       type: "mcq",
@@ -204,7 +204,7 @@ const LECTURE_PAPER: ExamPaperSeed = {
       prompt: "What does the fallacy 'There is one administrator' actually warn against, per the lecture's framing of the eight fallacies as false assumptions?",
       options: ["Assuming only one client can call a remote service at a time", "Assuming a system needs exactly one system administrator on staff", "Assuming the network administrator is also the database administrator", "Assuming a single person/organisation controls and can be trusted to coordinate the entire network path a distributed call travels over, when in reality it usually spans multiple independent administrative domains"],
       correctIndex: 3,
-      modelAnswer: "The eight fallacies are false assumptions developers wrongly rely on. 'There is one administrator' warns against assuming a single administrative authority governs the whole network path a call traverses — in practice a distributed call between organisations crosses multiple independently-administered networks with no single point of control.",
+      modelAnswer: "The eight fallacies are false assumptions developers wrongly rely on. 'There is one administrator' warns against assuming a single administrative authority governs the whole network path a call traverses — in practice a distributed call between organisations crosses multiple independently-administered networks with no single point of control. The lecture's own post-class discussion made this concrete: a company integrating with a third-party partner deals with that partner's own separate IT team and administration, not one shared administrator spanning both sides — exactly the kind of case the fallacy warns against assuming away.",
     },
     {
       type: "mcq",
@@ -218,7 +218,7 @@ const LECTURE_PAPER: ExamPaperSeed = {
       prompt: "Per the lecture's Remote Method Call (client) slide, what does the client-side stub (proxy) do?",
       options: ["Determines whether the target server object is stateful or stateless", "Represents the target server object within the client system, takes the call arguments, marshals them plus related information into a message, and sends the request to the server machine", "Listens on a network endpoint and unmarshals incoming call requests", "Executes the actual business logic of the remote method"],
       correctIndex: 1,
-      modelAnswer: "The stub represents the remote (server) object locally on the client side. The caller does an ordinary local method call on the stub, and the stub is responsible for marshalling the arguments into a message and sending it to the server — the corresponding server-side responsibilities (listening, unmarshalling, dispatching) belong to the skeleton instead.",
+      modelAnswer: "The stub represents the remote (server) object locally on the client side — from the programmer's perspective it looks like the remote object itself. Using the lecture's own worked example, a call like getStockByBookId(bookId) looks like an ordinary local method call, but it is actually a call on the stub: the stub takes the method name and the bookId argument, marshals them plus related information into a message, and sends the request to the server machine. The corresponding server-side responsibilities (listening, unmarshalling, dispatching) belong to the skeleton instead.",
     },
     {
       type: "mcq",
@@ -243,17 +243,10 @@ const LECTURE_PAPER: ExamPaperSeed = {
     },
     {
       type: "mcq",
-      prompt: "Per the lecture's Requests & Responses table, which of the following appears in the Request but has no corresponding field in the Response?",
-      options: ["Status code", "Extension headers", "Parameter data", "Method Identifier (which method?)"],
-      correctIndex: 3,
-      modelAnswer: "The table lists Object Endpoint ID, Interface Identifier, Method Identifier, Extension headers, and Parameter data on the Request side; the Response side has Status code, Extension headers, and Parameter data. Method Identifier only needs to be specified once, in the Request — the Response doesn't repeat which method was called, since the client already knows.",
-    },
-    {
-      type: "mcq",
       prompt: "Per the lecture's 'Stubs etc' slide, where do stubs and skeletons come from?",
       options: ["They are written entirely by hand for every remote call, with no tooling support", "They're generated by compilers/development environments from the set of methods/interfaces (which need to be known to the client), typically produced from server method definitions or an interface definition language such as IDL or WSDL", "They are generated at runtime by the network's DNS server", "They come pre-installed as part of the operating system kernel"],
       correctIndex: 1,
-      modelAnswer: "The slide states stubs/skeletons are generated by compilers/development environments, which need to know the methods and interfaces plus the runtime layout/calling conventions of the language — generated from server method definitions or an interface definition language like IDL or WSDL, sometimes copied by hand or looked up in a repository.",
+      modelAnswer: "The slide states stubs/skeletons are generated by compilers/development environments, which need to know the methods and interfaces plus the runtime layout/calling conventions of the language — generated from server method definitions or an interface definition language like IDL or WSDL, sometimes copied by hand or looked up in a repository. As the lecture put it, the application programmer's real job is only to provide the interface — what methods are available, what parameters they take, what types they return — not to hand-write the stub/skeleton plumbing underneath.",
     },
     {
       type: "mcq",
@@ -281,7 +274,7 @@ const LECTURE_PAPER: ExamPaperSeed = {
       prompt: "Per the lecture's 'Transparency?' slide, why are standard OO techniques like frequent getters/setters and fine-grained objects specifically bad for remote/distributed interfaces?",
       options: ["Fine-grained objects use more memory than coarse-grained ones", "Getters and setters are always insecure and expose data to attackers", "Each small call becomes a full network round trip carrying its own latency and marshalling overhead, so many small remote calls are far more expensive in aggregate than one coarse-grained call that returns everything needed at once", "JVMs cannot marshal primitive return types like int or boolean"],
       correctIndex: 2,
-      modelAnswer: "The slide's point is about round trips: standard OO patterns (getters/setters, frequent small method calls, assuming a shared address space) work fine locally but translate into poor performance once distributed, because each call now costs a network round trip — the lecture's fix is to 'design coarse-grained components which offer meaningful services' instead of many fine-grained ones.",
+      modelAnswer: "The slide's point is about round trips: standard OO patterns (getters/setters, frequent small method calls, assuming a shared address space) work fine locally but translate into poor performance once distributed, because each call now costs a network round trip. The lecture makes this concrete: an object with 10 fields exposed as 10 separate getter methods costs nothing extra locally, but calling all 10 remotely means paying for 10 separate marshal/send/unmarshal round trips — the lecture's fix is to 'design coarse-grained components which offer meaningful services' (e.g. one call that returns everything needed) instead of many fine-grained ones.",
     },
     {
       type: "mcq",
@@ -296,13 +289,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
       options: ["It guarantees zero latency regardless of network conditions", "It fully eliminates every difference between local and remote calls, so no special design is ever required", "It lets programmers keep structuring code in terms of familiar local procedures/objects ('as-if' local), hiding hardware/platform complexity — but it does not make the remote call actually local, so pitfalls must still be planned for with technological assistance", "It only applies to CORBA and DCOM, not to modern web services"],
       correctIndex: 2,
       modelAnswer: "The slide is explicit: transparency is 'mainly with regard to the programming paradigm' — programmers can keep thinking in procedures/objects, used 'as-if' they are local — 'but remember: they are not local!' Designing a reliable, fast distributed system still requires awareness of distributed computing's pitfalls, addressed with technological assistance like reliable messaging, distributed transactions, and redundancy.",
-    },
-    {
-      type: "mcq",
-      prompt: "Per the lecture's 'Distributed Multitiered Applications' slide, which Java EE component tiers run on the Java EE server itself, as opposed to the client machine or the EIS server?",
-      options: ["Web-tier and Business-tier components both run on the Java EE server", "All four tiers (Client, Web, Business, EIS) run together on the same Java EE server", "Only Client-tier components run on the Java EE server", "Only EIS-tier software runs on the Java EE server"],
-      correctIndex: 0,
-      modelAnswer: "The slide states: Client-tier components run on the client machine, Web-tier and Business-tier components both run on the Java EE server, and EIS-tier software runs on the EIS server — so it's specifically the middle two tiers that share the Java EE server.",
     },
     {
       type: "mcq",
@@ -341,24 +327,41 @@ const LECTURE_PAPER: ExamPaperSeed = {
     },
     {
       type: "mcq",
-      prompt: "Per the lecture's JEE Glossary slide, which of the following is listed under 'Communication', not under 'Transactions'?",
-      options: ["Java Messaging Service API (JMS)", "Java Transaction Service API (JTS)", "Java Database Connectivity (JDBC)", "Java Transaction API (JTA)"],
-      correctIndex: 0,
-      modelAnswer: "The glossary groups Remote Method Invocation (RMI) and Java Messaging Service API (JMS) under 'Communication'; JTA and JTS are grouped under 'Transactions'; JDBC is grouped separately under 'Database Access'.",
-    },
-    {
-      type: "mcq",
-      prompt: "Per this lecture's Spring Boot Layering diagram, which specific arrow is labelled 'JPA'?",
-      options: ["The arrow between Service Layer and Controller", "The arrow between Controller and Service Layer", "The arrow between Model and Database", "The arrow between Client and Controller"],
-      correctIndex: 2,
-      modelAnswer: "The diagram labels the Client–Controller arrow 'HTTP Requests (RESTful Services)' and separately labels the Model–Database arrow 'JPA' — matching the standard Spring Boot layering: Client → Controller → Service Layer → Model → (JPA) → Database.",
-    },
-    {
-      type: "mcq",
       prompt: "A developer looks up a remote EJB stub via JNDI once at application startup and caches the reference for the app's entire lifetime, reasoning 'it's a name lookup, so it will always resolve to a working instance.' Which fallacy of distributed computing does this reasoning ignore, and why can the cached stub eventually start failing?",
       options: ["'Bandwidth is infinite' — caching the stub consumes bandwidth that should have been reserved elsewhere", "'Topology doesn't change' — the server or network path behind that logical name can change over time (e.g. redeployment, failover, a restarted instance), so a stub cached once can point at a no-longer-valid endpoint even though the lookup name itself never changed", "'The network is homogeneous' — different machines use different byte orders, which caching doesn't account for", "'Transport cost is zero' — caching a stub incurs a monetary transport cost that grows over time"],
       correctIndex: 1,
       modelAnswer: "The eight fallacies include 'Topology doesn't change.' A JNDI name is a logical lookup, but what it resolves to (the actual server/endpoint behind that name) can change at any time — redeployments, failovers, restarts — so a stub resolved and cached once at startup can silently go stale, even though nothing about the lookup call itself changed.",
+    },
+    {
+      type: "mcq",
+      prompt: "Using the lecture's bookshop/warehouse example, 'local computing and data' gives autonomy & independence as one motivation for keeping systems distributed rather than centralised. What two further motivations does the lecture give for actively distributing the application across multiple systems?",
+      options: ["Making every component byte-code compatible, and guaranteeing zero latency between machines", "Reducing the total number of machines needed, and eliminating the need for a network entirely", "Centralising all data in one database, and giving every warehouse the exact same catalogue component", "Distributing load across systems via a load balancer, and reliability — if one warehouse's system goes down (e.g. a power outage), work can be routed to a different warehouse instead"],
+      correctIndex: 3,
+      modelAnswer: "The slide's own bullets are 'distributing load across many systems' and 'high reliability through autonomy'; the lecture gives them concrete voice with the bookshop/warehouse example: if thousands of users suddenly hit one machine it can't cope, so putting a load balancer in front of multiple warehouses/systems spreads the work, and if one warehouse's system goes down (e.g. a power outage), orders can still be routed to a different warehouse rather than the whole application failing.",
+    },
+    {
+      type: "mcq",
+      prompt: "Walking through the lecture's SOAP Request example live, the lecturer asked the class to identify which method was being called remotely and what parameter was being sent. Per the <soap:Body> shown (`<m:GetLastTradePrice ...><symbol>DIS</symbol></m:GetLastTradePrice>`), what are the correct answers?",
+      options: ["Method: UsernameToken; parameter: Password = weYI3nXd8LjMNVksCKFV8t3rgHh3Rw==", "Method: wsa:Action; parameter: MessageID", "Method: GetLastTradePrice; parameter: symbol = DIS", "Method: soap:Envelope; parameter: xmlns:wsa"],
+      correctIndex: 2,
+      modelAnswer: "The lecturer's live walkthrough pointed to the <soap:Body> element as the actual remote call being made: the method is GetLastTradePrice and the parameter passed is symbol, with value DIS. The surrounding <soap:Header> block (UsernameToken/Password, wsa:Action, wsa:MessageID) is security/addressing plumbing the framework handles for you — as the lecture put it, 'you don't have to understand every line ... everything around just supports its distributed interaction,' with the actual application-programmer-visible content being the method call and its parameters.",
+    },
+    {
+      type: "truefalse",
+      prompt: "True or False: per the lecture, the conceptual goal of distributed computing was already being discussed as early as the 1960s — well before 1970s networking became commonplace and 1980s Ethernet commercialisation — with the RPC/CORBA/DCOM technologies on the lecture's History slide arriving only later, as ways of actually achieving that older goal.",
+      options: ["True", "False"],
+      correctIndex: 0,
+      modelAnswer: "The lecture's verbal framing (not printed on the slides) traces this arc explicitly: people were already asking whether different things could run across different machines/locations back in the 1960s; networking became more and more common through the 1970s; Ethernet was becoming commercialised by the 1980s, at which point the slide's own History timeline picks up — RPC for procedural languages in the 1980s, then CORBA for object integration under OMG in the 1990s. The underlying motivation (autonomy/independence combined with the need to communicate and cooperate) predates any of the specific technologies that eventually delivered on it.",
+    },
+    {
+      type: "short",
+      prompt: "Using the lecture's own worked example of a client calling a remote getStockByBookId(bookId) method, trace the full round trip from the client's call to the value being returned — naming every component involved — and explain why the lecture stresses minimising the number of such round trips (e.g. its '10 fields, 10 remote getter calls' example) rather than just accepting that frameworks make remote calls 'look local'.",
+      modelAnswer: "The client calls getStockByBookId(bookId) on what looks like a normal local object, but is actually the stub/proxy. The stub marshals the method identifier and the bookId parameter into a request message and sends it over the network to the server-side skeleton, which unmarshals the message, determines the target method/instance, and makes an ordinary local call into the real server object. The method executes and returns to the skeleton, which marshals the result into a response message and sends it back over the network; the client-side stub unmarshals the reply and hands the value back to the original caller — the full client → stub → network → skeleton → server, then server → skeleton → network → stub → client path. This machinery makes the call look local syntactically, but each round trip still costs real network latency (the lecture's own point: local calls are microseconds, remote calls are milliseconds). The lecture's example makes this concrete: an object with 10 fields exposed as 10 separate getter methods is fine to call locally, but calling all 10 remotely means paying for 10 separate marshal/send/unmarshal round trips instead of one — exactly why the lecture recommends combining such calls into one coarse-grained request that returns everything needed at once, rather than trusting the stub/skeleton illusion of locality to make many small remote calls free.",
+    },
+    {
+      type: "scenario",
+      prompt: "Your team's remote CatalogueService interface, including getStockByBookId(bookId), has already been deployed and is being called by several partner bookshops' client code 'out in the wild.' Product now wants getStockByBookId to also accept an optional promoCode parameter, so promotional stock can be filtered differently. Using the lecture's 'Evolution?' guidance, explain the tradeoffs of your options and recommend one.",
+      modelAnswer: "The lecture frames this exact dilemma: an immutable, frozen interface means you'd have to publish a whole new interface and drop the old one, breaking every partner who hasn't migrated; changing the existing interface in place (e.g. adding a required promoCode parameter to getStockByBookId) means finding and updating every one of those already-deployed partner clients, which for external partners you don't control may not even be possible. The lecture's recommended middle path is to keep the existing interface unchanged — getStockByBookId(bookId) keeps working exactly as before for partners who haven't adopted promoCode — and add a new interface/method for the new situation (e.g. an overload or a new getStockByBookIdWithPromo(bookId, promoCode) method, or a new interface version). Existing partner integrations keep working untouched, while new or updated partners can opt into the richer method — avoiding both the 'break everyone today' cost of mutating the interface and the 'break everyone eventually' cost of an immutable interface that can never grow.",
     },
   ],
 };

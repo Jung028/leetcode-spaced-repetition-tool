@@ -6,15 +6,19 @@ the Modules tab's Sync button, or found by hand).
 ## Process
 
 1. Read the week's real source material directly — PDFs, slides, docs. For
-   any video recording (lecture/tutorial capture), transcribe it first:
-   `bun scripts/transcribe-lecture.ts <path-to-video>` writes a
-   `<name>.transcript.md` next to it, which then reads like any other
-   material. Video is the one source that captures things the slides don't
-   — announcements, asides, stories, in-class quizzes/questions, verbal
-   emphasis on what actually matters — so treat the transcript as a
-   dedicated pass for exactly that, not just a re-read of the slide content
-   in prose form. Re-run `scripts/generate-exam-week.ts` after transcribing
-   so the new file is picked up as a material source.
+   any video recording (lecture/tutorial capture), it needs a
+   `<name>.transcript.md` transcript sitting next to it before it can be
+   used — the video file itself can't be opened directly. Clicking
+   Generate in the app now does this automatically (`transcribeWeekVideos`
+   in `exam-generate.ts` runs before the authoring step, skipping videos
+   that already have a transcript), so no manual step is needed there. If
+   you're authoring by hand outside the Generate button, transcribe first:
+   `bun scripts/transcribe-lecture.ts <path-to-video>` writes the
+   `<name>.transcript.md`, which then reads like any other material. Video
+   is the one source that captures things the slides don't — announcements,
+   asides, stories, in-class quizzes/questions, verbal emphasis on what
+   actually matters — so treat the transcript as a dedicated pass for
+   exactly that, not just a re-read of the slide content in prose form.
 2. Read that course's `exam-content/<course>/unit_outline.md` for the
    unit's stated learning outcomes.
 3. If a prior week's `exam-content/<course>/week-N.ts` exists, skim it for

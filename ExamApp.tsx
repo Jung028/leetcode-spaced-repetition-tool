@@ -206,7 +206,7 @@ function SyncBanner({
 
   return (
     <div className="board" style={{ marginBottom: "1rem" }}>
-      <div className="board-row" style={{ justifyContent: "space-between" }}>
+      <div className="board-row" style={{ justifyContent: "space-between", padding: "0.85rem 1rem", marginBottom: "0.5rem" }}>
         <span>
           {pending.length === 0
             ? "Everything's generated — nothing pending."
@@ -232,7 +232,7 @@ function SyncBanner({
                   : "Generate";
             return (
               <li key={key}>
-                <div className="board-row" style={{ justifyContent: "space-between" }}>
+                <div className="board-row" style={{ justifyContent: "space-between", padding: "0.85rem 1rem" }}>
                   <span className="board-title">{p.course} Week {p.week}</span>
                   <span>
                     {failed && <span className="tag">failed</span>}

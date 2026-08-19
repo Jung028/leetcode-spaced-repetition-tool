@@ -127,6 +127,42 @@ Questions must be genuinely exam-hard, not easy recall:
 - `promptDiagram` / `answerDiagram` take Mermaid syntax (flowchart, sequence, etc. — see https://mermaid.js.org) and render live via `MermaidDiagram.tsx`. Use `promptDiagram` when the question references an existing diagram from the material (architecture diagram, sequence diagram); use `answerDiagram` when the diagram itself *is* the answer (e.g. "sketch the request flow for X").
 - Set `requiresDrawing: true` on any question that expects the student to sketch something by hand before checking the answer — the app shows a link to excalidraw.com as a scratchpad alongside the revealed answer.
 
+## Exam content generation workflow (new video material)
+
+When a new lecture/tutorial recording is added to a week's folder (or an
+existing week needs its lecture paper enriched with a recording that
+wasn't available when it was first authored), do it this way:
+
+1. **Transcribe first** — `bun scripts/transcribe-lecture.ts <path-to-video>`,
+   per `docs/exam-content-authoring-guide.md` point 1. Only needed when
+   authoring by hand/via subagent like this workflow does; the app's
+   Generate button now runs this automatically
+   (`transcribeWeekVideos` in `exam-generate.ts`, wired into
+   `runGeneration` before the authoring step) and skips videos that
+   already have a transcript, so don't re-transcribe something Generate
+   would have caught on its own. Long lectures (~1-2h) take real
+   wall-clock time on CPU — run it with a background shell command, don't
+   block on it inline.
+2. **Delegate the actual authoring to a `general-purpose` subagent**,
+   don't read the transcript/PDFs/tutorial project files inline in the
+   main session — a lecture transcript plus slides plus a tutorial's Java
+   project is a lot of raw material for no benefit to the main
+   conversation's context. Give the subagent: exact file paths, which
+   `docs/exam-content-authoring-guide.md` process to follow, and an
+   explicit scope boundary — e.g. "leave TUTORIAL_PAPER untouched, only
+   rewrite LECTURE_PAPER" when only one paper needs the new source, rather
+   than a full week regenerate that risks needlessly rewriting content
+   that was already fine.
+3. **Run these subagents sequentially, not in parallel**, when more than
+   one week needs authoring in the same session — they wire into the
+   shared `exam-content.ts` (new import + `ALL_PAPERS` entry for a brand
+   new week), and two agents editing that file at once can race.
+4. **Verify independently after each agent finishes** — don't just trust
+   its self-reported summary. Rerun `bun test` yourself, and grep the
+   new/changed file's `correctIndex:` values to confirm they're roughly
+   even across 0-3 (see the known MCQ positional-bias risk — auto-authored
+   MCQs skew toward one index unless deliberately checked).
+
 ## Spec requirement: continuous testing
 
 Every SPEC.md (or equivalent spec/plan doc) written for this project must include a section requiring the following, verbatim in intent:

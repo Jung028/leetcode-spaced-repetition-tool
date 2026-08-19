@@ -3,6 +3,7 @@
 // generated: import the week's papers and append to ALL_PAPERS.
 import { WEEK_1_PAPERS as INFO5995_WEEK_1_PAPERS } from "./exam-content/info5995/week-1";
 import { WEEK_2_PAPERS as INFO5995_WEEK_2_PAPERS } from "./exam-content/info5995/week-2";
+import { WEEK_3_PAPERS as INFO5995_WEEK_3_PAPERS } from "./exam-content/info5995/week-3";
 import { WEEK_1_PAPERS as COMP5348_WEEK_1_PAPERS } from "./exam-content/comp5348/week-1";
 import { WEEK_2_PAPERS as COMP5348_WEEK_2_PAPERS } from "./exam-content/comp5348/week-2";
 import { WEEK_3_PAPERS as COMP5348_WEEK_3_PAPERS } from "./exam-content/comp5348/week-3";
@@ -18,6 +19,7 @@ import { addDays } from "./scheduling";
 const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO5995_WEEK_1_PAPERS,
   ...INFO5995_WEEK_2_PAPERS,
+  ...INFO5995_WEEK_3_PAPERS,
   ...COMP5348_WEEK_1_PAPERS,
   ...COMP5348_WEEK_2_PAPERS,
   ...COMP5348_WEEK_3_PAPERS,

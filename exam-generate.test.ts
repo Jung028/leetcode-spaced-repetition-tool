@@ -1,5 +1,5 @@
 import { test, expect, afterEach } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -10,7 +10,9 @@ import {
   buildClaudeArgs,
   ALLOWED_TOOLS,
   startGenerateJob,
+  transcribeWeekVideos,
   type RunClaude,
+  type TranscribeFn,
 } from "./exam-generate";
 
 const tempDirs: string[] = [];
@@ -227,6 +229,105 @@ test("startGenerateJob's global lock blocks a different week's job (not just the
 
   resolveClaude?.();
   if (first.ok) await first.done;
+});
+
+test("transcribeWeekVideos transcribes an untranscribed video and returns its transcript path", async () => {
+  const weekDir = makeTempDir();
+  writeFileSync(join(weekDir, "lecture.mp4"), "");
+  const calls: Array<[string, string, string]> = [];
+  const fakeTranscribe: TranscribeFn = async (input, model, outPath) => {
+    calls.push([input, model, outPath]);
+    writeFileSync(outPath, "# transcript");
+  };
+
+  const written = await transcribeWeekVideos(weekDir, fakeTranscribe, "fake-model.bin");
+
+  expect(written).toEqual([join(weekDir, "lecture.transcript.md")]);
+  expect(calls).toEqual([[join(weekDir, "lecture.mp4"), "fake-model.bin", join(weekDir, "lecture.transcript.md")]]);
+  expect(existsSync(join(weekDir, "lecture.transcript.md"))).toBe(true);
+});
+
+test("transcribeWeekVideos skips a video that already has a transcript", async () => {
+  const weekDir = makeTempDir();
+  writeFileSync(join(weekDir, "lecture.mp4"), "");
+  writeFileSync(join(weekDir, "lecture.transcript.md"), "# already done");
+  const fakeTranscribe: TranscribeFn = async () => {
+    throw new Error("should not be called");
+  };
+
+  const written = await transcribeWeekVideos(weekDir, fakeTranscribe, "fake-model.bin");
+
+  expect(written).toEqual([]);
+});
+
+test("transcribeWeekVideos does nothing for a week with no videos", async () => {
+  const weekDir = makeTempDir();
+  writeFileSync(join(weekDir, "slides.pdf"), "");
+  const fakeTranscribe: TranscribeFn = async () => {
+    throw new Error("should not be called");
+  };
+
+  expect(await transcribeWeekVideos(weekDir, fakeTranscribe, "fake-model.bin")).toEqual([]);
+});
+
+test("transcribeWeekVideos returns empty for a week dir that doesn't exist, rather than throwing", async () => {
+  const fakeTranscribe: TranscribeFn = async () => {
+    throw new Error("should not be called");
+  };
+  expect(await transcribeWeekVideos("/does/not/exist", fakeTranscribe, "fake-model.bin")).toEqual([]);
+});
+
+test("startGenerateJob transcribes a week's video before invoking runClaude", async () => {
+  const root = makeTempDir();
+  const weekDir = makeTempDir();
+  writeFileSync(join(weekDir, "lecture.mp4"), "");
+
+  let transcribedBeforeClaudeRan = false;
+  const fakeTranscribe: TranscribeFn = async (_input, _model, outPath) => {
+    writeFileSync(outPath, "# transcript");
+  };
+  const fakeRunClaude: RunClaude = async () => {
+    transcribedBeforeClaudeRan = existsSync(join(weekDir, "lecture.transcript.md"));
+    return { stdout: "did the thing", stderr: "", exitCode: 0 };
+  };
+
+  const result = await startGenerateJob("INFO5995", 20, weekDir, {
+    runClaude: fakeRunClaude,
+    root,
+    transcribe: fakeTranscribe,
+    whisperModel: "fake-model.bin",
+  });
+  if (result.ok) await result.done;
+
+  expect(transcribedBeforeClaudeRan).toBe(true);
+});
+
+test("startGenerateJob marks the job failed when transcription itself fails", async () => {
+  const root = makeTempDir();
+  const weekDir = makeTempDir();
+  writeFileSync(join(weekDir, "lecture.mp4"), "");
+
+  const failingTranscribe: TranscribeFn = async () => {
+    throw new Error("whisper-cli not found on PATH");
+  };
+  let claudeRan = false;
+  const fakeRunClaude: RunClaude = async () => {
+    claudeRan = true;
+    return { stdout: "", stderr: "", exitCode: 0 };
+  };
+
+  const result = await startGenerateJob("INFO5995", 21, weekDir, {
+    runClaude: fakeRunClaude,
+    root,
+    transcribe: failingTranscribe,
+    whisperModel: "fake-model.bin",
+  });
+  if (result.ok) await result.done;
+
+  expect(claudeRan).toBe(false);
+  const status = await readJobStatus("INFO5995", 21, root);
+  expect(status.state).toBe("failed");
+  expect(status.logTail).toContain("whisper-cli not found on PATH");
 });
 
 test("startGenerateJob's global in-memory lock blocks a different week's job fired concurrently before either writes status.json", async () => {
