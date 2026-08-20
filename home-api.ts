@@ -1,6 +1,6 @@
 // home-api.ts
 import type { Database } from "bun:sqlite";
-import { listProblems, countReviewsToday, listCompletedToday } from "./db";
+import { listProblems, countReviewsToday, listCompletedToday, levelDueLeetcode } from "./db";
 import { listDueTodos, countTodosCompletedToday, listTodosCompletedToday } from "./todo-db";
 import { listExamPaperRows, countExamPapersSubmittedToday, listExamPapersSubmittedToday } from "./exam-db";
 import { buildExamSchedule, listExamCourses, COURSES, weekStartDate, groupExamPapersByWeek } from "./exam-content";
@@ -35,6 +35,7 @@ function courseOffset(course: string): number {
 }
 
 function leetcodeDue(db: Database, today: string): DueItem[] {
+  levelDueLeetcode(db, today);
   return listProblems(db)
     .filter((p) => isDue(p.next_review, today))
     .map((p) => ({

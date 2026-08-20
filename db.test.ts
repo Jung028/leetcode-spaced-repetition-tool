@@ -12,7 +12,9 @@ import {
   captureSubmission,
   countReviewsToday,
   listCompletedToday,
+  levelDueLeetcode,
 } from "./db";
+import { addDays } from "./scheduling";
 
 const TODAY = "2026-07-20";
 let db: Database;
@@ -304,38 +306,34 @@ test("listCompletedToday is empty when nothing was reviewed today", () => {
   expect(listCompletedToday(db, TODAY)).toEqual([]);
 });
 
-test("createProblem cascades to the next day once the default day already has 5 problems", () => {
+test("createProblem cascades to the next day once the default day already has 3 problems", () => {
   add("P1");
   add("P2");
-  add("P3");
-  add("P4");
-  add("P5"); // fills 2026-07-21 to the cap of 5
-  const sixth = add("P6");
-  expect(sixth.next_review).toBe("2026-07-22");
+  add("P3"); // fills 2026-07-21 to the cap of 3
+  const fourth = add("P4");
+  expect(fourth.next_review).toBe("2026-07-22");
 });
 
 test("reviewProblem cascades a passed review to the next available day when the ladder date is full", () => {
-  // Five filler problems land on 2026-07-23 (the rung-0-pass target) directly.
-  for (let i = 0; i < 5; i++) {
+  // Three filler problems land on 2026-07-23 (the rung-0-pass target) directly.
+  for (let i = 0; i < 3; i++) {
     const filler = add(`Filler ${i}`);
     reviewProblem(db, filler.id, "pass", TODAY); // rung 1, next_review 2026-07-23
   }
-  const { id } = add("Sixth");
+  const { id } = add("Extra");
   const reviewed = reviewProblem(db, id, "pass", TODAY)!;
   expect(reviewed.rung).toBe(1);
   expect(reviewed.next_review).toBe("2026-07-24");
 });
 
 test("reviewProblem cascades a failed review to the next available day when tomorrow is full", () => {
-  const { id } = add("Sixth");
+  const { id } = add("Extra");
   reviewProblem(db, id, "pass", TODAY); // moves off 2026-07-21, onto rung 1 (2026-07-23)
-  // Five *other* problems now fill 2026-07-21 (the fail-reset target) —
-  // Sixth itself isn't one of them, so self-exclusion doesn't apply here.
+  // Three *other* problems now fill 2026-07-21 (the fail-reset target) —
+  // Extra itself isn't one of them, so self-exclusion doesn't apply here.
   add("Filler 0");
   add("Filler 1");
   add("Filler 2");
-  add("Filler 3");
-  add("Filler 4");
   const reviewed = reviewProblem(db, id, "fail", TODAY)!;
   expect(reviewed.rung).toBe(0);
   expect(reviewed.next_review).toBe("2026-07-22"); // 2026-07-21 is full of other problems
@@ -344,11 +342,52 @@ test("reviewProblem cascades a failed review to the next available day when tomo
 test("reviewProblem does not count a problem's own existing slot against its recomputed date", () => {
   const { id } = add("Self"); // next_review 2026-07-21
   add("Filler 0");
-  add("Filler 1");
-  add("Filler 2");
-  add("Filler 3"); // 2026-07-21 now has 5 total (Self + 4 fillers)
+  add("Filler 1"); // 2026-07-21 now has 3 total (Self + 2 fillers)
   // Failing "Self" recomputes the same date (rung 0 -> tomorrow again).
-  // Excluding Self's own stale slot, only the 4 fillers occupy 07-21 — room remains.
+  // Excluding Self's own stale slot, only the 2 fillers occupy 07-21 — room remains.
   const reviewed = reviewProblem(db, id, "fail", TODAY)!;
   expect(reviewed.next_review).toBe("2026-07-21");
+});
+
+test("levelDueLeetcode keeps the 3 most-overdue problems in place and pushes the rest past today", () => {
+  // Simulate a backlog that piled up before this leveling existed: 5
+  // problems all overdue on the same stale date, bypassing the
+  // creation-time cap directly via SQL (the thing under test is the
+  // read-time leveling gate, not the creation cap).
+  const ids = [add("P1").id, add("P2").id, add("P3").id, add("P4").id, add("P5").id];
+  const stale = addDays(TODAY, -10);
+  const setStale = db.query(`UPDATE problems SET next_review = ? WHERE id = ?`);
+  for (const id of ids) setStale.run(stale, id);
+
+  levelDueLeetcode(db, TODAY);
+
+  const rows = listProblems(db);
+  // Exactly 3 remain due (<= TODAY) — the ones left on the stale date —
+  // and their overdueDays-driving next_review is untouched.
+  expect(rows.filter((p) => p.next_review <= TODAY).length).toBe(3);
+  expect(rows.filter((p) => p.next_review === stale).length).toBe(3);
+  // The overflow (2 problems) got pushed to the next available day after
+  // today, not left due, and not dumped past capacity on a single day.
+  const pushed = rows.filter((p) => p.next_review > TODAY);
+  expect(pushed.length).toBe(2);
+  expect(pushed.every((p) => p.next_review === addDays(TODAY, 1))).toBe(true);
+});
+
+test("levelDueLeetcode leaves a backlog at or under the cap untouched", () => {
+  const { id } = add("Solo"); // next_review 2026-07-21, overdue relative to a later "today"
+  levelDueLeetcode(db, "2026-07-25");
+  expect(getProblem(db, id)!.next_review).toBe("2026-07-21");
+});
+
+test("levelDueLeetcode is idempotent — calling it twice doesn't reshuffle an already-leveled backlog", () => {
+  const ids = [add("P1").id, add("P2").id, add("P3").id, add("P4").id];
+  const stale = addDays(TODAY, -10);
+  const setStale = db.query(`UPDATE problems SET next_review = ? WHERE id = ?`);
+  for (const id of ids) setStale.run(stale, id);
+
+  levelDueLeetcode(db, TODAY);
+  const after1 = listProblems(db).map((p) => ({ id: p.id, next_review: p.next_review }));
+  levelDueLeetcode(db, TODAY);
+  const after2 = listProblems(db).map((p) => ({ id: p.id, next_review: p.next_review }));
+  expect(after2).toEqual(after1);
 });

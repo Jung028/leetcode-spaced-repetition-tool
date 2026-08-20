@@ -72,6 +72,30 @@ test("GET /api/home/due includes a due LeetCode problem", async () => {
   expect(item.subtitle).toBe("java");
 });
 
+test("GET /api/home/due caps overdue LeetCode problems at 3, pushing the rest to a later day", async () => {
+  // Simulate a backlog that piled up over several unreviewed days —
+  // created on staggered days so none hit the creation-time cap, then
+  // forced onto the same stale overdue date via direct SQL so this
+  // exercises the read-time leveling gate specifically.
+  const ids: number[] = [];
+  for (let i = 0; i < 5; i++) {
+    ids.push(
+      createProblem(
+        db,
+        { title: `Overdue ${i}`, url: `https://leetcode.com/problems/overdue-${i}/`, solution: "code" },
+        addDays(TODAY, -(10 + i)),
+      ).id,
+    );
+  }
+  const stale = addDays(TODAY, -5);
+  const setStale = db.query(`UPDATE problems SET next_review = ? WHERE id = ?`);
+  for (const id of ids) setStale.run(stale, id);
+
+  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  const overdueTitles = items.filter((i) => i.source === "leetcode" && i.title.startsWith("Overdue"));
+  expect(overdueTitles.length).toBe(3);
+});
+
 test("GET /api/home/due excludes a todo that isn't due yet", async () => {
   createTodo(db, "Not due yet", addDays(TODAY, 20), null, TODAY);
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();

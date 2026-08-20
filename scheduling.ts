@@ -52,7 +52,7 @@ export function releaseCount(
 }
 
 // Daily cap on LeetCode spaced-repetition reviews landing on the same date.
-export const MAX_DAILY_LEETCODE_REVIEWS = 5;
+export const MAX_DAILY_LEETCODE_REVIEWS = 3;
 
 // Walks forward day-by-day from `start` until it finds a date whose
 // existing count (via the caller-supplied lookup) is under the cap —

@@ -1,5 +1,12 @@
 import { Database } from "bun:sqlite";
-import { applyReview, initialSchedule, nextAvailableDate, type ReviewResult } from "./scheduling";
+import {
+  applyReview,
+  initialSchedule,
+  nextAvailableDate,
+  addDays,
+  MAX_DAILY_LEETCODE_REVIEWS,
+  type ReviewResult,
+} from "./scheduling";
 import { slugFromUrl } from "./leetcode";
 
 const DEFAULT_LANGUAGE = "java";
@@ -214,6 +221,35 @@ export function captureSubmission(
   const updated = updateProblem(db, existing.id, input)!;
   if (!result) return { problem: updated, created: false };
   return { problem: reviewProblem(db, existing.id, result, today)!, created: false };
+}
+
+// Caps how many LeetCode reviews can be "due" (next_review <= today) at
+// once, at MAX_DAILY_LEETCODE_REVIEWS — nothing previously stopped an
+// unreviewed backlog from piling up unbounded on the due list (this was
+// explicitly out of scope in
+// docs/superpowers/specs/2026-08-01-backlog-gated-scheduling-design.md).
+// The `cap` most-overdue items are left completely untouched, so their
+// real next_review date — and therefore their "Xd late" badge — is
+// preserved. Only the overflow (the least-overdue items past the cap)
+// gets pushed forward, cascading day-by-day via nextAvailableDate onto
+// the earliest day at or after tomorrow with room, so it doesn't just
+// dump everything onto a single already-full day.
+// Self-healing: call at the top of any due-list read, no need to hook it
+// into every mutation path — same pattern as the Theory/Goals release
+// gates in that design doc.
+export function levelDueLeetcode(db: Database, today: string): void {
+  const due = db
+    .query(`SELECT id, next_review FROM problems WHERE next_review <= ? ORDER BY next_review ASC, id ASC`)
+    .all(today) as { id: number; next_review: string }[];
+  const overflow = due.slice(MAX_DAILY_LEETCODE_REVIEWS);
+  if (overflow.length === 0) return;
+
+  const tomorrow = addDays(today, 1);
+  const update = db.query(`UPDATE problems SET next_review = ? WHERE id = ?`);
+  for (const row of overflow) {
+    const slot = nextAvailableDate(tomorrow, (d) => countScheduledOn(db, d, row.id));
+    update.run(slot, row.id);
+  }
 }
 
 export function countReviewsToday(db: Database, today: string): number {
