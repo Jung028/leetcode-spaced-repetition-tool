@@ -13,6 +13,7 @@ import { WEEK_3_PAPERS as INFO6007_WEEK_3_PAPERS } from "./exam-content/info6007
 import { WEEK_1_PAPERS as INFO5990_WEEK_1_PAPERS } from "./exam-content/info5990/week-1";
 import { WEEK_2_PAPERS as INFO5990_WEEK_2_PAPERS } from "./exam-content/info5990/week-2";
 import { WEEK_3_PAPERS as INFO5990_WEEK_3_PAPERS } from "./exam-content/info5990/week-3";
+import { WEEK_1_PAPERS as TRACELY_WEEK_1_PAPERS } from "./exam-content/tracely/week-1";
 import type { ExamPaperSeed } from "./exam-content/types";
 import { addDays } from "./scheduling";
 
@@ -29,6 +30,7 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO5990_WEEK_1_PAPERS,
   ...INFO5990_WEEK_2_PAPERS,
   ...INFO5990_WEEK_3_PAPERS,
+  ...TRACELY_WEEK_1_PAPERS,
 ];
 
 // COURSES lists every course this app knows about — listExamCourses() below
@@ -39,6 +41,7 @@ export const COURSES: { code: string; name: string }[] = [
   { code: "COMP5348", name: "Enterprise Scale" },
   { code: "INFO6007", name: "Project Management" },
   { code: "INFO5990", name: "Professional Practice in IT" },
+  { code: "TRACELY", name: "Tracely — PM Case Study" },
 ];
 
 // A paper's identity is (course, week, paperNumber) — all present directly
