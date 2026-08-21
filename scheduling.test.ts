@@ -91,8 +91,8 @@ test("releaseCount defaults to MAX_ACTIVE_BACKLOG when no cap is given", () => {
   expect(releaseCount(0, 100)).toBe(5);
 });
 
-test("MAX_DAILY_LEETCODE_REVIEWS is 5", () => {
-  expect(MAX_DAILY_LEETCODE_REVIEWS).toBe(5);
+test("MAX_DAILY_LEETCODE_REVIEWS is 3", () => {
+  expect(MAX_DAILY_LEETCODE_REVIEWS).toBe(3);
 });
 
 test("nextAvailableDate returns the start date when it's under the cap", () => {

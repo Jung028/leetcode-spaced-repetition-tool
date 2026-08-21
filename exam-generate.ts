@@ -75,6 +75,8 @@ export function resolveWeekDir(
 // "recommended only for sandboxes with no internet access."
 export const ALLOWED_TOOLS = "Read Write Edit Glob Grep Bash(bun test*)";
 
+export type GenerateMode = "generate" | "update";
+
 export function buildGeneratePrompt(course: string, week: number, weekDir: string): string {
   const courseLower = course.toLowerCase();
   return `Author exam-content/${courseLower}/week-${week}.ts for the leetcode-srs project, following docs/exam-content-authoring-guide.md exactly.
@@ -86,6 +88,27 @@ Write two separate papers matching exam-content/types.ts's ExamPaperSeed/ExamQue
 Finally, run \`bun test\` and fix any failures until the full suite passes with no failures — including fixing any existing test elsewhere in the repo that turns out to hardcode an assumption your new week's content invalidates (for example, a test assuming a specific course still has only one week of content).
 
 You are running unattended in headless mode with no human present to ask questions — make reasonable, well-justified authoring judgment calls yourself rather than stopping to ask. When you are completely done, print one short summary line of what you wrote and confirm bun test passes.`;
+}
+
+export function buildUpdatePrompt(course: string, week: number, weekDir: string): string {
+  const courseLower = course.toLowerCase();
+  return `Update the ALREADY-AUTHORED exam-content/${courseLower}/week-${week}.ts for the leetcode-srs project — new material (e.g. a lecture/tutorial video) was just added to "${weekDir}" after this week was first authored, and it needs to be incorporated.
+
+Read the CURRENT exam-content/${courseLower}/week-${week}.ts first, in full, before touching anything — you're enriching it, not replacing it.
+
+Re-read the material in "${weekDir}", including any "*.transcript.md" file — that's an auto-generated transcript of a lecture/tutorial recording (the video itself is transcribed automatically before this step and can't be opened directly). Compare it against what the existing questions already cover, and write new questions (following docs/exam-content-authoring-guide.md's format and difficulty rules exactly, same as authoring a new week) for whatever the new material adds that the existing paper(s) don't already ask about. Skip material that's already well-covered — this is an update, not a wholesale regenerate.
+
+This week may have ONE existing paper or TWO — do not assume there are two. Route new questions into whichever EXISTING paper (by paperNumber, based on what you actually read in the file) the new material belongs to. Append each new question to the END of that paper's questions array — never reorder, delete, rewrite the position of, or renumber any existing question. This repo keys a student's graded answer history by each question's array index (course/week/paperNumber/questionIndex in exam-db.ts), so moving an existing question corrupts their past scores; only appending at the end is safe. You may fix an existing question in place only to correct a factual error, never to relocate it in the array.
+
+Never create a new paperNumber, under any circumstances — only route into a paperNumber that already exists in the week file you read. New exam paper rows are only created once, at process startup (seedNewPapers in exam-db.ts, run from migrateExam at module load); a paperNumber invented mid-job gets no DB row until the dev server restarts, which you cannot do, so it would be broken output — invisible in the UI and impossible to grade. If the new material doesn't cleanly fit any existing paper's scope, put it in whichever existing paper is the closest fit rather than inventing a new one.
+
+Add the new material's filename(s) to that paper's sourceFiles array (relative to "${weekDir}") so provenance stays accurate.
+
+Do NOT touch exam-content.ts — this week is already imported and wired into ALL_PAPERS there.
+
+Finally, run \`bun test\` and fix any failures until the full suite passes with no failures.
+
+You are running unattended in headless mode with no human present to ask questions — make reasonable, well-justified authoring judgment calls yourself rather than stopping to ask. When you are completely done, print one short summary line of how many questions you added to which paper(s) and confirm bun test passes.`;
 }
 
 export function buildClaudeArgs(prompt: string): string[] {
@@ -113,6 +136,7 @@ export interface StartJobDeps {
   root: string;
   transcribe?: TranscribeFn;
   whisperModel?: string;
+  mode?: GenerateMode;
 }
 
 export const defaultGenerateDeps: StartJobDeps = {
@@ -213,6 +237,7 @@ export async function startGenerateJob(
       deps.runClaude,
       deps.transcribe ?? transcribeVideo,
       deps.whisperModel ?? DEFAULT_WHISPER_MODEL,
+      deps.mode ?? "generate",
     ).catch(() => {});
     return { ok: true, done };
   } finally {
@@ -229,13 +254,15 @@ async function runGeneration(
   runClaude: RunClaude,
   transcribe: TranscribeFn,
   whisperModel: string,
+  mode: GenerateMode,
 ): Promise<void> {
   try {
     // Any video in weekDir without a transcript yet gets one now, before
-    // Claude ever runs — buildGeneratePrompt tells it to read
+    // Claude ever runs — both prompt builders tell it to read
     // "*.transcript.md" files, which only exist once this step has run.
     await transcribeWeekVideos(weekDir, transcribe, whisperModel);
-    const prompt = buildGeneratePrompt(course, week, weekDir);
+    const buildPrompt = mode === "update" ? buildUpdatePrompt : buildGeneratePrompt;
+    const prompt = buildPrompt(course, week, weekDir);
     const args = buildClaudeArgs(prompt);
     const { stdout, stderr, exitCode } = await runClaude(args, REPO_ROOT);
     const status: JobStatus = {
