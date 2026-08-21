@@ -153,6 +153,21 @@ export function examApiRoutes(
         return json(await readJobStatus(course, week, generateDeps.root));
       },
     },
+    "/api/exam/:course/:week/update": {
+      POST: async (req: Request & { params: { course: string; week: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const week = parseWeek(req.params.week);
+        if (week === null) return json({ error: "invalid week" }, 400);
+        const alreadyAuthored = buildExamSchedule().some((p) => p.course === course && p.week === week);
+        if (!alreadyAuthored) return json({ error: "week not yet generated — use Generate instead" }, 400);
+        const weekDir = resolveWeekDir(course, week, generateDeps.courseDirs);
+        if (!weekDir) return json({ error: "no material found for this week" }, 404);
+        const result = await startGenerateJob(course, week, weekDir, { ...generateDeps, mode: "update" });
+        if (!result.ok) return json({ error: result.reason }, 409);
+        return json({}, 202);
+      },
+    },
     "/api/exam/:course/due": {
       GET: (req: Request & { params: { course: string } }) => {
         const course = req.params.course;
