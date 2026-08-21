@@ -110,3 +110,29 @@ Update `exam-content.ts`:
 
 Run `bun test` before considering the week done — it must pass with no
 failures.
+
+## Updating an already-authored week with new material
+
+When new material (most often a lecture/tutorial video) is added to a
+week's folder *after* that week was already authored, use the app's
+**Update** button (shown next to an already-authored week in the Modules
+tab or History) instead of re-running Generate — Generate assumes the week
+doesn't exist yet and would tell Claude to author it from scratch.
+
+Update reuses the same job pipeline (auto-transcribes any new video first,
+then runs headless `claude -p`), but with a different prompt
+(`buildUpdatePrompt` in `exam-generate.ts`) that:
+
+- Reads the existing `week-N.ts` first and only adds what the new material
+  covers that isn't already asked about — not a wholesale rewrite.
+- **Only ever appends new questions to the end of a paper's `questions`
+  array.** Never reorders, deletes, or renumbers an existing question —
+  `exam-db.ts` keys a student's graded answer history by each question's
+  array index, so moving one silently corrupts past scores.
+- Never touches `exam-content.ts` — the week's import/`ALL_PAPERS` entry is
+  already wired in from when it was first authored.
+
+If you're doing this by hand instead of via the button (e.g. no dev server
+running), follow the same rules manually: read the existing file first,
+append rather than rewrite, and never touch already-graded questions'
+positions.

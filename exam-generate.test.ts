@@ -7,6 +7,7 @@ import {
   readJobStatus,
   resolveWeekDir,
   buildGeneratePrompt,
+  buildUpdatePrompt,
   buildClaudeArgs,
   ALLOWED_TOOLS,
   startGenerateJob,
@@ -74,6 +75,16 @@ test("buildGeneratePrompt names the exact output file, source folder, and requir
   expect(prompt).toContain("docs/exam-content-authoring-guide.md");
   expect(prompt).toContain("bun test");
   expect(prompt).toContain("exam-content.ts");
+});
+
+test("buildUpdatePrompt names the existing file, forbids reordering existing questions, and forbids touching exam-content.ts", () => {
+  const prompt = buildUpdatePrompt("INFO5995", 3, "/fake/Desktop/INFO5995/Week 3");
+  expect(prompt).toContain("exam-content/info5995/week-3.ts");
+  expect(prompt).toContain("/fake/Desktop/INFO5995/Week 3");
+  expect(prompt).toContain("ALREADY-AUTHORED");
+  expect(prompt).toContain("never reorder, delete");
+  expect(prompt).toContain("Do NOT touch exam-content.ts");
+  expect(prompt).toContain("bun test");
 });
 
 test("buildClaudeArgs scopes permissions to Read/Write/Edit/Glob/Grep/Bash(bun test*)", () => {
@@ -351,4 +362,36 @@ test("startGenerateJob's global in-memory lock blocks a different week's job fir
 
   resolveClaude?.();
   if (first.ok) await first.done;
+});
+
+test("startGenerateJob passes the update prompt to runClaude when deps.mode is 'update'", async () => {
+  const root = makeTempDir();
+  let seenPrompt = "";
+  const fakeRunClaude: RunClaude = async (args) => {
+    seenPrompt = args.at(-1) ?? "";
+    return { stdout: "enriched", stderr: "", exitCode: 0 };
+  };
+
+  const result = await startGenerateJob("INFO5995", 30, "/fake/week/dir", {
+    runClaude: fakeRunClaude,
+    root,
+    mode: "update",
+  });
+  if (result.ok) await result.done;
+
+  expect(seenPrompt).toContain("ALREADY-AUTHORED");
+});
+
+test("startGenerateJob defaults to the generate prompt when deps.mode is omitted", async () => {
+  const root = makeTempDir();
+  let seenPrompt = "";
+  const fakeRunClaude: RunClaude = async (args) => {
+    seenPrompt = args.at(-1) ?? "";
+    return { stdout: "wrote it", stderr: "", exitCode: 0 };
+  };
+
+  const result = await startGenerateJob("INFO5995", 31, "/fake/week/dir", { runClaude: fakeRunClaude, root });
+  if (result.ok) await result.done;
+
+  expect(seenPrompt).toContain("Author exam-content");
 });
