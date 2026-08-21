@@ -143,16 +143,18 @@ wasn't available when it was first authored), do it this way:
    would have caught on its own. Long lectures (~1-2h) take real
    wall-clock time on CPU — run it with a background shell command, don't
    block on it inline.
-2. **Delegate the actual authoring to a `general-purpose` subagent**,
-   don't read the transcript/PDFs/tutorial project files inline in the
-   main session — a lecture transcript plus slides plus a tutorial's Java
-   project is a lot of raw material for no benefit to the main
-   conversation's context. Give the subagent: exact file paths, which
-   `docs/exam-content-authoring-guide.md` process to follow, and an
-   explicit scope boundary — e.g. "leave TUTORIAL_PAPER untouched, only
-   rewrite LECTURE_PAPER" when only one paper needs the new source, rather
-   than a full week regenerate that risks needlessly rewriting content
-   that was already fine.
+2. **For a week that's already authored, click Update in the app instead
+   of doing this by hand** — the Modules/History view's Update button
+   (`buildUpdatePrompt` in `exam-generate.ts`) now runs exactly this
+   workflow automatically: it re-scans the week's material, transcribes
+   any new video, reads the existing week file, and appends new questions
+   to whichever paper the new material belongs to without touching
+   existing questions' order (see `docs/exam-content-authoring-guide.md`,
+   "Updating an already-authored week with new material," for why order
+   must never change). Only fall back to delegating to a `general-purpose`
+   subagent by hand for genuinely manual cases — no dev server running, or
+   a scope boundary too specific for the automated prompt to infer on its
+   own (e.g. "leave TUTORIAL_PAPER untouched, only rewrite LECTURE_PAPER").
 3. **Run these subagents sequentially, not in parallel**, when more than
    one week needs authoring in the same session — they wire into the
    shared `exam-content.ts` (new import + `ALL_PAPERS` entry for a brand

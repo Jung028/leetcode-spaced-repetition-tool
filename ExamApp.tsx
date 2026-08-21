@@ -79,6 +79,8 @@ const api = {
     fetch(`/api/exam/${course}/${week}/generate`, { method: "POST" }).then((r) => json<{}>(r)),
   generateStatus: (course: string, week: number) =>
     fetch(`/api/exam/${course}/${week}/generate/status`).then((r) => json<JobStatus>(r)),
+  update: (course: string, week: number) =>
+    fetch(`/api/exam/${course}/${week}/update`, { method: "POST" }).then((r) => json<{}>(r)),
   history: (course: string) => fetch(`/api/exam/${course}/history`).then((r) => json<{ weeks: ExamHistoryWeek[] }>(r)),
   retake: (course: string, week: number, paperNumber: number) =>
     fetch(`/api/exam/${course}/${week}/${paperNumber}/retake`, { method: "POST" }).then((r) => json<{ ok: true }>(r)),
@@ -248,6 +250,86 @@ function SyncBanner({
         </ul>
       )}
     </div>
+  );
+}
+
+// A single-week counterpart to SyncBanner's per-row Generate button: same
+// on-disk job status (course/week share the same job key whether the job
+// came from Generate or Update), same "survive a page reload" mount-time
+// poll, but scoped to one already-authored week rather than a list of
+// pending ones — so no queue is needed (the server's global one-job-at-a-
+// time lock already returns 409 if something else is running).
+function UpdateWeekButton({
+  course,
+  week,
+  onUpdated,
+}: {
+  course: string;
+  week: number;
+  onUpdated: () => void;
+}) {
+  const [job, setJob] = useState<JobStatus | null>(null);
+  const [tick, setTick] = useState(() => Date.now());
+  const notifiedRef = useRef(false);
+
+  useEffect(() => {
+    api.generateStatus(course, week).then(setJob).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [course, week]);
+
+  const running = job?.state === "running";
+  const failed = job?.state === "failed";
+
+  useEffect(() => {
+    if (!running) return;
+    const poll = async () => {
+      const status = await api.generateStatus(course, week).catch(() => null);
+      if (!status) return;
+      setJob(status);
+      if ((status.state === "done" || status.state === "failed") && !notifiedRef.current) {
+        notifiedRef.current = true;
+        notifyGenerateDone(course, week, status);
+      }
+      if (status.state === "done") onUpdated();
+    };
+    const id = setInterval(poll, 5000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, course, week]);
+
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => setTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [running]);
+
+  const handleClick = async () => {
+    if (running) return;
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+    notifiedRef.current = false;
+    setJob({ state: "running", startedAt: new Date().toISOString() });
+    try {
+      await api.update(course, week);
+    } catch (err) {
+      setJob({ state: "failed", logTail: errorMessage(err) });
+    }
+  };
+
+  const label = running
+    ? `Updating… ${formatElapsed(job!.startedAt!, tick)}`
+    : failed
+      ? "Retry update"
+      : "Update from new material";
+
+  return (
+    <span className="update-week">
+      <button className="btn" disabled={running} onClick={handleClick}>
+        {label}
+      </button>
+      {failed && job?.logTail && <p className="rule-note">{job.logTail}</p>}
+    </span>
   );
 }
 
@@ -606,18 +688,23 @@ function PaperLoader({
 
 function WeekPicker({
   weekView,
+  course,
   onBack,
   onPickPaper,
+  onUpdated,
 }: {
   weekView: ExamWeekView;
+  course: string;
   onBack: () => void;
   onPickPaper: (paperNumber: number) => void;
+  onUpdated: () => void;
 }) {
   return (
     <article className="detail">
       <header className="detail-head">
         <h2>Week {weekView.week}</h2>
         <span className="tag">{weekView.overdue ? "overdue" : "due"} — {weekView.dueDate}</span>
+        <UpdateWeekButton course={course} week={weekView.week} onUpdated={onUpdated} />
       </header>
       <ul className="board-rows">
         {weekView.papers.map((p) => (
@@ -650,16 +737,20 @@ function WeekPicker({
 
 function HistoryView({
   weeks,
+  course,
   onBack,
   onOpenPaper,
   onRetake,
   onRetakeWrong,
+  onUpdated,
 }: {
   weeks: ExamHistoryWeek[];
+  course: string;
   onBack: () => void;
   onOpenPaper: (week: number, paperNumber: number) => void;
   onRetake: (week: number, paperNumber: number) => void;
   onRetakeWrong: (week: number, paperNumber: number) => void;
+  onUpdated: () => void;
 }) {
   return (
     <article className="detail">
@@ -673,6 +764,9 @@ function HistoryView({
           <section key={w.week} className="board" aria-label={`Week ${w.week}`}>
             <div className="section-head">
               <h2>Week {w.week}</h2>
+              <span style={{ marginLeft: "auto" }}>
+                <UpdateWeekButton course={course} week={w.week} onUpdated={onUpdated} />
+              </span>
             </div>
             <ul className="board-rows">
               {w.papers.map((p) => (
@@ -951,8 +1045,10 @@ export default function ExamApp({
       {view.name === "week" && currentWeek && (
         <WeekPicker
           weekView={currentWeek}
+          course={course}
           onBack={() => setView({ name: "board" })}
           onPickPaper={(paperNumber) => setView({ name: "paper", week: view.week, paperNumber })}
+          onUpdated={() => refresh(course)}
         />
       )}
 
@@ -975,10 +1071,12 @@ export default function ExamApp({
       {view.name === "history" && (
         <HistoryView
           weeks={history}
+          course={course}
           onBack={() => setView({ name: "board" })}
           onOpenPaper={(week, paperNumber) => setView({ name: "history-paper", week, paperNumber })}
           onRetake={retake}
           onRetakeWrong={retakeWrong}
+          onUpdated={loadHistory}
         />
       )}
 
