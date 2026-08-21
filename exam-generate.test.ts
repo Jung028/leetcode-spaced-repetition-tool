@@ -87,6 +87,12 @@ test("buildUpdatePrompt names the existing file, forbids reordering existing que
   expect(prompt).toContain("bun test");
 });
 
+test("buildUpdatePrompt does not assume every week has two papers, and forbids creating a new paperNumber", () => {
+  const prompt = buildUpdatePrompt("INFO5995", 3, "/fake/Desktop/INFO5995/Week 3");
+  expect(prompt).toContain("This week may have ONE existing paper or TWO — do not assume there are two.");
+  expect(prompt).toContain("Never create a new paperNumber, under any circumstances");
+});
+
 test("buildClaudeArgs scopes permissions to Read/Write/Edit/Glob/Grep/Bash(bun test*)", () => {
   expect(ALLOWED_TOOLS).toBe("Read Write Edit Glob Grep Bash(bun test*)");
   expect(buildClaudeArgs("do the thing")).toEqual([
