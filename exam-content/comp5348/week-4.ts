@@ -28,12 +28,12 @@ const TUTORIAL_PAPER: ExamPaperSeed = {
       type: "mcq",
       prompt: "Per the tutorial's 'What is the gRPC?' slide, what is gRPC?",
       options: [
-        "An open-source RPC framework developed by Google for making remote procedure calls between distributed systems, using Protocol Buffers and offering cross-platform/language-agnostic code generation",
         "A REST-only framework restricted to JSON payloads over HTTP/1.1",
         "A database replication protocol for keeping two SQL databases in sync",
+        "An open-source RPC framework developed by Google for making remote procedure calls between distributed systems, using Protocol Buffers and offering cross-platform/language-agnostic code generation",
         "A front-end UI framework for building admin dashboards",
       ],
-      correctIndex: 0,
+      correctIndex: 2,
       modelAnswer: "The slide defines gRPC as 'an open-source framework developed by Google for making remote procedure calls (RPCs) between distributed systems,' listing cross-platform/language-agnostic support, efficient communication, Protocol Buffers, load balancing/authentication/security, and code generation as its key features.",
     },
     {
@@ -57,7 +57,7 @@ const TUTORIAL_PAPER: ExamPaperSeed = {
         "The client only defines the .proto file; the server has no visibility into the service contract at all",
         "The client listens for incoming requests and dispatches them to whichever function name matches, exactly like the server",
       ],
-      correctIndex: 3,
+      correctIndex: 0,
       modelAnswer: "The slide states the server 'defines the services it offers by implementing functions... These functions contain the actual business logic,' while the client's role is only 'to request services from the server... The client does not need to implement these functions because its primary responsibility is to call the functions implemented by the server, not to define how these functions work.'",
     },
     {
@@ -97,12 +97,12 @@ const TUTORIAL_PAPER: ExamPaperSeed = {
       type: "mcq",
       prompt: "The `/transaction` endpoint hard-codes account IDs \"1\"/\"2\" and always calls createTwoAccounts(from, to, 100) before every transfer. If the endpoint is invoked a second time, after the first transfer already moved $50 out of account \"1\" and into account \"2\", what happens to the account balances on this second call?",
       options: [
-        "createAccount detects each account already exists (via accountRepository.existsById) and returns a status of 'Account already exists' without resetting the balance, so the second transfer proceeds against whatever balance each account currently holds — not a fresh $100",
         "createAccount silently resets both accounts back to a balance of 100 before the second transfer runs",
         "The second call throws an unhandled exception because the account IDs are not unique across calls",
         "createAccount deletes the prior TransactionRecord history so the second transfer starts from a clean slate",
+        "createAccount detects each account already exists (via accountRepository.existsById) and returns a status of 'Account already exists' without resetting the balance, so the second transfer proceeds against whatever balance each account currently holds — not a fresh $100",
       ],
-      correctIndex: 0,
+      correctIndex: 3,
       modelAnswer: "BankRPCService.createAccount checks `accountRepository.existsById(request.getAccountId())` first and, if true, immediately responds with 'Account already exists' and returns — it never touches the existing Account row's balance. createTwoAccounts's own comment ('Ignore response: continue if the account already exists') confirms this is treated as a no-op, so the second transfer's prepare/commit steps act on the balance left over from the first transfer.",
     },
     {
@@ -157,12 +157,12 @@ const TUTORIAL_PAPER: ExamPaperSeed = {
       type: "mcq",
       prompt: "BankRPCService.rollback() is currently `public void rollback() { ... }` with `//@Override TODO: uncomment this` commented out above it, and bank.proto has no `rpc Rollback` defined yet (only a `// TODO: define gRPC rollback service` comment). What must happen before `@Override` can correctly be restored on this method?",
       options: [
-        "bank.proto's Rollback RPC and its RollbackRequest/RollbackResponse messages must be defined, and the project rebuilt to regenerate BankServiceImplBase with a matching rollback(RollbackRequest, StreamObserver&lt;RollbackResponse&gt;) method — the current no-arg rollback() doesn't override anything in the generated base class",
         "Only the @GrpcService annotation needs to be added above the class declaration",
+        "bank.proto's Rollback RPC and its RollbackRequest/RollbackResponse messages must be defined, and the project rebuilt to regenerate BankServiceImplBase with a matching rollback(RollbackRequest, StreamObserver&lt;RollbackResponse&gt;) method — the current no-arg rollback() doesn't override anything in the generated base class",
         "Nothing further is needed — @Override can be restored immediately since the method name already matches",
         "The class needs to stop extending BankServiceGrpc.BankServiceImplBase entirely",
       ],
-      correctIndex: 0,
+      correctIndex: 1,
       modelAnswer: "@Override only compiles if the method actually overrides a method inherited from BankServiceGrpc.BankServiceImplBase, and that generated base class only gets a rollback(...) method once bank.proto declares an `rpc Rollback` with matching request/response messages and the project is rebuilt — the current parameterless rollback() has no such counterpart to override yet.",
     },
     {
@@ -221,12 +221,12 @@ const TUTORIAL_PAPER: ExamPaperSeed = {
         "flowchart LR\n    Client[Client] --> Stub[Stub]\n    Stub <--> Network[Network]\n    Network <--> Skeleton[Skeleton]\n    Skeleton --> Server[Server]",
       prompt: "Per the tutorial's Client–Stub–Network–Skeleton–Server diagram (above) and the tutorial code, which two classes correspond to the 'Stub' and 'Skeleton' boxes respectively?",
       options: [
-        "BankServiceGrpc.BankServiceFutureStub (used as bank1Stub/bank2Stub in CentralBankService) is the Stub; BankServiceGrpc.BankServiceImplBase (extended by BankRPCService) is the Skeleton",
         "CentralBankController is the Stub; CentralBankService is the Skeleton",
         "Account is the Stub; TransactionRecord is the Skeleton",
         "The same generated class plays both roles — gRPC does not distinguish a stub from a skeleton",
+        "BankServiceGrpc.BankServiceFutureStub (used as bank1Stub/bank2Stub in CentralBankService) is the Stub; BankServiceGrpc.BankServiceImplBase (extended by BankRPCService) is the Skeleton",
       ],
-      correctIndex: 0,
+      correctIndex: 3,
       modelAnswer: "BankServiceFutureStub is exactly the generated client-side proxy the diagram labels Stub — CentralBankService calls prepare()/commit()/createAccount() on it as if local. BankServiceImplBase is the generated server-side base class BankRPCService extends and overrides — the Skeleton that unmarshals incoming requests and dispatches to the actual business logic.",
     },
     {
@@ -245,12 +245,12 @@ const TUTORIAL_PAPER: ExamPaperSeed = {
       type: "mcq",
       prompt: "createTwoAccounts's comment says 'Ignore response: continue if the account already exists.' Given CreateAccountResponse's `status` field can be either 'Account created successfully' or 'Account already exists', why doesn't the calling code branch on that string at all?",
       options: [
-        "createAccount is treated as an idempotent operation from the caller's point of view — both possible outcomes ('created' and 'already exists') mean the account is now guaranteed to exist, so the caller only needs to wait for completion via .get(), not inspect what happened",
         "It throws an exception whenever the status string equals 'Account already exists'",
         "It automatically retries account creation under a freshly-generated account ID if the account already exists",
+        "createAccount is treated as an idempotent operation from the caller's point of view — both possible outcomes ('created' and 'already exists') mean the account is now guaranteed to exist, so the caller only needs to wait for completion via .get(), not inspect what happened",
         "It logs every response except 'Account already exists', which is silently discarded before logging",
       ],
-      correctIndex: 0,
+      correctIndex: 2,
       modelAnswer: "Both possible status strings represent success from createTwoAccounts's perspective — either the account was just created, or it was already there from a previous call — so there's nothing to branch on; `.get()` is called purely to wait for the RPC to complete before the transfer proceeds, treating createAccount as safely repeatable.",
     },
     {
@@ -379,12 +379,12 @@ const LECTURE_PAPER: ExamPaperSeed = {
       type: "mcq",
       prompt: "Per the lecture's 'Phase 1' slide, what does the transaction manager (TM) ask participating resource managers (RMs) to do, and what is explicitly true about commits at this point?",
       options: [
-        "The TM asks each RM to prepare to commit — RMs save their intended changes and vote yes/no, but 'no RM actually commits yet' regardless of how they vote",
         "The TM asks each RM to commit immediately, with no opportunity to vote no",
         "The TM asks only one designated RM to prepare, while the others wait passively for Phase 2",
+        "The TM asks each RM to prepare to commit — RMs save their intended changes and vote yes/no, but 'no RM actually commits yet' regardless of how they vote",
         "RMs commit their changes as soon as they vote 'yes', without waiting for Phase 2",
       ],
-      correctIndex: 0,
+      correctIndex: 2,
       modelAnswer: "Phase 1: 'TM asks all participating RMs to prepare to commit. RMs save their intended changes and then say \"yes\" if they can promise to commit. Any RM can say \"no\". No RM actually commits yet!' — the actual commit only happens in Phase 2, and only if every RM voted yes in Phase 1.",
     },
     {
@@ -393,12 +393,12 @@ const LECTURE_PAPER: ExamPaperSeed = {
         "flowchart LR\n    subgraph Successful transaction\n    direction LR\n    C1[Coordinator] -->|Prepare| P1[Participant]\n    P1 -->|Prepared| C1\n    C1 -->|Commit| P1\n    P1 -->|Done| C1\n    end\n    subgraph Failing transaction\n    direction LR\n    C2[Coordinator] -->|Prepare| P2[Participant]\n    P2 -->|No| C2\n    C2 -->|Abort| P2\n    P2 -->|Done| C2\n    end",
       prompt: "In the lecture's Two Phase Commit diagram (above), what replaces 'Prepared' in the failing transaction's message sequence, and what does the coordinator send back in response?",
       options: [
-        "The participant replies 'No' instead of 'Prepared', and the coordinator responds with 'Abort' instead of 'Commit'",
         "The participant sends no message at all, and the coordinator times out and sends 'Commit' anyway",
         "The participant replies 'Prepared' exactly as in the successful case, but the coordinator sends 'Rollback' instead of 'Commit'",
+        "The participant replies 'No' instead of 'Prepared', and the coordinator responds with 'Abort' instead of 'Commit'",
         "The participant replies 'Abort', and the coordinator responds with 'Prepared'",
       ],
-      correctIndex: 0,
+      correctIndex: 2,
       modelAnswer: "The diagram's failing-transaction path swaps 'Prepared' for 'No' as the participant's Phase 1 vote, which drives the coordinator to send 'Abort' instead of 'Commit' in Phase 2 — both paths still end with the participant replying 'Done' either way, matching Phase 2's description that the TM 'always knows the state of the transaction' regardless of outcome.",
     },
     {
@@ -407,12 +407,12 @@ const LECTURE_PAPER: ExamPaperSeed = {
         "flowchart TB\n    subgraph Coordinator\n    CI[INITIAL] -->|prepare / log begin_commit| CW[WAIT]\n    CW -->|all vote_commit / log commit| CC[COMMIT]\n    CW -->|any vote_abort / log abort| CA[ABORT]\n    end\n    subgraph Participant\n    PI[INITIAL] -->|Ready? Yes / log ready| PR[READY]\n    PI -->|Ready? No / log abort| PA[ABORT]\n    PR -->|global_commit / log commit| PC[COMMIT]\n    PR -->|global_abort / log abort| PA\n    end",
       prompt: "Per the lecture's 2PC Protocol State Diagram (simplified above), what state does the coordinator sit in while waiting for every participant's vote, and what does a participant log just before replying with a 'yes' vote?",
       options: [
-        "The coordinator sits in WAIT; the participant logs 'ready' before voting yes (vote_commit)",
         "The coordinator sits in READY; the participant logs 'begin_commit' before voting yes",
         "The coordinator sits in ABORT by default until every vote arrives; the participant logs nothing before voting",
         "The coordinator sits in COMMIT while waiting; the participant logs 'end_of_trans' before voting yes",
+        "The coordinator sits in WAIT; the participant logs 'ready' before voting yes (vote_commit)",
       ],
-      correctIndex: 0,
+      correctIndex: 3,
       modelAnswer: "The state diagram shows the coordinator moving INITIAL → (log begin_commit, send prepare) → WAIT, where it stays until it receives every participant's vote_commit or any vote_abort. On the participant side, 'Ready to Commit? Yes' leads to 'log ready' before the participant enters READY and replies vote_commit — READY is the participant's own waiting state, distinct from the coordinator's WAIT.",
     },
     {
@@ -468,11 +468,11 @@ const LECTURE_PAPER: ExamPaperSeed = {
       prompt: "Per the lecture's 'Request Integrity' slide, why does making the 'fetch request' operation itself part of the transaction matter for recovering from a failed transaction request sitting in a queue?",
       options: [
         "It doesn't matter — queued requests are always safe regardless of whether fetching them is transactional",
-        "Including the fetch inside the transaction means a failure undoes the fetch too, so the request is automatically re-queued on failure rather than being silently lost — enabling easy recovery from transient application errors, so long as failure loops are avoided",
         "It guarantees the request will never fail a second time, since fetching removes it from the queue permanently on the first attempt",
         "It replaces the need for reliable messaging entirely",
+        "Including the fetch inside the transaction means a failure undoes the fetch too, so the request is automatically re-queued on failure rather than being silently lost — enabling easy recovery from transient application errors, so long as failure loops are avoided",
       ],
-      correctIndex: 0,
+      correctIndex: 3,
       modelAnswer: "The slide states: 'Fetch request operation included as part of transaction — Undone and request re-queued on failure. Need to avoid failure loops! Easy recovery from transient application errors.' Making the fetch itself transactional means a failed attempt rolls the fetch back too, so the request reappears in the queue for a retry rather than being lost — this is called out as 'another reason for reliable messages.'",
     },
     {
@@ -491,22 +491,22 @@ const LECTURE_PAPER: ExamPaperSeed = {
       type: "mcq",
       prompt: "Per the lecture's 'Just-in-time Transactions' slide, what is the difference between a method marked with the 'requires' attribute and one marked 'requires new'?",
       options: [
-        "'requires' runs in an existing transaction if there is one, starting a new one only if there isn't; 'requires new' always starts a new, independent transaction even if already inside a transactional context — useful when a sub-operation shouldn't be backed out if its 'parent' fails",
         "'requires' always starts a brand-new transaction; 'requires new' always joins whatever transaction is currently active",
         "'requires' and 'requires new' are two names for the exact same behaviour, kept for backward compatibility only",
+        "'requires' runs in an existing transaction if there is one, starting a new one only if there isn't; 'requires new' always starts a new, independent transaction even if already inside a transactional context — useful when a sub-operation shouldn't be backed out if its 'parent' fails",
         "'requires' only applies to read-only operations; 'requires new' only applies to write operations",
       ],
-      correctIndex: 3,
+      correctIndex: 2,
       modelAnswer: "The slide states 'requires': 'Run in existing transaction if there is one, Start new transaction otherwise', versus 'requires new': 'Start a new independent transaction even if already in a transactional context... May not want to back out a \"sub\"-transaction if its \"parent\" fails' — e.g. an audit-log write that should persist even if the surrounding business transaction later aborts.",
     },
     {
       type: "mcq",
       prompt: "Per the lecture's Nested vs Just-In-Time (JIT) Transactions code comparison, the Nested Transactions box gives withdraw(src, amt) and deposit(dest, amt) their own explicit tx_start/tx_commit, nested inside transfer's own tx_start/tx_commit. What does the JIT box do differently, and why does the lecture note nested transactions are 'rarely implemented in commercial products'?",
       options: [
-        "The JIT box marks every function 'requires' instead of giving each one an explicit tx_start/tx_commit, letting withdraw and deposit join transfer's already-open transaction automatically rather than needing true nested-transaction support that most commercial transaction managers don't actually provide",
         "The JIT box removes all transaction boundaries entirely, running every function outside any transaction",
         "The JIT box gives withdraw and deposit two separate tx_start/tx_commit pairs each, doubling the nesting depth shown in the Nested box",
         "There is no meaningful difference between the two boxes — both achieve identical behaviour via different syntax",
+        "The JIT box marks every function 'requires' instead of giving each one an explicit tx_start/tx_commit, letting withdraw and deposit join transfer's already-open transaction automatically rather than needing true nested-transaction support that most commercial transaction managers don't actually provide",
       ],
       correctIndex: 3,
       modelAnswer: "The Nested Transactions box shows true nesting — transactions started inside an already-open transaction. The JIT Transactions box instead marks all functions as 'requires' (all marked as 'requires' transaction), so withdraw and deposit simply enlist in transfer's already-open transaction rather than opening genuinely separate nested ones — the lecture's own 'Nesting Transactions?' slide states nested transactions are 'rarely implemented in commercial products', motivating JIT's declarative 'requires'/'requires new' as the practical alternative.",
@@ -527,12 +527,12 @@ const LECTURE_PAPER: ExamPaperSeed = {
       type: "mcq",
       prompt: "Per the lecture's 'Sagas & Compensation' slide, what is the defining limitation of the Saga model, and what is a 'compensator' meant to provide?",
       options: [
-        "Sagas are an extended model for atomicity only (not isolation); a compensator provides a semantic 'undo' for a completed operation, e.g. cancelling an order or putting goods back on the shelf",
         "Sagas are an extended model for isolation only (not atomicity); a compensator provides encryption for data in transit between saga steps",
         "Sagas fully replace both atomicity and isolation guarantees with no limitation compared to 2PC",
         "A compensator is a lock-timeout mechanism used to detect deadlocks between saga steps",
+        "Sagas are an extended model for atomicity only (not isolation); a compensator provides a semantic 'undo' for a completed operation, e.g. cancelling an order or putting goods back on the shelf",
       ],
-      correctIndex: 2,
+      correctIndex: 3,
       modelAnswer: "The slide states Sagas are an 'Extended model for atomicity only' — defining a long operation as a series of smaller ACID transactions, each with a defined 'compensator': a 'semantic \"undo\" for completed operation', with the slide's own examples being 'Cancel order, put goods back on shelf.' The 'atomicity only' qualifier matters because, unlike 2PC, sagas provide no isolation guarantee.",
     },
     {
