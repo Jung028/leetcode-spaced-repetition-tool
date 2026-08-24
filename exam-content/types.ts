@@ -10,6 +10,10 @@ export interface ExamQuestionSeed {
   // short/scenario: the revealed model answer. mcq/truefalse: the revealed
   // explanation shown alongside the correct/incorrect highlighting.
   modelAnswer: string;
+  // Optional image (data URI or URL) shown with the prompt — for a question
+  // that asks the student to work from a real document page (e.g. a report
+  // screenshot) rather than from Mermaid syntax.
+  promptImage?: string;
   // Optional Mermaid diagram syntax (flowchart/sequence/etc.) shown with the
   // prompt — for a question that references an existing architecture or
   // sequence diagram from the material.

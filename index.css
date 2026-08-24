@@ -1149,6 +1149,7 @@ a.btn {
 .theory-model-answer p {
   margin: 0;
   line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .theory-model-answer-image {
@@ -1241,6 +1242,7 @@ a.btn {
 .exam-prompt {
   font-weight: 500;
   margin-bottom: 0.75rem;
+  white-space: pre-wrap;
 }
 
 .exam-options {
@@ -1274,6 +1276,15 @@ a.btn {
 .exam-explanation {
   margin-top: 0.75rem;
   color: var(--dim);
+  white-space: pre-wrap;
+}
+
+.exam-prompt-image {
+  max-width: 100%;
+  display: block;
+  margin: 0.75rem 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
 }
 
 .exam-diagram {

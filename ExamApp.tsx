@@ -384,6 +384,7 @@ function McqQuestion({
   return (
     <div className="exam-question">
       <p className="exam-prompt">{question.prompt}</p>
+      {question.promptImage && <img className="exam-prompt-image" src={question.promptImage} alt="Question reference" />}
       {question.promptDiagram && <MermaidDiagram chart={question.promptDiagram} />}
       <div className="exam-options">
         {question.options!.map((opt, i) => {
@@ -458,6 +459,7 @@ function ShortOrScenarioQuestion({
   return (
     <div className="exam-question">
       <p className="exam-prompt">{question.prompt}</p>
+      {question.promptImage && <img className="exam-prompt-image" src={question.promptImage} alt="Question reference" />}
       {question.promptDiagram && <MermaidDiagram chart={question.promptDiagram} />}
       <textarea
         className="theory-answer"
