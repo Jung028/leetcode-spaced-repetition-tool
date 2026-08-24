@@ -3,6 +3,8 @@ import { openDb } from "./db";
 import { apiRoutes } from "./api";
 import { migrateTodo } from "./todo-db";
 import { todoApiRoutes } from "./todo-api";
+import { migrateAnnouncements } from "./announcement-db";
+import { announcementApiRoutes } from "./announcement-api";
 import { migrateExam } from "./exam-db";
 import { examApiRoutes } from "./exam-api";
 import { homeApiRoutes } from "./home-api";
@@ -20,6 +22,7 @@ db.exec(`
   DROP TABLE IF EXISTS theory_schedule; DROP TABLE IF EXISTS theory_state;
 `);
 migrateTodo(db);
+migrateAnnouncements(db);
 migrateExam(db, localToday());
 migrateLeetcode150(db);
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
@@ -37,6 +40,7 @@ const server = Bun.serve({
       }),
     ...apiRoutes(db),
     ...todoApiRoutes(db),
+    ...announcementApiRoutes(db),
     ...examApiRoutes(db),
     ...homeApiRoutes(db),
     ...leetcode150ApiRoutes(db),

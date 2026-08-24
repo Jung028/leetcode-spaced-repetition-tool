@@ -1233,6 +1233,26 @@ a.btn {
   transition: accent-color var(--dur-fast) var(--ease);
 }
 
+/* Announcements board — messages can run several lines (e.g. a drafted
+   email), so unlike other board rows they wrap instead of truncating. */
+.announcements-board .board-row-main {
+  align-items: flex-start;
+}
+
+.announcement-message {
+  white-space: pre-wrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.announcement-done {
+  opacity: 0.55;
+}
+
+.announcement-done .announcement-message {
+  text-decoration: line-through;
+}
+
 /* Exam tab */
 .exam-question {
   border-top: 1px solid var(--line);

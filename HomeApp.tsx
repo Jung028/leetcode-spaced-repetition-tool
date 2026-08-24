@@ -1,6 +1,7 @@
 // HomeApp.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import type { DueItem, DueSource, HomeStats } from "./home-api";
+import AnnouncementsBoard from "./AnnouncementsBoard";
 import { SEMESTER_DEADLINES } from "./semester-deadlines";
 import { TIMELINE_URL } from "./timeline-link";
 import { ED_DIGEST_URL } from "./ed-digest-link";
@@ -258,6 +259,7 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
         </button>
       </div>
       <WeeklyContentReminder />
+      <AnnouncementsBoard />
       {openModal === "due" && (
         <HomeListModal
           title="Due today"
