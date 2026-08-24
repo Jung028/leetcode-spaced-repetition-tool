@@ -8,7 +8,7 @@ import { buildExamSchedule, weekStartDate, weekDueDate, listExamCourses, SEMESTE
 import { migrateLeetcode150 } from "./leetcode150-db";
 import { LEETCODE_150, leetcode150Url } from "./leetcode150-content";
 import { homeApiRoutes } from "./home-api";
-import { localToday, addDays } from "./scheduling";
+import { localToday, addDays } from "./shared/scheduling";
 
 const TODAY = localToday();
 // Each course's due date per week is fixed (SEMESTER_START is a literal),

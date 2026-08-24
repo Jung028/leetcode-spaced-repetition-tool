@@ -3,9 +3,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import type { DueItem, DueSource, HomeStats } from "./home-api";
 import AnnouncementsBoard from "./AnnouncementsBoard";
 import { SEMESTER_DEADLINES } from "./semester-deadlines";
-import { TIMELINE_URL } from "./timeline-link";
+import { TIMELINE_URL } from "./shared/timeline-link";
 import { ED_DIGEST_URL } from "./ed-digest-link";
-import { localToday } from "./scheduling";
+import { localToday } from "./shared/scheduling";
 
 const EMPTY_STATS: HomeStats = { dueToday: 0, overdue: 0, completedToday: 0 };
 

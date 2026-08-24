@@ -26,7 +26,7 @@ import {
 import { findPendingWeeks } from "./exam-sync";
 import { resolveWeekDir, startGenerateJob, readJobStatus, defaultGenerateDeps, type StartJobDeps } from "./exam-generate";
 import type { ExamQuestionType } from "./exam-content/types";
-import { localToday } from "./scheduling";
+import { localToday } from "./shared/scheduling";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 

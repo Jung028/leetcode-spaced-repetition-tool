@@ -3,7 +3,7 @@ import { Database } from "bun:sqlite";
 import { migrateExam } from "./exam-db";
 import { examApiRoutes } from "./exam-api";
 import { buildExamSchedule, weekStartDate, weekDueDate } from "./exam-content";
-import { addDays, localToday } from "./scheduling";
+import { addDays, localToday } from "./shared/scheduling";
 
 const COURSE = "INFO5995";
 const TODAY = localToday();

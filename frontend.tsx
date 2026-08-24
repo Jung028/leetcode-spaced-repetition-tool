@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { LADDER, isDue, localToday } from "./scheduling";
+import { LADDER, isDue, localToday } from "./shared/scheduling";
 import type { ProblemSummary, ProblemDetail } from "./db";
 import { highlightCode } from "./highlight";
 import TodoApp from "./TodoApp";

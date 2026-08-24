@@ -6,7 +6,7 @@ import {
   toggleAnnouncement,
   updateAnnouncement,
 } from "./announcement-db";
-import { localToday } from "./scheduling";
+import { localToday } from "./shared/scheduling";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 

@@ -10,7 +10,7 @@ import { examApiRoutes } from "./exam-api";
 import { homeApiRoutes } from "./home-api";
 import { migrateLeetcode150 } from "./leetcode150-db";
 import { leetcode150ApiRoutes } from "./leetcode150-api";
-import { localToday } from "./scheduling";
+import { localToday } from "./shared/scheduling";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
 // One-time cleanup: the Theory and Goals features were removed along with

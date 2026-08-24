@@ -7,7 +7,7 @@ import { buildExamSchedule, listExamCourses, COURSES, weekStartDate, groupExamPa
 import { getCurrentLeetcode150, leetcode150CompletedCredit } from "./leetcode150-db";
 import type { CurrentLeetcode150 } from "./leetcode150-db";
 import { leetcode150Url } from "./leetcode150-content";
-import { isDue, localToday, overdueDays } from "./scheduling";
+import { isDue, localToday, overdueDays } from "./shared/scheduling";
 
 export type DueSource = "leetcode" | "todo" | "exam";
 

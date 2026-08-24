@@ -19,7 +19,7 @@ import { WEEK_3_PAPERS as INFO5990_WEEK_3_PAPERS } from "./exam-content/info5990
 import { WEEK_1_PAPERS as TRACELY_WEEK_1_PAPERS } from "./exam-content/tracely/week-1";
 import { WEEK_2_PAPERS as TRACELY_WEEK_2_PAPERS } from "./exam-content/tracely/week-2";
 import type { ExamPaperSeed } from "./exam-content/types";
-import { addDays } from "./scheduling";
+import { addDays } from "./shared/scheduling";
 
 const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO5995_WEEK_1_PAPERS,
