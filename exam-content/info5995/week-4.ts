@@ -6,11 +6,14 @@ const PAPER: ExamPaperSeed = {
   paperNumber: 1,
   title: "Assignment 1 Presentation Prep",
   topics:
-    "SafeCampus Connect security investigation (Assignment 1): rehearsing the 5-minute tutorial presentation from the submitted report — application/threat model, Finding 1 (TLS server authentication disabled), Finding 2 (predictable recovery codes), Finding 3 (login-failure debug disclosure, CWE-209), overall risk discussion — plus likely tutor Q&A on methodology, evidence, exploitability/impact/limitations, and mitigation justification per the marking rubric.",
+    "SafeCampus Connect security investigation (Assignment 1): rehearsing the 5-minute tutorial presentation from the submitted report — application/threat model, Finding 1 (TLS server authentication disabled), Finding 2 (predictable recovery codes), Finding 3 (login-failure debug disclosure, CWE-209), overall risk discussion — plus likely tutor Q&A on methodology, evidence, exploitability/impact/limitations, and mitigation justification per the marking rubric. Also: Cryptography basics lecture — Kerckhoffs's principle (public algorithm, secret key), the CIA-triad-style goal mapping (confidentiality/integrity/authentication/non-repudiation/key establishment) extending Week 1's CIA triad, symmetric vs asymmetric encryption, one-time pad and perfect secrecy (and why key reuse breaks it), stream vs block ciphers, AES modes (ECB/CBC/GCM) and authenticated encryption (AEAD), nonces and replay attacks, key strength (length vs entropy) and the key lifecycle, Diffie–Hellman key exchange (worked modular-exponentiation example) and its man-in-the-middle limitation, and why key agreement alone does not provide peer authentication.",
   sourceFiles: [
     "Assignment 1/report.pdf (submitted investigation report, pages 1-2 shown as question images)",
     "Assignment 1/INFO5995_Assignment_1_Rubric_SafeCampusConnect.pdf",
     "Assignment 1/INFO5995_Assignment1_Student_Guide-2.pdf",
+    "lecture/Week 04 - Introducti-s1-low.transcript.md",
+    "lecture/INFO5995_Week_4_Extra_Resources.pdf",
+    "lecture/Week04-Cryptography basics part 1.pdf",
   ],
   questions: [
     {
@@ -167,6 +170,183 @@ const PAPER: ExamPaperSeed = {
       prompt: "Lecturer Q&A (Finding 3 — Debug disclosure) — Your fix still logs the same details server-side — isn't that still risky?",
       modelAnswer:
         "The risk moves from \"any unauthenticated app user\" to \"an already-privileged server operator\" — access-controlled logs require a trust boundary an outside attacker doesn't cross, unlike a client-visible TextView that anyone who fails a login can read.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "According to Kerckhoffs's principle as presented in the lecture, where should the security of a cryptographic system actually depend?",
+      options: [
+        "On keeping the algorithm's design secret from attackers, since a secret design is what stops it being broken",
+        "On the secrecy of the key alone, with the algorithm public and open to examination — \"the enemy knows the system\"",
+        "On a combination of a secret algorithm and a secret key, since either one alone provides insufficient security",
+        "On the complexity of the algorithm's mathematics, since more complex computation always yields materially stronger security",
+      ],
+      correctIndex: 1,
+      modelAnswer:
+        "Slide: \"The security of a system should depend on its key, not on its design remaining obscure.\" Lecture: \"Security comes by transparency... no one can decrypt information unless they have the key, just like a lock... Public algorithm + secret key.\" Option D is directly rebutted by the lecture's own point that \"just having a stronger computation doesn't mean a very strong security.\"",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "Week 1 introduced the CIA triad (confidentiality, integrity, availability) as core security goals. Week 4's \"Match the Tool to the Goal\" slide extends this same style of mapping to cryptography specifically. Besides confidentiality and integrity, which three additional goals does it list, each with a primary tool?",
+      options: [
+        "Authentication (MAC, digital signature, certificate binding), non-repudiation (digital signature + identity/audit context), and key establishment (Diffie–Hellman, key encapsulation mechanism)",
+        "Authentication, availability, and non-repudiation — with plain encryption listed as the primary tool for all three",
+        "Authorisation, availability, and accountability — protected respectively by access control lists, redundancy, and audit logging",
+        "Authentication and non-repudiation only — key establishment is treated as a networking concern, not a cryptographic goal",
+      ],
+      correctIndex: 0,
+      modelAnswer:
+        "The slide's table lists five goals total: CONFIDENTIALITY (encryption/AEAD), INTEGRITY (hash/MAC/AEAD/signature), AUTHENTICATION (MAC, digital signature, certificate binding), NON-REPUDIATION (digital signature + identity/audit context), and KEY ESTABLISHMENT (Diffie–Hellman, KEM) — extending Week 1's CIA triad with authentication, non-repudiation, and key establishment as cryptography-specific goals.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "Which set of conditions must all hold for a one-time pad to provide the perfect secrecy the lecture describes?",
+      options: [
+        "The key must be at least 128 bits long, generated by a CSPRNG, and rotated after every 100 messages",
+        "The key must be derived from the message itself via a hash function, then XORed with a public nonce",
+        "The key must be truly random, exactly the same length as the message, kept secret, and never reused",
+        "The key must be shorter than the message to keep computation fast, and can be reused as long as it stays secret",
+      ],
+      correctIndex: 2,
+      modelAnswer:
+        "Slide: \"TRULY RANDOM — no predictable pattern. SAME LENGTH — one key bit per message bit. KEPT SECRET — known only to sender and receiver. NEVER REUSED — a fresh key for every message. When all four conditions hold, the ciphertext reveals nothing about the plaintext.\"",
+    },
+    {
+      type: "short",
+      prompt:
+        "Using the lecture's XOR reasoning and the slide's equation C1 ⊕ C2 = (M1 ⊕ K) ⊕ (M2 ⊕ K) = M1 ⊕ M2, explain concretely what goes wrong if a one-time pad key K is reused to encrypt two different messages M1 and M2, and why this defeats perfect secrecy.",
+      modelAnswer:
+        "If the same key K encrypts two messages, an attacker who intercepts both ciphertexts C1 and C2 can XOR them together: because K appears in both and XOR is self-cancelling (K⊕K=0), the result is exactly M1⊕M2 — the key drops out entirely, leaving only a combination of the two plaintexts with zero dependence on the secret key. As the lecture put it: \"he knows M1 XOR K. He also knows M2 XOR K. So he can do XOR of these two messages and it will give him XOR of the two messages\" — from there the attacker doesn't need K at all, just enough context to guess which two meaningful messages XOR to that value. This directly violates \"the ciphertext reveals nothing about the plaintext\" guarantee — key reuse destroys perfect secrecy, which is exactly why a one-time pad's defining rule is a fresh, never-reused key for every message.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "Why does the lecture (and the slide \"The AES mode determines what the system reveals\") treat ECB as the weakest of the three AES modes discussed?",
+      options: [
+        "ECB requires transmitting the key alongside every block, so any eavesdropper who captures one block automatically recovers the full key",
+        "ECB encrypts each block independently with the same key, so identical plaintext blocks always produce identical ciphertext blocks, letting an attacker spot repeated/patterned content",
+        "ECB is inherently slower than CBC and GCM because it recomputes a fresh key derivation for every single block before encrypting it",
+        "ECB cannot be used with AES at all — it only works with legacy ciphers like DES, making it irrelevant to modern block-cipher discussions",
+      ],
+      correctIndex: 1,
+      modelAnswer:
+        "Lecture: \"You are using the same key on this block, same key on this block... this word is repeating... [hackers] will try to decrypt it... crack the whole sequence.\" Slide: \"ECB — Each block is independent... Repeated plaintext → repeated ciphertext... Patterns remain visible.\"",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "A colleague proposes using AES-CBC alone to protect a new API's request bodies. Based on the lecture and the \"Choose complete constructions, not algorithm names alone\" slide, what is the correct critique of this choice?",
+      options: [
+        "CBC should never be used because it is a legacy cipher in the same obsolete category as DES and RC4, and offers no confidentiality guarantee whatsoever",
+        "CBC is fine as-is, since chaining each block to the previous one's ciphertext automatically produces a message authentication tag the receiver can verify",
+        "CBC and GCM provide identical security guarantees, so the only real difference is that GCM happens to run faster on hardware with AES acceleration",
+        "CBC can provide confidentiality by chaining blocks together to hide repeated patterns, but it doesn't provide authentication on its own — the design needs a separately composed authentication mechanism, unlike AES-GCM which bundles both",
+      ],
+      correctIndex: 3,
+      modelAnswer:
+        "Lecture: \"AES/CBC... Does it provide authentication? ... Not really. It's up to you.\" Slide: CBC — \"Confidentiality only; authentication is separate\" and is listed under \"Legacy / learn, do not choose\" precisely because it \"requires a separate secure authentication design,\" versus AES-GCM's \"modern authenticated encryption.\"",
+    },
+    {
+      type: "truefalse",
+      prompt:
+        "True or False: According to the lecture, encryption alone (without an additional authentication mechanism) guarantees that a received message came from the expected sender.",
+      options: ["True", "False"],
+      correctIndex: 1,
+      modelAnswer:
+        "\"Encryption doesn't mean authentication, right? ... only you and the other party knows what kind of encryption you are using... but I'm going to say no, that's not enough.\" Authentication requires a separate mechanism such as a MAC or digital signature, not just shared/derived key material used only for confidentiality.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "In AES-GCM's construction (C, T) = Enc(K, N, M), what specific problem does the unique nonce N defend against, according to the lecture's explanation?",
+      options: [
+        "A replay attack — reusing a previously recorded ciphertext later to impersonate the original sender, since a fresh nonce per message stops an old message being accepted again",
+        "A brute-force attack on the key — the nonce doubles as extra key material, extending the effective key length beyond 128 bits",
+        "A man-in-the-middle attack during key exchange — the nonce authenticates the peer's Diffie–Hellman public value before any data is encrypted",
+        "A timing attack on the block cipher's internal rounds — the nonce randomises how long each encryption operation takes",
+      ],
+      correctIndex: 0,
+      modelAnswer:
+        "Lecture: \"there is an attack called replay attack... if an attacker intercepts some of your messages, which he can replay at some later time to get access to your system... to avoid this scenario, I'm gonna send... a number... you just use it once... so that no one can replay.\" N once means \"a number that you use just once.\"",
+    },
+    {
+      type: "short",
+      prompt:
+        "Using Diffie–Hellman with public parameters p=23 and g=5, Alice picks private a=6 and computes A = g^a mod p = 5^6 mod 23 = 8. Bob picks private b=15 and computes B = g^b mod p = 5^15 mod 23 = 19. Show how each side computes the same shared secret from what they exchange, given that 19^6 mod 23 = 8^15 mod 23 = 2.",
+      modelAnswer:
+        "Alice receives Bob's public value B=19 and raises it to her own private exponent a: B^a mod p = 19^6 mod 23 = 2. Bob receives Alice's public value A=8 and raises it to his own private exponent b: A^b mod p = 8^15 mod 23 = 2. Both land on the same shared secret, 2, because both computations are really (g^a)^b mod p = (g^b)^a mod p = g^(ab) mod p — only the exponent order differs, and modular exponentiation doesn't care about that order. Only p, g, A, and B ever crossed the network; a, b, and the final shared secret 2 never did — matching the slide's \"(g^b mod p)^a mod p = g^ab mod p\" derivation.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "The lecture states \"Diffie–Hellman proves that a shared value was computed, not who computed it.\" What does this mean in practice for a real secure-connection protocol?",
+      options: [
+        "Diffie–Hellman is unusable for any practical purpose until quantum-resistant variants replace it, since classical Diffie–Hellman cannot establish any shared secret without a pre-shared key",
+        "Diffie–Hellman inherently authenticates both parties, because only the legitimate sender and receiver know the algorithm being used — what the lecture calls \"security by obscurity\"",
+        "Diffie–Hellman alone solves key agreement but not peer identity — a man-in-the-middle can run the protocol separately with each side, so a separate authentication step (e.g. certificates/signatures) is still required to bind the exchange to a verified identity",
+        "Diffie–Hellman solves both key agreement and identity verification simultaneously, which is why TLS uses it as the sole mechanism for authenticating a server's certificate",
+      ],
+      correctIndex: 2,
+      modelAnswer:
+        "Lecture: \"DFI Hellman just protects your key sharing... that doesn't mean it's 100% secure... how can we bring in authentication here? ... Digital signatures.\" Slide sequence: \"Authenticate → Agree → Derive → Protect\" — Diffie–Hellman is only the Agree step; \"Key agreement ≠ peer authentication.\"",
+    },
+    {
+      type: "scenario",
+      prompt:
+        "Alice and Bob run unauthenticated Diffie–Hellman over a network Eve fully controls. Using the lecture's \"A Man-in-the-Middle Creates Two Secrets\" slide, walk through what Eve actually does, and explain why Alice and Bob each believe the connection is secure even though it isn't.",
+      modelAnswer:
+        "Eve intercepts Alice's public value before it reaches Bob and substitutes her own, so Alice ends up completing a Diffie–Hellman exchange with Eve and deriving a shared secret K(A,E) — while Bob simultaneously (unknowingly) exchanges with Eve too, deriving a separate shared secret K(E,B). Eve now holds both keys: she decrypts everything Alice sends with K(A,E), reads or modifies it, then re-encrypts it with K(E,B) and forwards it to Bob, and vice versa. Both Alice and Bob successfully complete a real Diffie–Hellman handshake and get a working encrypted channel — nothing about the math errors out — but \"Alice and Bob never share a key with each other, each shares one with Eve.\" The fix is authenticating the exchange (binding each public value to a verified identity via certificate or signature) so a substituted value fails verification instead of being silently accepted.",
+    },
+    {
+      type: "scenario",
+      prompt:
+        "In the lecture's in-class quiz, students were asked: \"Roblox needs to encrypt 50 terabytes of player data. Best choice is to go with asymmetric encryption, symmetric encryption, hashing, or encoding?\" Using the lecture's reasoning about symmetric vs asymmetric performance, explain the correct answer and why the other three are wrong.",
+      modelAnswer:
+        "Symmetric encryption is correct: it has low computational overhead and high throughput, making it \"ideal for large data\" — the lecture makes the same point about real-time video: \"you can't afford complex encryption... you're probably gonna go with... symmetric key cryptography... on a huge amount of data.\" Asymmetric encryption is far more computationally expensive per operation (its security relies on a deliberately one-way-hard computation, per the lecture's Diffie–Hellman/modular-exponentiation discussion), so encrypting 50TB directly with it would be impractically slow — asymmetric is reserved for small secrets and key agreement, not bulk data. Hashing is wrong because a hash is one-way and not reversible — it can't be decrypted back into the original player data, so it doesn't protect confidentiality at all, only integrity/fingerprinting. Encoding (e.g. Base64) is wrong because it isn't encryption at all — it's a reversible representation change that provides no secrecy, since anyone can decode it without a key.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "The slide \"Length is not entropy\" contrasts the human-chosen key INFO5995-INFO5995! with a 128-bit CSPRNG-generated key of the same bit-length. Why does the lecture treat the human-chosen one as far weaker?",
+      options: [
+        "Because human-chosen keys are always shorter in actual bit-length than machine-generated ones, regardless of how many characters they contain",
+        "Because it's built from a repeating, guessable pattern — the effective search space collapses to whatever the unpredictable portion actually is (e.g. at most 2^16 if only 16 bits genuinely vary), not the full 2^128 the raw length suggests",
+        "Because a human-chosen key can never be used with AES, since AES requires keys sourced exclusively from a hardware random-number generator",
+        "Because repeating a pattern in a key mathematically reduces the block cipher's block size, forcing AES to fall back to a weaker, unauthenticated mode",
+      ],
+      correctIndex: 1,
+      modelAnswer:
+        "Lecture: \"you're not really using all 18 [characters]... you're only using... eight... because you're repeating the eight bit pattern again... my job [as a hacker] is to crack eight bit space.\" Slide: \"If only 16 bits vary, the effective search is at most 2^16 candidates — even inside a 128-bit field... LONG ≠ STRONG.\"",
+    },
+    {
+      type: "short",
+      prompt:
+        "List the five stages of the key lifecycle from the \"A strong key can still fail through poor handling\" slide, and give one concrete way a key can leak at each stage, drawing on the lecture's own examples.",
+      modelAnswer:
+        "1) Generate — using an OS CSPRNG with secure entropy; a weak/non-uniform random number generator makes keys guessable (the lecture's coin-toss/dice uniform-distribution discussion). 2) Store — in a keystore/HSM with restricted access; storing a key in plaintext on disk or in logs exposes it to anyone who reads that storage. 3) Use — with least exposure, never logging it; accidentally printing or logging a key during use leaks it to anyone with log access. 4) Rotate/Revoke — policy plus a response to compromise; failing to rotate a key after a suspected leak leaves the same compromised key protecting new data indefinitely. 5) Destroy — removing both active and backup copies; forgetting to wipe old backups leaves a \"deleted\" key recoverable from an old snapshot. Lecture's overall point: \"strong cryptography = strong primitive + unpredictable key + disciplined lifecycle\" — even a strong algorithm fails if the key leaks at any one of these five stages.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "The lecture uses the phrase \"the illusion of hiding\" to introduce Kerckhoffs's principle. Which statement best captures why hiding an algorithm's design is treated as a weaker strategy than making it public?",
+      options: [
+        "A hidden design is always mathematically weaker than a public one, because obscurity itself introduces exploitable bugs into the encryption algorithm's implementation",
+        "Hiding the design is actually the stronger approach for classified government systems, and Kerckhoffs's principle only applies to consumer software like WhatsApp",
+        "A hidden design forces attackers to reverse-engineer the algorithm before attacking it at all, which the lecture treats as sufficient protection on its own without needing a secret key",
+        "A hidden design can't undergo public review, so flaws go undetected until an attacker finds them anyway; a public design gets scrutinised by the whole community, and only the key — the small, easily-changed secret — needs protecting",
+      ],
+      correctIndex: 3,
+      modelAnswer:
+        "Slide: \"True security does not come from hiding the system. It comes from openness... Public review and trust. Scalability (easier to change keys than to redesign a new algorithm).\" Lecture: \"if it is open, how you can make things secure? ... Keys... the algorithm itself is transparent, but no one can decrypt information unless they have the key.\"",
+    },
+    {
+      type: "short",
+      prompt:
+        "Week 1 introduced the CIA triad as core security goals judged against a system. Week 4 introduces specific cryptographic tools that deliver those same goals plus two more. For a login system that (a) encrypts the password in transit, (b) hashes/MACs the stored password, and (c) signs a session token, map each of these three mechanisms to the security goal(s) from Week 4's expanded goal list it primarily serves, and explain why \"encrypted\" alone would not have been enough to secure the whole login flow.",
+      modelAnswer:
+        "(a) Encrypting the password in transit serves confidentiality — it keeps the credential secret from anyone observing the network. (b) Hashing/MACing the stored password serves integrity (and, since a MAC is keyed, some authentication) — it lets the system detect whether stored credential data has been tampered with, distinct from keeping it secret. (c) Signing the session token serves authentication and non-repudiation — the signature proves who issued the token and that the issuer can't later deny having done so. \"Encrypted\" alone would not be enough because, as the lecture stresses, encryption on its own only buys confidentiality — \"encryption doesn't mean authentication\" and integrity is at best a partial side-effect. Without (b) and (c), an attacker (or a flawed backend) could still tamper with stored data undetected or forge a session token, even though every message on the wire stayed unreadable — echoing Week 1's point that a system must be evaluated against all relevant CIA(+) goals, not just the one goal a single control happens to cover.",
     },
   ],
 };
