@@ -1,6 +1,6 @@
 import { test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { openDb, createProblem } from "./db";
+import { openDb, createProblem } from "./leetcode/db";
 import { localToday } from "./shared/scheduling";
 import { migrateLeetcode150 } from "./leetcode150-db";
 import { leetcode150ApiRoutes } from "./leetcode150-api";

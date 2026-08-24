@@ -1,6 +1,6 @@
 import index from "./index.html";
-import { openDb } from "./db";
-import { apiRoutes } from "./api";
+import { openDb } from "./leetcode/db";
+import { apiRoutes } from "./leetcode/api";
 import { migrateTodo } from "./todo-db";
 import { todoApiRoutes } from "./todo-api";
 import { migrateAnnouncements } from "./announcement-db";

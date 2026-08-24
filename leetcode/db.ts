@@ -6,7 +6,7 @@ import {
   addDays,
   MAX_DAILY_LEETCODE_REVIEWS,
   type ReviewResult,
-} from "./shared/scheduling";
+} from "../shared/scheduling";
 import { slugFromUrl } from "./leetcode";
 
 const DEFAULT_LANGUAGE = "java";

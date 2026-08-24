@@ -14,7 +14,7 @@ import {
   listCompletedToday,
   levelDueLeetcode,
 } from "./db";
-import { addDays } from "./shared/scheduling";
+import { addDays } from "../shared/scheduling";
 
 const TODAY = "2026-07-20";
 let db: Database;

@@ -1,7 +1,7 @@
 // home-api.test.ts
 import { test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { openDb, createProblem, reviewProblem } from "./db";
+import { openDb, createProblem, reviewProblem } from "./leetcode/db";
 import { migrateTodo, createTodo, toggleTodo } from "./todo-db";
 import { migrateExam, gradeExamAnswer, submitExamPaper } from "./exam-db";
 import { buildExamSchedule, weekStartDate, weekDueDate, listExamCourses, SEMESTER_START } from "./exam-content";

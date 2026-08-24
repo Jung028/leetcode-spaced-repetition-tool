@@ -1,9 +1,9 @@
 import { test, expect, beforeEach, afterEach } from "bun:test";
 import { openDb } from "./db";
 import { apiRoutes } from "./api";
-import { addDays, localToday } from "./shared/scheduling";
-import { migrateLeetcode150 } from "./leetcode150-db";
-import { LEETCODE_150, leetcode150Url } from "./leetcode150-content";
+import { addDays, localToday } from "../shared/scheduling";
+import { migrateLeetcode150 } from "../leetcode150-db";
+import { LEETCODE_150, leetcode150Url } from "../leetcode150-content";
 
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
