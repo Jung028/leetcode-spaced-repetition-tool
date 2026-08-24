@@ -2,7 +2,7 @@ import { test, expect, afterEach } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { findPendingWeeks, findWeekFolder } from "./exam-sync";
+import { findPendingWeeks, findWeekFolder } from "./sync";
 
 const tempDirs: string[] = [];
 

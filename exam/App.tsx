@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { ExamPaperView, ExamQuestionView, ExamHistoryWeek } from "./exam-api";
-import type { ExamWeekView } from "./exam-content";
-import type { JobStatus } from "./exam-generate";
-import { TIMELINE_URL, TIMELINE_ANCHORS } from "./shared/timeline-link";
+import type { ExamPaperView, ExamQuestionView, ExamHistoryWeek } from "./api";
+import type { ExamWeekView } from "./content";
+import type { JobStatus } from "./generate";
+import { TIMELINE_URL, TIMELINE_ANCHORS } from "../shared/timeline-link";
 import { MermaidDiagram } from "./MermaidDiagram";
 
 const EXCALIDRAW_URL = "https://excalidraw.com";

@@ -3,10 +3,10 @@ import { Database } from "bun:sqlite";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { migrateExam } from "./exam-db";
-import { examApiRoutes } from "./exam-api";
-import type { RunClaude, StartJobDeps } from "./exam-generate";
-import { localToday } from "./shared/scheduling";
+import { migrateExam } from "./db";
+import { examApiRoutes } from "./api";
+import type { RunClaude, StartJobDeps } from "./generate";
+import { localToday } from "../shared/scheduling";
 
 // INFO5990 is a real, known course (per exam-content/COURSES) with no
 // week-2 content authored yet — its *content* is real, but its folder

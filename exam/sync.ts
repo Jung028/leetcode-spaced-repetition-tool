@@ -5,8 +5,8 @@
 // docs/superpowers/specs/2026-08-06-exam-modules-sync-design.md.
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { scanWeekFolder } from "./scripts/generate-exam-week";
-import { buildExamSchedule } from "./exam-content";
+import { scanWeekFolder } from "../scripts/generate-exam-week";
+import { buildExamSchedule } from "./content";
 
 export const COURSE_DIRS: Record<string, string> = {
   INFO5995: "/Users/adam/Desktop/USYD/Semester 2 (Aug-Nov 2026)/INFO5995 Intro To Cybersecurity",

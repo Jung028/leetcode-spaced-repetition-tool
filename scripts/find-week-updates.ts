@@ -7,9 +7,9 @@
 // a material file no paper's sourceFiles lists yet.
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { COURSE_DIRS, findPendingWeeks, findWeekFolder } from "../exam-sync";
+import { COURSE_DIRS, findPendingWeeks, findWeekFolder } from "../exam/sync";
 import { scanWeekFolder } from "./generate-exam-week";
-import { buildExamSchedule } from "../exam-content";
+import { buildExamSchedule } from "../exam/content";
 import type { ExamPaperSeed } from "../exam-content/types";
 
 export interface NewWeek {

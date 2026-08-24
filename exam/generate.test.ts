@@ -14,7 +14,7 @@ import {
   transcribeWeekVideos,
   type RunClaude,
   type TranscribeFn,
-} from "./exam-generate";
+} from "./generate";
 
 const tempDirs: string[] = [];
 function makeTempDir(): string {
@@ -74,16 +74,16 @@ test("buildGeneratePrompt names the exact output file, source folder, and requir
   expect(prompt).toContain("/fake/Desktop/INFO5995/Week 3");
   expect(prompt).toContain("docs/exam-content-authoring-guide.md");
   expect(prompt).toContain("bun test");
-  expect(prompt).toContain("exam-content.ts");
+  expect(prompt).toContain("exam/content.ts");
 });
 
-test("buildUpdatePrompt names the existing file, forbids reordering existing questions, and forbids touching exam-content.ts", () => {
+test("buildUpdatePrompt names the existing file, forbids reordering existing questions, and forbids touching exam/content.ts", () => {
   const prompt = buildUpdatePrompt("INFO5995", 3, "/fake/Desktop/INFO5995/Week 3");
   expect(prompt).toContain("exam-content/info5995/week-3.ts");
   expect(prompt).toContain("/fake/Desktop/INFO5995/Week 3");
   expect(prompt).toContain("ALREADY-AUTHORED");
   expect(prompt).toContain("never reorder, delete");
-  expect(prompt).toContain("Do NOT touch exam-content.ts");
+  expect(prompt).toContain("Do NOT touch exam/content.ts");
   expect(prompt).toContain("bun test");
 });
 

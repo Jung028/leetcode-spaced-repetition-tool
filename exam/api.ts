@@ -13,7 +13,7 @@ import {
   listExamAttemptHistory,
   type ExamPaperRow,
   type ExamAttemptSummary,
-} from "./exam-db";
+} from "./db";
 import {
   buildExamSchedule,
   listExamCourses,
@@ -22,11 +22,11 @@ import {
   groupExamPapersByWeek,
   type ExamWeekView,
   type ExamWeekPaperSummary,
-} from "./exam-content";
-import { findPendingWeeks } from "./exam-sync";
-import { resolveWeekDir, startGenerateJob, readJobStatus, defaultGenerateDeps, type StartJobDeps } from "./exam-generate";
-import type { ExamQuestionType } from "./exam-content/types";
-import { localToday } from "./shared/scheduling";
+} from "./content";
+import { findPendingWeeks } from "./sync";
+import { resolveWeekDir, startGenerateJob, readJobStatus, defaultGenerateDeps, type StartJobDeps } from "./generate";
+import type { ExamQuestionType } from "../exam-content/types";
+import { localToday } from "../shared/scheduling";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 

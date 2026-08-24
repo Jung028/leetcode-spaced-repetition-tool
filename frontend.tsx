@@ -5,7 +5,7 @@ import type { ProblemSummary, ProblemDetail } from "./leetcode/db";
 import { highlightCode } from "./leetcode/highlight";
 import TodoApp from "./todo/App";
 import HomeApp from "./HomeApp";
-import ExamApp from "./ExamApp";
+import ExamApp from "./exam/App";
 import "./index.css";
 
 type View =

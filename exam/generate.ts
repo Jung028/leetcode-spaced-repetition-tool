@@ -6,13 +6,13 @@
 // Job status lives entirely on disk (.exam-generate/<course>-<week>/), not
 // in a JS variable: bun --hot reloads the module graph on any file save,
 // and this job's whole purpose is to write files (the week's content,
-// exam-content.ts) while it runs — an in-memory Map would risk getting
+// exam/content.ts) while it runs — an in-memory Map would risk getting
 // wiped mid-job by the very save it triggers.
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join, dirname, basename, extname } from "node:path";
-import { COURSE_DIRS, findWeekFolder } from "./exam-sync";
-import { scanWeekFolder } from "./scripts/generate-exam-week";
-import { transcribeVideo, DEFAULT_MODEL as DEFAULT_WHISPER_MODEL } from "./scripts/transcribe-lecture";
+import { COURSE_DIRS, findWeekFolder } from "./sync";
+import { scanWeekFolder } from "../scripts/generate-exam-week";
+import { transcribeVideo, DEFAULT_MODEL as DEFAULT_WHISPER_MODEL } from "../scripts/transcribe-lecture";
 
 export interface JobStatus {
   state: "idle" | "running" | "done" | "failed";
@@ -83,7 +83,7 @@ export function buildGeneratePrompt(course: string, week: number, weekDir: strin
 
 Read the real material in "${weekDir}", including any "*.transcript.md" file — that's an auto-generated transcript of a lecture/tutorial recording (the video itself is transcribed automatically before this step and can't be opened directly, so the transcript is how its content reaches you). Per the authoring guide, use the transcript specifically to catch what the slides alone wouldn't — verbal asides, emphasis, examples worked through out loud, in-class questions — not just a prose re-read of the slide content. Read exam-content/${courseLower}/unit_outline.md and exam-content/${courseLower}/assessment_overview.md if they exist, for the unit's learning outcomes and final-exam format. Skim exam-content/${courseLower}/week-${week - 1}.ts if it exists, for continuity with the prior week.
 
-Write two separate papers matching exam-content/types.ts's ExamPaperSeed/ExamQuestionSeed shape, exported together as WEEK_${week}_PAPERS: paperNumber 1 is a tutorial-only paper (questions written only from the week's tutorial material — worksheets, tutorial slides, in-class exercises), and paperNumber 2 is a lecture-only paper (questions written only from the week's lecture material). List the tutorial paper first — it's the one to practice first. Roughly 20-25 questions per paper. If this week genuinely has no separate tutorial material, a single lecture-only paperNumber-1 paper is fine. Then wire it into exam-content.ts: add the import and append it to the ALL_PAPERS array, exactly the way every prior week is already wired in there.
+Write two separate papers matching exam-content/types.ts's ExamPaperSeed/ExamQuestionSeed shape, exported together as WEEK_${week}_PAPERS: paperNumber 1 is a tutorial-only paper (questions written only from the week's tutorial material — worksheets, tutorial slides, in-class exercises), and paperNumber 2 is a lecture-only paper (questions written only from the week's lecture material). List the tutorial paper first — it's the one to practice first. Roughly 20-25 questions per paper. If this week genuinely has no separate tutorial material, a single lecture-only paperNumber-1 paper is fine. Then wire it into exam/content.ts: add the import and append it to the ALL_PAPERS array, exactly the way every prior week is already wired in there.
 
 Finally, run \`bun test\` and fix any failures until the full suite passes with no failures — including fixing any existing test elsewhere in the repo that turns out to hardcode an assumption your new week's content invalidates (for example, a test assuming a specific course still has only one week of content).
 
@@ -104,7 +104,7 @@ Never create a new paperNumber, under any circumstances — only route into a pa
 
 Add the new material's filename(s) to that paper's sourceFiles array (relative to "${weekDir}") so provenance stays accurate.
 
-Do NOT touch exam-content.ts — this week is already imported and wired into ALL_PAPERS there.
+Do NOT touch exam/content.ts — this week is already imported and wired into ALL_PAPERS there.
 
 Finally, run \`bun test\` and fix any failures until the full suite passes with no failures.
 
@@ -184,7 +184,7 @@ const startingJobs = new Set<string>();
 // Scans deps.root for any *other* job directory whose status is "running"
 // (staleness-aware, via withStaleness) — the disk-based half of the global
 // concurrency lock. Two different-week jobs would otherwise both be able to
-// edit the shared exam-content.ts file at once and corrupt it.
+// edit the shared exam/content.ts file at once and corrupt it.
 async function anyOtherJobRunning(root: string, excludeKey: string): Promise<boolean> {
   if (!existsSync(root)) return false;
   const entries = readdirSync(root, { withFileTypes: true });
@@ -207,7 +207,7 @@ export async function startGenerateJob(
   const key = `${course}-${week}`;
   // Global, not per-key: only one generation job may be in-flight across the
   // whole app at a time, since every job edits the same shared
-  // exam-content.ts file.
+  // exam/content.ts file.
   if (startingJobs.size > 0) return { ok: false, reason: "another generation is already running" };
   startingJobs.add(key);
 

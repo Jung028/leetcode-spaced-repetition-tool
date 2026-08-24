@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import { buildExamSchedule } from "./exam-content";
+import { buildExamSchedule } from "./content";
 
 export interface ExamPaperRow {
   course: string;

@@ -7,7 +7,7 @@ import {
   weekStartDate,
   weekDueDate,
   groupExamPapersByWeek,
-} from "./exam-content";
+} from "./content";
 
 test("weekStartDate/weekDueDate compute the Monday/Sunday of the given week", () => {
   expect(weekStartDate(1)).toBe(SEMESTER_START); // 2026-08-03, a Monday

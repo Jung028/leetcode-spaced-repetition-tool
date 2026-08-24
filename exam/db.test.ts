@@ -12,9 +12,9 @@ import {
   retakeExamPaper,
   retakeWrongOnlyExamPaper,
   listExamAttemptHistory,
-} from "./exam-db";
-import { buildExamSchedule } from "./exam-content";
-import { addDays } from "./shared/scheduling";
+} from "./db";
+import { buildExamSchedule } from "./content";
+import { addDays } from "../shared/scheduling";
 
 const TODAY = "2026-08-05"; // a Wednesday in Week 1 (2026-08-03..2026-08-09)
 const COURSE = "INFO5995";
