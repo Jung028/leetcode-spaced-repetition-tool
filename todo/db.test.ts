@@ -9,7 +9,7 @@ import {
   listTodosCompletedToday,
   toggleTodo,
   deleteTodo,
-} from "./todo-db";
+} from "./db";
 
 const TODAY = "2026-08-16";
 let db: Database;

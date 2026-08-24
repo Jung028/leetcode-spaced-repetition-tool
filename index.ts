@@ -1,8 +1,8 @@
 import index from "./index.html";
 import { openDb } from "./leetcode/db";
 import { apiRoutes } from "./leetcode/api";
-import { migrateTodo } from "./todo-db";
-import { todoApiRoutes } from "./todo-api";
+import { migrateTodo } from "./todo/db";
+import { todoApiRoutes } from "./todo/api";
 import { migrateAnnouncements } from "./announcement-db";
 import { announcementApiRoutes } from "./announcement-api";
 import { migrateExam } from "./exam-db";

@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { LADDER, isDue, localToday } from "./shared/scheduling";
 import type { ProblemSummary, ProblemDetail } from "./leetcode/db";
 import { highlightCode } from "./leetcode/highlight";
-import TodoApp from "./TodoApp";
+import TodoApp from "./todo/App";
 import HomeApp from "./HomeApp";
 import ExamApp from "./ExamApp";
 import "./index.css";

@@ -7,8 +7,8 @@ import {
   countTodosCompletedToday,
   listTodosCompletedToday,
   toggleTodo,
-} from "./todo-db";
-import { localToday } from "./shared/scheduling";
+} from "./db";
+import { localToday } from "../shared/scheduling";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 

@@ -1,8 +1,8 @@
 import { test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { migrateTodo } from "./todo-db";
-import { todoApiRoutes } from "./todo-api";
-import { localToday } from "./shared/scheduling";
+import { migrateTodo } from "./db";
+import { todoApiRoutes } from "./api";
+import { localToday } from "../shared/scheduling";
 
 const TODAY = localToday();
 let db: Database;

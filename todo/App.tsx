@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import type { Todo } from "./todo-db";
-import { localToday } from "./shared/scheduling";
+import type { Todo } from "./db";
+import { localToday } from "../shared/scheduling";
 
 interface Stats {
   dueCount: number;
