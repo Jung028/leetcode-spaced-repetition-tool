@@ -4,9 +4,9 @@ import { listProblems, countReviewsToday, listCompletedToday, levelDueLeetcode }
 import { listDueTodos, countTodosCompletedToday, listTodosCompletedToday } from "./todo-db";
 import { listExamPaperRows, countExamPapersSubmittedToday, listExamPapersSubmittedToday } from "./exam-db";
 import { buildExamSchedule, listExamCourses, COURSES, weekStartDate, groupExamPapersByWeek } from "./exam-content";
-import { getCurrentLeetcode150, leetcode150CompletedCredit } from "./leetcode150-db";
-import type { CurrentLeetcode150 } from "./leetcode150-db";
-import { leetcode150Url } from "./leetcode150-content";
+import { getCurrentLeetcode150, leetcode150CompletedCredit } from "./leetcode150/db";
+import type { CurrentLeetcode150 } from "./leetcode150/db";
+import { leetcode150Url } from "./leetcode150/content";
 import { isDue, localToday, overdueDays } from "./shared/scheduling";
 
 export type DueSource = "leetcode" | "todo" | "exam";

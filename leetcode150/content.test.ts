@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { LEETCODE_150, slugify, leetcode150Url } from "./leetcode150-content";
+import { LEETCODE_150, slugify, leetcode150Url } from "./content";
 
 test("LEETCODE_150 has exactly 150 entries in official order", () => {
   expect(LEETCODE_150.length).toBe(150);

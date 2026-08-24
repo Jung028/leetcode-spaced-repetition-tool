@@ -1,9 +1,9 @@
 import type { Database } from "bun:sqlite";
-import { listProblems, listCompletedToday } from "./leetcode/db";
-import { slugFromUrl } from "./leetcode/leetcode";
-import { LEETCODE_150, leetcode150Url, slugify } from "./leetcode150-content";
-import type { Leetcode150Item } from "./leetcode150-content";
-import { addDays } from "./shared/scheduling";
+import { listProblems, listCompletedToday } from "../leetcode/db";
+import { slugFromUrl } from "../leetcode/leetcode";
+import { LEETCODE_150, leetcode150Url, slugify } from "./content";
+import type { Leetcode150Item } from "./content";
+import { addDays } from "../shared/scheduling";
 
 const SEED_COMPLETED_COUNT = 29;
 

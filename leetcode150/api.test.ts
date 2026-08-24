@@ -1,10 +1,10 @@
 import { test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { openDb, createProblem } from "./leetcode/db";
-import { localToday } from "./shared/scheduling";
-import { migrateLeetcode150 } from "./leetcode150-db";
-import { leetcode150ApiRoutes } from "./leetcode150-api";
-import { LEETCODE_150, leetcode150Url } from "./leetcode150-content";
+import { openDb, createProblem } from "../leetcode/db";
+import { localToday } from "../shared/scheduling";
+import { migrateLeetcode150 } from "./db";
+import { leetcode150ApiRoutes } from "./api";
+import { LEETCODE_150, leetcode150Url } from "./content";
 
 let db: Database;
 let server: ReturnType<typeof Bun.serve>;

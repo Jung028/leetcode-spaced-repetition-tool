@@ -5,8 +5,8 @@ import { openDb, createProblem, reviewProblem } from "./leetcode/db";
 import { migrateTodo, createTodo, toggleTodo } from "./todo-db";
 import { migrateExam, gradeExamAnswer, submitExamPaper } from "./exam-db";
 import { buildExamSchedule, weekStartDate, weekDueDate, listExamCourses, SEMESTER_START } from "./exam-content";
-import { migrateLeetcode150 } from "./leetcode150-db";
-import { LEETCODE_150, leetcode150Url } from "./leetcode150-content";
+import { migrateLeetcode150 } from "./leetcode150/db";
+import { LEETCODE_150, leetcode150Url } from "./leetcode150/content";
 import { homeApiRoutes } from "./home-api";
 import { localToday, addDays } from "./shared/scheduling";
 

@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
-import { getCurrentLeetcode150 } from "./leetcode150-db";
-import { leetcode150Url } from "./leetcode150-content";
-import { localToday, overdueDays } from "./shared/scheduling";
+import { getCurrentLeetcode150 } from "./db";
+import { leetcode150Url } from "./content";
+import { localToday, overdueDays } from "../shared/scheduling";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 

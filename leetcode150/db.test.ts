@@ -1,8 +1,8 @@
 import { test, expect } from "bun:test";
-import { openDb, createProblem, reviewProblem } from "./leetcode/db";
-import { addDays, localToday } from "./shared/scheduling";
-import { migrateLeetcode150, getCurrentLeetcode150, leetcode150CompletedCredit } from "./leetcode150-db";
-import { LEETCODE_150, leetcode150Url, slugify } from "./leetcode150-content";
+import { openDb, createProblem, reviewProblem } from "../leetcode/db";
+import { addDays, localToday } from "../shared/scheduling";
+import { migrateLeetcode150, getCurrentLeetcode150, leetcode150CompletedCredit } from "./db";
+import { LEETCODE_150, leetcode150Url, slugify } from "./content";
 
 test("fresh db seeds completed_count at 29, so position 30 is current", () => {
   const db = openDb(":memory:");

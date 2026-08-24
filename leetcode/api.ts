@@ -12,7 +12,7 @@ import {
   type ProblemInput,
 } from "./db";
 import { localToday } from "../shared/scheduling";
-import { getCurrentLeetcode150, leetcode150CompletedCredit } from "../leetcode150-db";
+import { getCurrentLeetcode150, leetcode150CompletedCredit } from "../leetcode150/db";
 
 const json = (data: unknown, status = 200) =>
   Response.json(data, { status });

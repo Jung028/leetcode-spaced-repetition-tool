@@ -8,8 +8,8 @@ import { announcementApiRoutes } from "./announcement-api";
 import { migrateExam } from "./exam-db";
 import { examApiRoutes } from "./exam-api";
 import { homeApiRoutes } from "./home-api";
-import { migrateLeetcode150 } from "./leetcode150-db";
-import { leetcode150ApiRoutes } from "./leetcode150-api";
+import { migrateLeetcode150 } from "./leetcode150/db";
+import { leetcode150ApiRoutes } from "./leetcode150/api";
 import { localToday } from "./shared/scheduling";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
