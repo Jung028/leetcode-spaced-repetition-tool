@@ -12,7 +12,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Which of the following best describes why \"a perfectly closed castle is secure but useless\"?",
-        options: ["Closed systems are more expensive to build", "Systems must allow access for people, information, and business to function, and that access is what creates risk", "Attackers always find a way in eventually", "Castles are an outdated security metaphor with no modern relevance"],
+        options: ["Closed systems cost far more to build, since blocking every entry point needs specialised, custom-built hardware", "Systems must allow access for people, information, and business to function, and that access is what creates risk", "Attackers always find a way in eventually, regardless of how many layers of defence are placed in front of them", "Castle-style perimeters are outdated because modern networks have no physical walls or moats left to defend"],
         correctIndex: 1,
         modelAnswer: "A closed system has no doors, so nothing valuable can be used; the moment access is added for legitimate use, risk is introduced too.",
       },
@@ -96,7 +96,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "In the Bybit case, what was the root cause that allowed attackers to steal ~$1.4 billion?",
-        options: ["A weak password on the cold wallet", "A DDoS attack that overwhelmed Bybit's servers", "Staff approved a transaction based on a fake/manipulated UI screen without independent verification by the cold wallet system", "An expired TLS certificate"],
+        options: ["A weak, reused administrator password that let attackers log directly into the cold wallet's signing infrastructure", "A DDoS attack that overwhelmed Bybit's servers and forced staff to approve pending transfers under time pressure", "Staff approved a transaction based on a fake/manipulated UI screen without independent verification by the cold wallet system", "An expired TLS certificate that let attackers intercept and quietly rewrite transaction data in transit"],
         correctIndex: 2,
         modelAnswer: "Attackers presented a manipulated approval screen; staff approved via the UI without independent verification, and the cold wallet signed without re-checking what was actually being signed.",
       },
@@ -219,7 +219,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "In the Bybit case, which of the following is the most accurate root-cause description?",
-        options: ["A brute-force password attack on the cold wallet", "A DDoS attack overwhelming Bybit's infrastructure", "Staff approved a transaction based on a manipulated UI without independent verification", "A supply-chain compromise of Bybit's cloud provider"],
+        options: ["A brute-force password attack that bypassed multi-factor authentication on the cold wallet's admin account", "A DDoS attack overwhelming Bybit's infrastructure until staff bypassed the normal approval checks", "Staff approved a transaction based on a manipulated UI without independent verification", "A supply-chain compromise of Bybit's cloud provider that injected malicious code into the approval tool"],
         correctIndex: 2,
         modelAnswer: "The root cause was a process/human failure: staff trusted what the approval UI displayed instead of independently verifying the actual transaction being signed.",
       },
@@ -251,7 +251,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "A bank adds a second, independent device that must physically confirm a large wire transfer before it executes, even though the initiating computer has already approved it. This most directly demonstrates:",
-        options: ["The castle model", "Defence-in-depth via an independent verification layer", "Non-repudiation", "A trust assumption"],
+        options: ["The castle model's single strong outer perimeter approach", "Defence-in-depth via an independent verification layer", "Non-repudiation of who initiated the transfer", "A trust assumption about the initiating computer's security"],
         correctIndex: 1,
         modelAnswer: "An independent, out-of-band confirmation step is exactly the kind of extra layer defence-in-depth adds — it doesn't rely on the same system/UI that could itself be compromised or manipulated.",
       },
@@ -300,7 +300,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Which of these is the best description of why the Bybit incident is described as a failure of both technology and people?",
-        options: ["The cryptography used was mathematically broken", "Staff trusted a manipulated UI and approved a transaction without independently verifying what was actually being signed", "Bybit had no firewall at all", "The attackers exploited an expired SSL certificate"],
+        options: ["The cryptography used to sign cold wallet transactions was mathematically broken, letting attackers forge valid signatures", "Staff trusted a manipulated UI and approved a transaction without independently verifying what was actually being signed", "Bybit had no firewall at all in front of its internal network, leaving every service exposed directly to the internet", "The attackers exploited an expired SSL certificate to intercept and silently alter transaction data as it was signed"],
         correctIndex: 1,
         modelAnswer: "The technology (cold wallet cryptography) worked as designed; the failure was a human/process one — trusting a display without independent verification — which is exactly why the lecture frames it as both a technical and human failure.",
       },

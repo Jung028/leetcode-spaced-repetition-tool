@@ -28,9 +28,9 @@ const TUTORIAL_PAPER: ExamPaperSeed = {
       prompt:
         "Which pair of Week 3 concepts would most directly help the HR System project manager push back on the client's mid-project feature requests without simply refusing them outright?",
       options: [
-        "Fast tracking and crashing",
-        "Analogous estimating and Gantt charting",
-        "Mandatory and discretionary dependency mapping",
+        "Fast tracking and crashing, techniques used to compress the schedule by overlapping activities or adding resources",
+        "Analogous estimating and Gantt charting, used to derive a rough duration estimate and visualize the resulting timeline",
+        "Mandatory and discretionary dependency mapping, used to sequence activities based on hard logic versus preferred ordering",
         "A formal Change Control Process and a clear Scope Statement defining inclusions/exclusions",
       ],
       correctIndex: 3,
@@ -110,10 +110,10 @@ const TUTORIAL_PAPER: ExamPaperSeed = {
       prompt:
         "Per the tutorial's Part E instructions, what repository naming convention must each group use for its GitHub project repository?",
       options: [
-        "\"INFO6007-GroupYY\"",
+        "\"INFO6007-GroupYY\", where YY is just the group number with no reference to the tutorial number at all",
         "\"INFO6007 TXX-GYY\", where XX is your tutorial number and YY is your group number",
-        "\"Tutorial-XX-Team-YY\"",
-        "The group members' unikeys concatenated",
+        "\"Tutorial-XX-Team-YY\", using the word Team instead of Group and hyphens instead of a space before the tutorial code",
+        "The group members' unikeys concatenated in alphabetical order, with no course code or tutorial number included",
       ],
       correctIndex: 1,
       modelAnswer:
@@ -176,9 +176,9 @@ const TUTORIAL_PAPER: ExamPaperSeed = {
         "If the HR System client's mobile app request (from Part A) is formally approved via Change Control, which additional Week 3 process would the PM need to re-run to reflect the added scope in the schedule?",
       options: [
         "Sequence Activities and Develop Schedule, since new activities and dependencies must be added",
-        "Validate Scope only",
-        "Control Costs only, since scope changes only affect budget",
-        "Nothing — approved scope changes don't affect the schedule baseline",
+        "Validate Scope only, since the change has already been formally approved and simply needs sign-off",
+        "Control Costs only, since scope changes only affect the budget baseline, not the schedule itself",
+        "Nothing — approved scope changes don't affect the schedule baseline once Change Control has signed off",
       ],
       correctIndex: 0,
       modelAnswer:
@@ -189,10 +189,10 @@ const TUTORIAL_PAPER: ExamPaperSeed = {
       prompt:
         "The tutorial's Part A scenario doesn't specify a formal process for the multilingual support request — the client asks informally 'halfway through.' Per Week 3, why does this matter for scope control?",
       options: [
-        "It doesn't matter — all client requests must be implemented immediately",
-        "Only requests submitted in writing by the sponsor count as scope",
+        "It doesn't matter — all client requests must be implemented immediately regardless of budget or schedule impact",
+        "Only requests submitted in writing by the sponsor count as scope, so a verbal or informal client ask can simply be ignored",
         "Informal requests bypass Validate Scope and the Change Control Process, so nothing has been checked against the Scope Statement or formally costed",
-        "Informal requests are automatically rejected under PMI rules",
+        "Informal requests are automatically rejected under PMI rules unless resubmitted through a formal written change request form",
       ],
       correctIndex: 2,
       modelAnswer:
@@ -226,9 +226,9 @@ const TUTORIAL_PAPER: ExamPaperSeed = {
       prompt:
         "Per Part D, if a student is not yet in a group by the tutorial deadline, what does the tutorial instruct them to do?",
       options: [
-        "Email the unit coordinator directly to be manually assigned",
-        "Wait until Week 6 when stand-ups begin",
-        "Form a group of one and complete the assignment solo",
+        "Email the unit coordinator directly to be manually assigned to whichever group currently has the fewest members",
+        "Wait until Week 6 when stand-ups begin, since groups are automatically finalized by the system before then",
+        "Form a group of one and complete the assignment solo, submitting individually instead of as part of a team",
         "Speak to their tutor, who will help match them into a suitable group within the tutorial where possible",
       ],
       correctIndex: 3,
@@ -257,9 +257,9 @@ const LECTURE_PAPER: ExamPaperSeed = {
       prompt: "What is the formal definition of Project Cost Management given in the lecture?",
       options: [
         "The processes involved in planning, estimating, budgeting, financing, funding, managing, and controlling costs so that the project can be completed within the approved budget",
-        "The processes for negotiating vendor contracts and procurement",
-        "The process of tracking billable hours for stakeholders",
-        "The process of forecasting revenue from the completed product",
+        "The processes for negotiating vendor contracts and procurement, including supplier selection, tendering, and the drafting and signing of purchase agreements",
+        "The process of tracking billable hours for stakeholders across each phase of the project so they can be invoiced accurately at completion",
+        "The process of forecasting revenue from the completed product once it has shipped, based on projected market uptake and pricing strategy",
       ],
       correctIndex: 0,
       modelAnswer:
@@ -269,10 +269,10 @@ const LECTURE_PAPER: ExamPaperSeed = {
       type: "mcq",
       prompt: "Which statement correctly distinguishes sunk costs from indirect costs, per the lecture?",
       options: [
-        "Sunk costs are tangible while indirect costs are intangible",
+        "Sunk costs are tangible costs like hardware and staff salaries, while indirect costs are always intangible costs such as reputation damage or team morale impacts, per the lecture's classification table",
         "Sunk costs are money already spent in the past that is not included when deciding what to invest in going forward, whereas indirect costs are ongoing costs not directly tied to producing project deliverables",
-        "Sunk costs are always higher in dollar value than indirect costs",
-        "Sunk costs are the same as contingency reserves",
+        "Sunk costs are always higher in dollar value than indirect costs, since sunk costs accumulate across the entire life of the project before work even formally begins",
+        "Sunk costs are the same as contingency reserves, since both represent money set aside from earlier budgeting decisions that can no longer be reallocated once spent",
       ],
       correctIndex: 1,
       modelAnswer:
@@ -282,10 +282,10 @@ const LECTURE_PAPER: ExamPaperSeed = {
       type: "mcq",
       prompt: "Which statement correctly distinguishes contingency reserves from management reserves?",
       options: [
-        "Contingency reserves are set by the sponsor while management reserves are set by the project manager",
-        "Management reserves are always larger than contingency reserves",
+        "Contingency reserves are set by the sponsor while management reserves are set by the project manager, with each party controlling access to their own reserve independently",
+        "Management reserves are always larger than contingency reserves, since they must cover every unpredictable risk across the entire portfolio of projects the organization runs",
         "Contingency reserves cover future situations that may be partially planned for and sit inside the project cost baseline, while management reserves cover unpredictable situations and sit outside the baseline",
-        "Contingency reserves cover unpredictable risks while management reserves cover known risks",
+        "Contingency reserves cover unpredictable risks while management reserves cover known risks that have already been identified and formally logged in the risk register",
       ],
       correctIndex: 2,
       modelAnswer:
@@ -384,9 +384,9 @@ const LECTURE_PAPER: ExamPaperSeed = {
         "Per the lecture's comparison table, why is EVM harder to apply reliably in Agile projects than in traditional (Waterfall) ones?",
       options: [
         "Changing scope makes Planned Value unstable, and story points/features aren't directly measurable in dollars",
-        "Agile projects never track cost at all",
-        "Agile teams refuse to report progress to Finance",
-        "Agile projects always cost more than Waterfall projects",
+        "Agile projects never track cost at all, since sprints are estimated purely in story points with no dollar figures attached anywhere",
+        "Agile teams refuse to report progress to Finance, treating sprint reviews as an internal team matter with no external visibility",
+        "Agile projects always cost more than Waterfall projects, because frequent reprioritisation requires paying for extra planning meetings",
       ],
       correctIndex: 0,
       modelAnswer:
@@ -404,10 +404,10 @@ const LECTURE_PAPER: ExamPaperSeed = {
       prompt:
         "Which of the following is one of the lecture's listed 'Adaptations' for applying EVM concepts in an Agile context?",
       options: [
-        "Abandon all cost tracking and rely purely on the Product Owner's judgement",
+        "Abandon all cost tracking and rely purely on the Product Owner's judgement to decide whether the sprint is within budget",
         "Track Earned Business Value (EBV) instead of only cost efficiency, and recalculate EAC at the end of each iteration using rolling forecasts",
-        "Convert all story points into fixed dollar amounts before the project starts",
-        "Apply the PERT formula to every user story",
+        "Convert all story points into fixed dollar amounts before the project starts, then never revisit that conversion again",
+        "Apply the PERT formula to every user story at the start of each sprint to derive its optimistic, likely, and pessimistic cost",
       ],
       correctIndex: 1,
       modelAnswer:
@@ -432,9 +432,9 @@ const LECTURE_PAPER: ExamPaperSeed = {
       prompt:
         "Per Reading 1, what is created at the intersection of a project's Work Breakdown Structure (WBS) and its Organization Breakdown Structure (OBS)?",
       options: [
-        "The cost baseline",
-        "The contract budget base",
-        "The performance measurement baseline",
+        "The cost baseline, the approved time-phased budget used to measure and monitor cost performance throughout the project",
+        "The contract budget base, the total value of the contract including the negotiated profit or fee on top of costs",
+        "The performance measurement baseline, the integrated scope-schedule-cost plan against which execution is later tracked",
         "A control account, the key management control point where a Control Account Manager (CAM) owns scope, schedule, and budget",
       ],
       correctIndex: 3,
@@ -467,10 +467,10 @@ const LECTURE_PAPER: ExamPaperSeed = {
       prompt:
         "Per Reading 2, which single metric does Finance at Curaspan treat as more important than ROI when assessing engineering performance?",
       options: [
-        "Cost Performance Index (CPI)",
+        "Cost Performance Index (CPI), the standard ratio of earned value to actual cost tracked in most EVM systems",
         "Velocity — whether the company can sustainably develop and release new functionality at a fast rate",
-        "Schedule Performance Index (SPI)",
-        "Function point count",
+        "Schedule Performance Index (SPI), the standard ratio of earned value to planned value used to gauge pace",
+        "Function point count, a size-based measure derived from the number and complexity of a system's inputs and outputs",
       ],
       correctIndex: 1,
       modelAnswer:
@@ -509,9 +509,9 @@ const LECTURE_PAPER: ExamPaperSeed = {
       prompt:
         "Per the lecture's 'main components of a Project Budget,' which of these would the online student portal's LMS integration work and staff training most naturally fall under?",
       options: [
-        "Indirect Costs — overhead unrelated to the specific deliverables",
-        "Management Reserves — set aside for unknown risks",
-        "Sunk Costs — since planning happened before the budget was approved",
+        "Indirect Costs — overhead unrelated to the specific deliverables, such as general administration or facilities upkeep",
+        "Management Reserves — set aside for unknown risks that haven't been identified or planned for anywhere in the WBS",
+        "Sunk Costs — since planning happened before the budget was approved and so no longer factors into go-forward decisions",
         "Direct Costs — the salaries, software, and vendor fees needed to build and deliver those specific deliverables",
       ],
       correctIndex: 3,

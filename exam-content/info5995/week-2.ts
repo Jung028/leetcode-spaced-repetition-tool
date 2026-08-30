@@ -12,8 +12,8 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Why does Week 2 introduce AI into the cybersecurity workflow at all?",
-        options: ["AI replaces the need for any human review", "Modern software is too large to inspect manually, line by line, so AI can help search, explain, and suggest where to look", "AI eliminates all false positives in vulnerability scanning", "AI is a legal requirement for security audits"],
-        correctIndex: 1,
+        options: ["AI replaces the need for any human review, since a model's output can be trusted as a final verdict on its own", "AI eliminates all false positives in vulnerability scanning, so every reported issue is guaranteed to be genuine", "Modern software is too large to inspect manually, line by line, so AI can help search, explain, and suggest where to look", "AI is a legal requirement for security audits under most industry compliance frameworks and regulatory standards"],
+        correctIndex: 2,
         modelAnswer: "\"Modern software is too large to inspect manually, line by line\" — large systems and human limits mean important weaknesses can be missed, and AI can help search, explain, and suggest where to look.",
       },
       {
@@ -33,15 +33,15 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Besides the current prompt, what else can shape an LLM's response, according to Week 2?",
-        options: ["Only the model's fixed pretraining weights", "Earlier prompts and responses already in the conversation — the conversation context", "The time of day the request is sent", "The length of the user's account password"],
-        correctIndex: 1,
+        options: ["Only the model's fixed pretraining weights, which never change once training has finished", "The time of day the request is sent, since usage patterns vary between morning and evening traffic", "The length of the user's account password, which the model can inspect before generating a reply", "Earlier prompts and responses already in the conversation — the conversation context"],
+        correctIndex: 3,
         modelAnswer: "\"Each new response can be influenced by the earlier prompts and responses in the conversation\" — earlier messages provide context that shapes what comes next.",
       },
       {
         type: "mcq",
         prompt: "What role does a system prompt play?",
-        options: ["It's simply the user's first message", "It sets the model's instructions, role, and behavioural boundaries before the user interacts with it", "It's a stored log of past conversations", "It permanently disables the model's safety filters"],
-        correctIndex: 1,
+        options: ["It sets the model's instructions, role, and behavioural boundaries before the user interacts with it", "It's simply the user's first message, which the model treats the same as every later turn in the chat", "It's a stored log of past conversations that the model consults only when explicitly asked to recall history", "It permanently disables the model's safety filters for the remainder of the conversation"],
+        correctIndex: 0,
         modelAnswer: "\"A system prompt sets the model's instructions, role and behavioural boundaries before the user interacts with it.\"",
       },
       {
@@ -64,29 +64,29 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "In the Week 2 \"Pause. Think. Predict.\" exercise, a plain Python coding task is presented alongside an obscure-language task, machine-code decompilation, and finding vulnerabilities in crypto/consensus proofs. Based on how the following slides describe each of these as progressively \"harder,\" \"much harder,\" and \"the hardest,\" which task is implied to be the comparative baseline an LLM handles best?",
-        options: ["The Python coding task", "The obscure-language task with no syntax provided", "Decompiling machine code back into high-level code", "Finding vulnerabilities in cryptographic/consensus proofs"],
+        options: ["The plain Python coding task, since it's a mainstream, well-documented language", "The obscure-language task with no syntax provided", "Decompiling machine code back into high-level code", "Finding vulnerabilities in cryptographic/consensus proofs"],
         correctIndex: 0,
         modelAnswer: "The lecture never ranks Python explicitly, but each of the other three is explicitly flagged as harder relative to ordinary coding tasks (obscure syntax needs extra grammar hints and risks hallucinated structure; decompilation is \"much harder\"; crypto/consensus proofs are \"the hardest type of security questions\"), implying a mainstream, well-documented language like Python is the easiest baseline.",
       },
       {
         type: "mcq",
         prompt: "Why does an LLM struggle with an obscure programming language when its syntax is not provided?",
-        options: ["Obscure languages cannot be tokenized by any LLM", "The model must first guess token boundaries, keywords, structure and grammar, and may hallucinate structure borrowed from familiar languages like C, Python, or Java", "The model always refuses to attempt unfamiliar languages", "Obscure languages have no compilers, so the task is impossible"],
-        correctIndex: 1,
+        options: ["Obscure languages cannot be tokenized by any LLM, since tokenizers are hard-coded per language and only support a fixed list of popular ones", "The model always refuses to attempt unfamiliar languages, treating any unrecognised syntax as an explicit request it is not permitted to fulfill", "The model must first guess token boundaries, keywords, structure and grammar, and may hallucinate structure borrowed from familiar languages like C, Python, or Java", "Obscure languages have no compilers, so the task is impossible regardless of how much syntax or grammar information is supplied to the model"],
+        correctIndex: 2,
         modelAnswer: "Without provided syntax the model must guess whether the language is functional or object-oriented, what a function declaration looks like, and how variables are defined — \"It may hallucinate structure from other languages. It will often default to something that looks like C, Python, or Java style.\"",
       },
       {
         type: "mcq",
         prompt: "Why is decompiling machine code back into high-level code described as \"much harder\" for an LLM than typical coding tasks?",
-        options: ["Machine code has more natural-language signal than source code", "There is less natural-language signal, less structured high-level pattern, fewer clean paired examples, and decompilation requires reasoning about semantics, not just syntax", "Machine code is always encrypted before it reaches the model", "Decompilation is already a fully solved problem with perfect tools"],
-        correctIndex: 1,
+        options: ["Machine code has more natural-language signal than source code, since raw instruction bytes map cleanly onto familiar English-like keywords", "Machine code is always encrypted before it reaches the model, so no static or dynamic tool can inspect its structure without decrypting it first", "Decompilation is already a fully solved problem with perfect tools that always recover the exact original source, regardless of compiler optimisations", "There is less natural-language signal, less structured high-level pattern, fewer clean paired examples, and decompilation requires reasoning about semantics, not just syntax"],
+        correctIndex: 3,
         modelAnswer: "\"Less natural language signal / Less structured high level patterns / Fewer clean paired examples / Machine code is low level and ambiguous\" — and \"decompilation requires reasoning about semantics, not just syntax.\"",
       },
       {
         type: "mcq",
         prompt: "Why does Week 2 call finding vulnerabilities in cryptographic/consensus proofs \"the hardest type of security question\" for AI?",
-        options: ["It requires more GPU power than other tasks", "Findings are not even verifiable in general and may require humans to manually validate them", "Cryptographic protocols have no known vulnerability classes", "LLMs are structurally unable to process any mathematical notation"],
-        correctIndex: 1,
+        options: ["Findings are not even verifiable in general and may require humans to manually validate them", "It requires far more GPU power than other security tasks, making it too costly for most teams to attempt", "Cryptographic protocols have no known vulnerability classes, so an AI model has nothing pattern-like to search for", "LLMs are structurally unable to process any mathematical notation, so they cannot even parse the proof statements"],
+        correctIndex: 0,
         modelAnswer: "\"Not even verifiable / May require humans to manually validate / This is the hardest type of security questions.\"",
       },
       {
@@ -111,8 +111,8 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "What is the recommended response when a model is \"lazy\" and stops at the first obvious issue?",
-        options: ["Accept the first finding as the complete answer", "Summarize what has already been checked and explicitly ask for new and different issues, edge cases, and non-obvious logic flaws", "Restart the conversation and ask the exact same question again", "Shrink the model's context window"],
-        correctIndex: 1,
+        options: ["Accept the first finding as the complete answer, since a model's initial response already reflects its full analysis", "Restart the conversation and ask the exact same question again, expecting a more thorough answer the second time", "Summarize what has already been checked and explicitly ask for new and different issues, edge cases, and non-obvious logic flaws", "Shrink the model's context window so it has less material to process and responds with fewer errors"],
+        correctIndex: 2,
         modelAnswer: "\"Summarize what has already been checked (in a file or in a table) / Explicitly ask for new and different issues / Ask for edge cases / Ask for non obvious logic flaws.\"",
       },
       {
@@ -144,8 +144,8 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "What is the key structural difference in how a reasoning model produces a response, compared to a standard LLM response?",
-        options: ["It skips the system prompt entirely", "It performs additional internal processing/reasoning — typically hidden from the user — before producing its final response", "It always calls an external tool before responding", "It requires a human to manually approve every generated token"],
-        correctIndex: 1,
+        options: ["It skips the system prompt entirely, relying only on the user's message and the model's pretraining to decide how to respond", "It always calls an external tool before responding, even for questions that need no outside information at all", "It requires a human to manually approve every generated token before the response can be shown to the user", "It performs additional internal processing/reasoning — typically hidden from the user — before producing its final response"],
+        correctIndex: 3,
         modelAnswer: "\"The model does more internal processing before producing its answer,\" shown as a (typically hidden) reasoning step between the prompt and the final response.",
       },
       {
@@ -163,22 +163,22 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "What does Week 2 call \"The Aha Moment for Security\", referring to models like O3 and R1?",
-        options: ["AI models became too expensive for security teams to use", "Security changed completely — things that didn't work before started working, and real vulnerabilities began being found at scale", "Reasoning models became measurably worse at security tasks than earlier models", "Every known vulnerability was immediately patched"],
-        correctIndex: 1,
+        options: ["Security changed completely — things that didn't work before started working, and real vulnerabilities began being found at scale", "AI models became too expensive for security teams to use, pricing most reasoning-capable tools out of everyday workflows", "Reasoning models became measurably worse at security tasks than earlier models, missing vulnerabilities they used to catch", "Every known vulnerability was immediately patched once reasoning models were released to security teams worldwide"],
+        correctIndex: 0,
         modelAnswer: "\"Security has completely changed after O3 and R1. Things that did not work before are now starting to work. We start to find real vulnerabilities on a large scale.\"",
       },
       {
         type: "mcq",
         prompt: "Why does Week 2 say reasoning alone is \"not enough\" for large-scale security investigation of a codebase?",
-        options: ["Reasoning models are not permitted to access the internet", "Code repositories can be huge — thousands of interdependent files — while the model's context window is small, so tools are needed to interact with the codebase efficiently", "Reasoning models are legally banned from security work", "Reasoning models always hallucinate when given any code"],
-        correctIndex: 1,
+        options: ["Reasoning models are not permitted to access the internet, so they cannot download or reference any external library documentation", "Reasoning models are legally banned from security work in most jurisdictions, regardless of how the investigation is scoped or authorised", "Code repositories can be huge — thousands of interdependent files — while the model's context window is small, so tools are needed to interact with the codebase efficiently", "Reasoning models always hallucinate when given any code, inventing functions and variables that don't exist anywhere in the file"],
+        correctIndex: 2,
         modelAnswer: "\"Code repositories can be HUGE!! Thousands of files / Different projects, they depend on each other / Context window is small\" — so text-based tools (grep, ls, cd, cat, static/dynamic analysis) are needed alongside reasoning.",
       },
       {
         type: "mcq",
         prompt: "In the AI agent tool-use loop shown in Week 2, what happens after the model reasons that it needs more evidence and issues a Tool Call Instruction?",
-        options: ["The response is shown to the user immediately with no further action", "A tool executes and returns a result, and that result (evidence) feeds back into the model's next response or action", "The entire conversation is discarded", "The system prompt is automatically regenerated from scratch"],
-        correctIndex: 1,
+        options: ["The response is shown to the user immediately with no further action, since the reasoning step is already considered final", "The entire conversation is discarded and a brand-new session starts fresh with no memory of the tool call", "The system prompt is automatically regenerated from scratch to reflect whatever the tool happened to return", "A tool executes and returns a result, and that result (evidence) feeds back into the model's next response or action"],
+        correctIndex: 3,
         modelAnswer: "\"The tool gathers evidence; the AI uses that evidence to decide what to do next or answer\" — e.g. the model calls `ls`, receives the file listing as a tool result, then uses it to compose its final answer.",
       },
       {
@@ -215,8 +215,8 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Why does the lecture argue that \"more cyber capability requires more trust\" for AI coding/reasoning models?",
-        options: ["More capable models simply cost more money to run", "The same capability that can accelerate defensive vulnerability discovery and remediation can also be misused offensively, so stronger safeguards and authorisation controls must grow alongside capability", "More capable models are always released as open source", "Capability and trust are unrelated design concerns"],
-        correctIndex: 1,
+        options: ["The same capability that can accelerate defensive vulnerability discovery and remediation can also be misused offensively, so stronger safeguards and authorisation controls must grow alongside capability", "More capable models simply cost more money to run, which naturally limits how widely both defenders and attackers can afford to deploy them across large investigations", "More capable models are always released as open source, so any safeguards built into a hosted version stop applying the moment the raw weights become public", "Capability and trust are unrelated design concerns, since a model's raw skill level has no bearing on how much oversight or authorisation it should require"],
+        correctIndex: 0,
         modelAnswer: "The referenced article frames it as: cyber-capable models \"can both meaningfully strengthen the broader ecosystem and introduce new risks\" — capability that helps defenders find and fix vulnerabilities is the same capability that could be misused, so more trust/access controls are needed as capability increases.",
       },
       {
@@ -227,22 +227,22 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "The investigation-process example in Week 2 (failed jailbreak-style prompts, then a partial character leak, then verification via `/submit_flag`) is used to illustrate which idea?",
-        options: ["AI agents always succeed on their first attempt", "Genuine security investigation is iterative — failures, adaptation, partial success, and verification — not a single lucky guess", "Prompt injection cannot be meaningfully demonstrated in a lecture", "Verification becomes unnecessary once any flag is found"],
+        options: ["AI agents always succeed on their first attempt, with no failed guesses or dead ends along the way", "Genuine security investigation is iterative — failures, adaptation, partial success, and verification — not a single lucky guess", "Prompt injection cannot be meaningfully demonstrated in a lecture without direct access to a real production system", "Verification becomes unnecessary once any flag is found, since a working flag is proof enough on its own"],
         correctIndex: 1,
         modelAnswer: "The slide explicitly labels the pattern \"Failures → adaptation → partial success → verification,\" showing multiple failed prompts before a successful partial leak that is then verified — investigation is a process, not a single guess.",
       },
       {
         type: "mcq",
         prompt: "What is the stated overall goal of using AI to find vulnerabilities, per \"How To Use AI To Find Vulnerabilities (Manually + Smartly)\"?",
-        options: ["Send a single prompt: \"Find the vulnerabilities\"", "Investigate with AI — giving it context, evidence, and boundaries, and never trusting a finding until it is verified", "Let the AI run unsupervised for as long as possible", "Avoid using AI for any code-related task"],
+        options: ["Send a single prompt, \"Find the vulnerabilities,\" and treat whatever comes back as the final answer", "Investigate with AI — giving it context, evidence, and boundaries, and never trusting a finding until it is verified", "Let the AI run unsupervised for as long as possible, since more running time always produces more reliable findings", "Avoid using AI for any code-related task, since manual review alone is faster and more accurate"],
         correctIndex: 1,
         modelAnswer: "\"The goal is not to ask AI: 'Find the vulnerabilities.' The goal is to investigate with AI.\" AI is powerful but not careful by default — you must give it context, evidence, and boundaries, and never trust a finding until you verify it.",
       },
       {
         type: "mcq",
         prompt: "What is the correct order of the Android build pipeline described in Week 2?",
-        options: ["APK → Build & Compile → Kotlin/Java source", "Kotlin/Java source (human-readable) → Build & Compile → APK (what you receive) → Install & Run", "Install & Run → APK → Kotlin/Java source", "Decompile → Kotlin/Java source → APK"],
-        correctIndex: 1,
+        options: ["APK → Build & Compile → Kotlin/Java source, reversing the pipeline back into editable project files", "Install & Run → APK → Kotlin/Java source, recovering the original project only after the app has launched", "Decompile → Kotlin/Java source → APK, treating decompilation as the very first step in shipping an app", "Kotlin/Java source (human-readable) → Build & Compile → APK (what you receive) → Install & Run"],
+        correctIndex: 3,
         modelAnswer: "\"Kotlin / Java — Human-readable code → Build & Compile → APK — What you receive → Install & Run.\" Your task is to work backwards: understand, investigate, verify.",
       },
       {

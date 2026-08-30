@@ -6,8 +6,8 @@ const PAPER: ExamPaperSeed =
     week: 1,
     paperNumber: 1,
     title: "Week 1 Practice Paper",
-    topics: "Course logistics, learning outcomes, weekly schedule, assessment structure, hurdle requirements; IT professional practice, technical vs professional judgement, organisational reality, communication and accountability; Real-world case studies (ASX, Victorian Government, Optus, CrowdStrike), role of IT in organisations, McKinsey/Andreessen interview",
-    sourceFiles: ["lecture/INFO5990 2026-S2 Week 01 - Introduction (1).pdf", "lecture/Reading 1 - The McKinsey article.pdf"],
+    topics: "Course logistics, learning outcomes, weekly schedule, assessment structure, hurdle requirements, teaching team handoff, group-formation rules, Viva/final-exam mechanics; IT professional practice, technical vs professional judgement, organisational reality, communication and accountability, risk escalation and governance vs individual blame; Real-world case studies (ASX, Victorian Government, Optus, CrowdStrike), role of IT in organisations, McKinsey/Andreessen interview, free business & IT toolkit",
+    sourceFiles: ["lecture/INFO5990 2026-S2 Week 01 - Introduction (1).pdf", "lecture/Reading 1 - The McKinsey article.pdf", "lecture/INFO5990 Your Free Business & IT Toolkit.pptx", "lecture/Professional Practic-s2-full.transcript.md"],
     questions: [
       {
         type: "mcq",
@@ -26,7 +26,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "What is the weighting and nature of the Interactive Oral / Viva assessment?",
-        options: ["5%, an open-book quiz held in Week 4", "10%, a secured oral assessment with no notes allowed, held in Week 8, must attend, and is a hurdle requirement", "35%, a group report due Week 12", "10%, an optional bonus assessment that can be skipped"],
+        options: ["5%, an open-book quiz held in Week 4, covering only Week 1 content with short-answer questions", "10%, a secured oral assessment with no notes allowed, held in Week 8, must attend, and is a hurdle requirement", "35%, a group report due Week 12, submitted as a single PDF with no individual marking component", "10%, an optional bonus assessment held in Week 8 that can be skipped without penalty"],
         correctIndex: 1,
         modelAnswer: "The Assessments slides describe the Viva/Interactive Oral as 10%, a secured assessment (no notes allowed) covering Weeks 1-6, held in Week 8, that students must attend, and flagged HURDLE.",
       },
@@ -47,7 +47,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Per the Weekly Readings slide, what is expected of students regarding readings?",
-        options: ["Readings are optional and only for extra credit", "Students should read the weekly readings and module materials before attending the lecture", "Readings are only assessed in the final exam, not the lectures", "Only postgraduate students need to complete the readings"],
+        options: ["Readings are optional and only count toward extra credit, not the compulsory weekly workload", "Students should read the weekly readings and module materials before attending the lecture", "Readings are only assessed in the final exam, never discussed during the weekly lectures themselves", "Only postgraduate students in the combined offering need to complete the weekly readings"],
         correctIndex: 1,
         modelAnswer: "The slide states it is expected that students read through the weekly readings and reading materials on the module before attending the lecture, to have a thorough understanding of the unit context.",
       },
@@ -112,7 +112,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "In the example of a system meeting all functional requirements but failing anyway, what two reasons does the lecture give?",
-        options: ["The database was too slow and the UI colours were wrong", "Staff are not ready to change their workflows, or decision-makers lose confidence due to delays", "The code had too many comments and not enough tests", "The system was built using the wrong programming language"],
+        options: ["The database was too slow under peak load and the UI colours failed accessibility contrast standards", "Staff are not ready to change their workflows, or decision-makers lose confidence due to delays", "The code had too many inline comments and not enough automated tests to catch regressions", "The system was built using a programming language mismatched to the organisation's existing skill set"],
         correctIndex: 1,
         modelAnswer: "'When Strong Technology Still Leads to Poor Outcomes' gives the example where 'staff are not ready to change their workflows' or 'decision-makers lose confidence due to delays' — concluding 'the issue is rarely the code, it is how decisions were made around it.'",
       },
@@ -126,7 +126,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "In 'The Nature of Real IT Work,' which competing priorities are given as an example of different stakeholders valuing different outcomes?",
-        options: ["Business prioritises speed and market impact; IT prioritises stability, maintainability, and scalability; Security prioritises risk reduction and compliance", "Marketing prioritises branding; Sales prioritises commissions; HR prioritises headcount", "Developers prioritise code style; Testers prioritise bug counts; Managers prioritise deadlines only", "Executives prioritise profit; Customers prioritise price; Regulators prioritise paperwork"],
+        options: ["Business prioritises speed and market impact; IT prioritises stability, maintainability, and scalability; Security prioritises risk reduction and compliance", "Marketing prioritises brand perception and campaign reach; Sales prioritises closing deals and commissions; HR prioritises headcount and retention", "Developers prioritise code style and elegance; Testers prioritise raising bug counts; Managers prioritise hitting deadlines regardless of quality", "Executives prioritise quarterly profit; Customers prioritise low price and convenience; Regulators prioritise paperwork and audit compliance"],
         correctIndex: 0,
         modelAnswer: "The slide gives exactly this example: 'Business prioritises speed and market impact; IT prioritises stability, maintainability, and scalability; Security prioritises risk reduction and compliance.'",
       },
@@ -147,7 +147,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Per 'When Technology and Professional Practice Work Together,' what typically explains why many IT initiatives succeed?",
-        options: ["Because the technology used is always perfect", "Because professional practice is handled well, alongside realistic alignment, honest risk communication, and willingness to adjust scope", "Because the project has an unlimited budget", "Because the team avoided all stakeholder engagement"],
+        options: ["Because the technology used is always perfect and requires no ongoing maintenance once it is deployed to production", "Because professional practice is handled well, alongside realistic alignment, honest risk communication, and willingness to adjust scope", "Because the project has an unlimited budget, so scope and timeline trade-offs never have to be forced on anyone", "Because the team avoided all stakeholder engagement, keeping the technical work fully isolated from organisational politics"],
         correctIndex: 1,
         modelAnswer: "The slide states: 'many IT initiatives succeed, not because the technology is perfect, but because professional practice is handled well,' showing clear decision ownership, realistic alignment between technology and organisational readiness, early and honest risk communication, and willingness to adjust scope, timing, or approach.",
       },
@@ -184,7 +184,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "In Case 1 (ASX Technology Overhaul & Outages, 2024-2025), what does the lecture identify as the core issue, despite the technology being sophisticated?",
-        options: ["The technology itself was outdated and unreliable", "The challenges were organisational, including governance, planning, risk management, and accountability across stakeholders", "ASX did not have enough engineers on staff", "The outage was caused by a natural disaster"],
+        options: ["The technology itself was outdated and unreliable, not having been upgraded in over a decade", "The challenges were organisational, including governance, planning, risk management, and accountability across stakeholders", "ASX did not have enough engineers on staff to test the new platform before go-live", "The outage was caused by a natural disaster that damaged the primary trading data centre"],
         correctIndex: 1,
         modelAnswer: "The slide states: 'While the technology was sophisticated, the challenges were organisational, including governance, planning, risk management, and accountability across stakeholders.'",
       },
@@ -198,7 +198,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "In Case 2 (Victorian Government Digital Services), what was the core issue behind service disruptions on citizen-facing platforms like Services Victoria?",
-        options: ["Immature technology that could not handle demand", "Organisational complexity, including cross-agency governance, risk escalation, and decision-making under public pressure", "A lack of any government funding for IT", "The platforms had never been tested before launch"],
+        options: ["Immature technology that could not handle demand once the platforms were promoted statewide to citizens", "Organisational complexity, including cross-agency governance, risk escalation, and decision-making under public pressure", "A lack of government funding, leaving agencies unable to maintain or upgrade the digital platforms at all", "The platforms had never undergone any user acceptance testing before their public statewide launch"],
         correctIndex: 1,
         modelAnswer: "The slide states: 'The challenges were not driven by immature technology, but by organisational complexity, including cross-agency governance, risk escalation, and decision-making under public pressure.'",
       },
@@ -219,7 +219,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "In the End of Lecture Questions case (CrowdStrike, July 2024), what made the global IT outage notable, given the update was 'intended to improve security'?",
-        options: ["The software was obscure and rarely used", "The technology itself was industry-standard and widely used, and the outage affected airlines, banks, and hospitals", "It only affected a small number of home users", "It was immediately reversed with no impact"],
+        options: ["The software was obscure and rarely used outside a small niche of specialist cybersecurity teams", "The technology itself was industry-standard and widely used, and the outage affected airlines, banks, and hospitals", "It only affected a small number of home users running an outdated operating system version", "It was immediately reversed with no lasting impact once a rollback patch shipped within the hour"],
         correctIndex: 1,
         modelAnswer: "The slide states the update was from a trusted, widely deployed cybersecurity firm and 'the technology itself was industry-standard and widely used,' yet airlines grounded flights and banks, hospitals, and businesses were disrupted.",
       },
@@ -266,6 +266,82 @@ const PAPER: ExamPaperSeed =
         type: "scenario",
         prompt: "Apply the lesson from the CrowdStrike case (industry-standard, trusted technology causing a global outage) to a hypothetical: your organisation is about to push a routine, low-risk-seeming security patch to all production systems overnight, with no staged rollout. Using the 'For You to Think' questions as a guide, explain what professional decisions you would want confirmed before approving the release.",
         modelAnswer: "Following the lecture's four framing questions: (1) 'At what point did this stop being a technical issue?' - recognise that even a 'routine' patch becomes a business-critical decision once it touches production, not just a technical deployment step. (2) 'Which professional decisions mattered most before the update was released?' - confirm whether the patch was tested against a representative subset of production configurations first, and whether a staged/canary rollout plan exists rather than a single global push. (3) 'Who should be accountable when a trusted update causes global impact?' - ensure there's a named decision-owner who explicitly approved skipping staged rollout, not an implicit assumption that 'routine' means 'no review needed.' (4) 'What would you have done differently?' - insist on a phased deployment with rollback capability and monitoring at each stage, treating trust in the vendor as a reason for confidence, not a reason to skip the organisation's own resilience and change-management practices — directly echoing the Optus case's lesson about gaps in resilience planning and change management.",
+      },
+      {
+        type: "mcq",
+        prompt: "Per the lecture's introduction, which weeks does the teaching lecturer (going by 'Mowin') personally teach, and who takes over the remaining weeks?",
+        options: ["Weeks 1-6 and from Week 13 onward, with Mohammad Sadhjad taking over from Week 7", "Weeks 1-7 and from Week 13 onward, with Mohammad Sadhjad taking over from Week 8", "Weeks 1-6 and from Week 12 onward, with Mohammad Sadhjad taking over from Week 7", "Weeks 1-4 and from Week 13 onward, with Mohammad Sadhjad taking over from Week 5"],
+        correctIndex: 0,
+        modelAnswer: "The lecturer says: 'I will be teaching from week one till week six. And then we will have another lecturer, Mohammad Sadhjad. He is going to take over from week seven. And then I'll again come back in week 13.'",
+      },
+      {
+        type: "truefalse",
+        prompt: "True or False: Per the lecture, attendance at the weekly lecture is mandatory, and students who cannot attend in person must email the lecturer for an exception.",
+        options: ["True", "False"],
+        correctIndex: 1,
+        modelAnswer: "False. The lecturer explicitly says lecture attendance is not mandatory ('we don't have mandatory attendance'), as long as students join the Zoom session or watch the recording. Only tutorial attendance is strongly encouraged, and a best-participation certificate is offered at semester's end to students who engage well in tutorials.",
+      },
+      {
+        type: "mcq",
+        prompt: "The lecture clarifies a numeric hurdle threshold for the Interactive Oral/Viva beyond just attending. What mark must a student achieve to pass this hurdle, and across which weeks is the Viva conducted?",
+        options: ["At least 50% (5 out of 10 marks), conducted only in Week 8, ~15 minutes per student", "At least 40% (4 out of 10 marks), conducted across Weeks 8, 9, and 10, ~10 minutes per student", "At least 40% (4 out of 10 marks), conducted only in Week 9, ~20 minutes per student", "At least 60% (6 out of 10 marks), conducted across Weeks 8 and 9, ~10 minutes per student"],
+        correctIndex: 1,
+        modelAnswer: "The lecturer states: 'you must get 40 percentage mark to pass this unit... you should get four marks out of 10 to pass this unit... It will be in week eight, nine and 10... every student will be given 10 minutes.'",
+      },
+      {
+        type: "mcq",
+        prompt: "Per the lecture, which additional constraint applies to forming groups for the 35% Group Assignment, beyond the 4-5 person size limit?",
+        options: ["Groups must include at least one student who has prior industry experience, confirmed by the teaching team before group registration closes in Week 2", "Groups must be approved by email before the end of Week 2, with the tutor confirming each member's name and student ID over Ed Forum", "Groups must be formed within the same tutorial/activity group, and if students haven't formed one by around Week 3-4, the teaching team will assign them to a group", "Groups must be formed across different tutorial times to maximise diversity, so that no two members share the same weekly tutorial session"],
+        correctIndex: 2,
+        modelAnswer: "The lecturer says: 'you have to form the group within the same tutorial... if you don't form the group by yourself, maybe by week three or four, we will form the group for you' — so belonging to the same tutorial/activity number is required, and the teaching team assigns unformed groups if students don't self-organise in time.",
+      },
+      {
+        type: "mcq",
+        prompt: "The Week 1 lecture adds a detail about the Final Exam's question style beyond the Assessments slide's weighting/hurdle info. What does the lecturer say about how the exam questions are structured?",
+        options: ["It is closed-book, supervised, and mostly multiple choice, with no case-study or written-response component at all", "It is open-book, supervised, and based entirely on textbook definitions rather than any tutorial-style case material", "It is closed-book, unsupervised, and identical in format and marking weight to the Interactive Oral assessment", "It is closed-book, supervised, and structured around case-study-based questions, similar in style to what students do in tutorials"],
+        correctIndex: 3,
+        modelAnswer: "The lecturer says the final exam is 'a closed book supervised exam... it will be very much like case study based question, which is very much similar to what you will be doing in your tutorial.'",
+      },
+      {
+        type: "short",
+        prompt: "The lecture breaks down the 35% Group Assignment into two components and explains why tutorial attendance matters even though it isn't mandatory. Summarise both points.",
+        modelAnswer: "The 35% Group Assignment splits into 30% for the report itself and 5% for peer review, using a tool called SparkPlus for the peer review component. Although tutorial attendance isn't mandatory, the lecturer stresses students should still attend because tutorials are the main time teams can actually meet, work on the group assignment together, and get help from their tutor — so skipping tutorials effectively means losing the team's working session, not just missing lecture content.",
+      },
+      {
+        type: "scenario",
+        prompt: "In the menti activity, the lecturer poses: 'Your manager says, just launch it, we will deal with the risk later. What do you do?' Several students voted to just comply since 'managers are always correct.' What is the professionally correct response the lecture affirms, and how does it connect to the 'Communication, Accountability, and Responsibility' slide's warning about risks that are 'known but poorly communicated'?",
+        modelAnswer: "The lecture affirms the correct response is to escalate and document the risk — not to silently comply because 'the manager is always right,' and not to avoid the situation (e.g. going on leave) either. This directly connects to the 'Communication, Accountability, and Responsibility' slide's point that many IT problems escalate because risks are known but poorly communicated: documenting and escalating a known risk before launch is exactly the professional behaviour that prevents a known-but-unspoken risk from later becoming an uncontained failure, and it creates a record of who made the call to proceed despite the risk.",
+      },
+      {
+        type: "mcq",
+        prompt: "In the menti activity, the lecturer asks: you know about a risk but stay silent — what is this called? Which answer does the lecture affirm as the strongest response, and how does it connect to the 'Communication, Accountability, and Responsibility' slide?",
+        options: ["Avoiding accountability — because staying silent means not taking ownership of what you know, echoing the slide's point that many IT problems escalate because responsibility is spread so no one owns it", "Escalation — because staying silent about a known risk is technically a form of communicating it upward once someone else eventually discovers the problem", "Governance — because silence is framed as a structural failure of the organisation's policies rather than something any individual is responsible for", "Risk transfer — because staying silent about a known risk automatically shifts ownership of that risk onto whoever acts on the information next"],
+        correctIndex: 0,
+        modelAnswer: "The lecturer affirms 'avoiding accountability' (among other well-received answers like 'not responsible') as capturing the idea: knowing about a risk and staying silent means not taking ownership of what you know, which echoes the 'Communication, Accountability, and Responsibility' slide's point that many IT problems escalate because responsibility is spread so widely that no one owns it.",
+      },
+      {
+        type: "short",
+        prompt: "In the live poll on who is 'most responsible for major IT failure,' students voted managers highest. What point does the lecturer make in response, connecting this back to organisational governance?",
+        modelAnswer: "The lecturer agrees managers get the most votes but pushes back that responsibility isn't purely individual: a manager may be following a policy or procedure set by the organisation's governance structure, and 'it's easier to blame a person than a structure.' The lecturer frames the manager as part of the governance structure rather than the sole point of failure, tying failures to how change management, risk management, and decision-making are organised across the whole organisation — not just one person's choices.",
+      },
+      {
+        type: "scenario",
+        prompt: "Building on the CrowdStrike case, the lecture's menti activity poses: 'A trusted update caused a national outage. When did this stop being technical?' Several students guessed 'during testing' only. What does the lecture clarify, and how does this refine the professional-judgement lesson from the CrowdStrike case?",
+        modelAnswer: "The lecture clarifies the answer isn't just 'during testing' — it stopped being purely technical during testing AND during the approval decision to release the update, meaning the update wasn't well tested before being approved for launch. This refines the CrowdStrike lesson: the professional-judgement failure point isn't only the moment of deployment, it's the earlier decision to approve release — exactly the kind of professional (not technical) question 'From Technical Feasibility to Professional Judgement' asks about: should we proceed now, and what risks are we accepting on whose behalf.",
+      },
+      {
+        type: "mcq",
+        prompt: "Per the 'Your Free Business & IT Toolkit' slide, which free tool is recommended specifically for TOGAF-like enterprise architecture diagrams and IT capability mapping?",
+        options: ["Lucidchart", "Archi", "Miro", "Strategyzer BMC"],
+        correctIndex: 1,
+        modelAnswer: "The toolkit slide lists Archi (Enterprise Architecture) as free & open-source, noting it's 'For TOGAF-like diagrams; more technical,' used for enterprise architecture modelling and IT capability mapping — distinct from Lucidchart (flowcharts/org diagrams) and Miro (value stream mapping/brainstorming).",
+      },
+      {
+        type: "mcq",
+        prompt: "The toolkit slide lists both Strategyzer BMC and Miro as free tools for business-IT work. What distinguishes their primary areas of use, per the slide?",
+        options: ["Strategyzer BMC (free trial only, capped at 14 days) is for ROI and cost-benefit calculations, while Miro's free plan is for customer relationship management and sales pipeline tracking across a small team", "Strategyzer BMC (free basic template, one canvas at a time) is for enterprise architecture modelling and system landscape diagrams, while Miro's free plan (3 editable boards) is for flowcharts and org structure diagrams", "Strategyzer BMC is for business model design and linking IT to business strategy (via its Business Model Canvas), while Miro's free plan (3 editable boards) is used for value stream mapping and brainstorming IT-business alignment", "Strategyzer BMC and Miro are functionally identical free tools, both used only for brainstorming and team icebreaker activities during weekly tutorial sessions"],
+        correctIndex: 2,
+        modelAnswer: "The slide lists Strategyzer BMC (free basic template) for 'business model design, linking IT to business strategy' via its Business Model Canvas, versus Miro (free plan with 3 editable boards) for 'value stream mapping, brainstorming IT-business alignment.'",
       },
     ],
   }

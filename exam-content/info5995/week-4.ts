@@ -191,9 +191,9 @@ const PAPER: ExamPaperSeed = {
         "Week 1 introduced the CIA triad (confidentiality, integrity, availability) as core security goals. Week 4's \"Match the Tool to the Goal\" slide extends this same style of mapping to cryptography specifically. Besides confidentiality and integrity, which three additional goals does it list, each with a primary tool?",
       options: [
         "Authentication (MAC, digital signature, certificate binding), non-repudiation (digital signature + identity/audit context), and key establishment (Diffie–Hellman, key encapsulation mechanism)",
-        "Authentication, availability, and non-repudiation — with plain encryption listed as the primary tool for all three",
-        "Authorisation, availability, and accountability — protected respectively by access control lists, redundancy, and audit logging",
-        "Authentication and non-repudiation only — key establishment is treated as a networking concern, not a cryptographic goal",
+        "Authentication, availability, and non-repudiation — with plain symmetric encryption listed as the sole primary tool for all three, since the slide treats confidentiality as sufficient for every other goal too",
+        "Authorisation, availability, and accountability — protected respectively by access control lists, redundant infrastructure, and audit logging, none of which the slide frames as cryptographic mechanisms at all",
+        "Authentication and non-repudiation only, each tied to digital signatures — key establishment is treated purely as a networking-layer handshake concern, not a genuine cryptographic goal in its own right",
       ],
       correctIndex: 0,
       modelAnswer:
@@ -239,9 +239,9 @@ const PAPER: ExamPaperSeed = {
       prompt:
         "A colleague proposes using AES-CBC alone to protect a new API's request bodies. Based on the lecture and the \"Choose complete constructions, not algorithm names alone\" slide, what is the correct critique of this choice?",
       options: [
-        "CBC should never be used because it is a legacy cipher in the same obsolete category as DES and RC4, and offers no confidentiality guarantee whatsoever",
-        "CBC is fine as-is, since chaining each block to the previous one's ciphertext automatically produces a message authentication tag the receiver can verify",
-        "CBC and GCM provide identical security guarantees, so the only real difference is that GCM happens to run faster on hardware with AES acceleration",
+        "CBC should never be used at all because it is a legacy cipher in the same obsolete category as DES and RC4, and it offers no confidentiality guarantee whatsoever, having been fully broken by modern cryptanalysis techniques",
+        "CBC is fine to use as-is, since chaining each block to the previous one's ciphertext automatically produces a message authentication tag that the receiver can verify without needing any separately composed mechanism",
+        "CBC and GCM provide identical security guarantees end to end, so the only real difference worth considering is that GCM happens to run somewhat faster on hardware with dedicated AES acceleration instructions",
         "CBC can provide confidentiality by chaining blocks together to hide repeated patterns, but it doesn't provide authentication on its own — the design needs a separately composed authentication mechanism, unlike AES-GCM which bundles both",
       ],
       correctIndex: 3,
@@ -283,10 +283,10 @@ const PAPER: ExamPaperSeed = {
       prompt:
         "The lecture states \"Diffie–Hellman proves that a shared value was computed, not who computed it.\" What does this mean in practice for a real secure-connection protocol?",
       options: [
-        "Diffie–Hellman is unusable for any practical purpose until quantum-resistant variants replace it, since classical Diffie–Hellman cannot establish any shared secret without a pre-shared key",
-        "Diffie–Hellman inherently authenticates both parties, because only the legitimate sender and receiver know the algorithm being used — what the lecture calls \"security by obscurity\"",
+        "Diffie–Hellman is unusable for any practical purpose until quantum-resistant variants fully replace it, since classical Diffie–Hellman cannot establish any shared secret at all without first relying on some form of pre-shared key material",
+        "Diffie–Hellman inherently authenticates both parties, because only the legitimate sender and receiver could ever know the specific algorithm and parameters being used — what the lecture dismisses elsewhere as \"security by obscurity\"",
         "Diffie–Hellman alone solves key agreement but not peer identity — a man-in-the-middle can run the protocol separately with each side, so a separate authentication step (e.g. certificates/signatures) is still required to bind the exchange to a verified identity",
-        "Diffie–Hellman solves both key agreement and identity verification simultaneously, which is why TLS uses it as the sole mechanism for authenticating a server's certificate",
+        "Diffie–Hellman solves both key agreement and identity verification simultaneously, which is why TLS relies on it as the sole mechanism for authenticating a server's certificate without any additional signature step",
       ],
       correctIndex: 2,
       modelAnswer:
@@ -311,10 +311,10 @@ const PAPER: ExamPaperSeed = {
       prompt:
         "The slide \"Length is not entropy\" contrasts the human-chosen key INFO5995-INFO5995! with a 128-bit CSPRNG-generated key of the same bit-length. Why does the lecture treat the human-chosen one as far weaker?",
       options: [
-        "Because human-chosen keys are always shorter in actual bit-length than machine-generated ones, regardless of how many characters they contain",
+        "Because human-chosen keys are always shorter in actual bit-length than machine-generated ones, regardless of how many characters they contain, since AES silently truncates any key a person types to a fixed internal size",
         "Because it's built from a repeating, guessable pattern — the effective search space collapses to whatever the unpredictable portion actually is (e.g. at most 2^16 if only 16 bits genuinely vary), not the full 2^128 the raw length suggests",
-        "Because a human-chosen key can never be used with AES, since AES requires keys sourced exclusively from a hardware random-number generator",
-        "Because repeating a pattern in a key mathematically reduces the block cipher's block size, forcing AES to fall back to a weaker, unauthenticated mode",
+        "Because a human-chosen key can never be used with AES at all, since AES requires every key to be sourced exclusively from a hardware random-number generator rather than typed in by a person",
+        "Because repeating a pattern in a key mathematically reduces the block cipher's effective block size, forcing AES to fall back to a weaker, unauthenticated mode of operation for that entire session",
       ],
       correctIndex: 1,
       modelAnswer:

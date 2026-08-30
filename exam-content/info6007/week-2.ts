@@ -40,8 +40,8 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Per the lecture's HRMS example, why was Waterfall chosen for that project?",
-        options: ["Requirements were well understood and unlikely to change, and development was outsourced requiring clear handoffs", "The company wanted daily stand-ups and fast iteration", "There was no defined budget or timeline", "The vendor refused to provide any documentation"],
-        correctIndex: 0,
+        options: ["The company wanted daily stand-up meetings and fast, iterative releases every two weeks to gather early feedback", "Requirements were well understood and unlikely to change, and development was outsourced requiring clear handoffs", "There was no defined budget, timeline, or approved project charter in place before development began", "The vendor refused to provide any documentation and insisted on ad hoc changes throughout development"],
+        correctIndex: 1,
         modelAnswer: "The example lists: requirements well understood and unlikely to change, success depends on complete documentation, stakeholders prefer formal approvals at each phase, and development is outsourced requiring clear handoffs.",
       },
       {
@@ -54,8 +54,8 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "In Scrum, who is responsible for defining features, managing the backlog, and prioritizing work?",
-        options: ["Product Owner", "Scrum Master", "Scrum Team", "Portfolio Manager"],
-        correctIndex: 0,
+        options: ["Scrum Master", "Scrum Team", "Product Owner", "Portfolio Manager"],
+        correctIndex: 2,
         modelAnswer: "The Scrum Roles slide states: 'Product Owner - Defines the features, manages backlog, prioritizes work.'",
       },
       {
@@ -98,22 +98,22 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Which of the following is a key element of Kanban, per the lecture?",
-        options: ["WIP Limits — a restriction on the number of items in a column to prevent overload", "Sprint — a fixed 1-4 week iteration", "Product Backlog — a list of desired features", "Daily Stand-up meeting"],
+        options: ["WIP Limits — a restriction on the number of items in a column to prevent overload", "Sprint — a fixed 1 to 4 week iteration during which a set amount of planned work must be completed", "Product Backlog — a prioritized list of all desired features maintained by the Product Owner", "Daily Stand-up meeting — a short daily check-in where the team synchronizes on progress and blockers"],
         correctIndex: 0,
         modelAnswer: "Kanban's key elements are Kanban Board, Cards/User stories, WIP Limits, and Cycle Time — Sprint, Product Backlog, and Daily Stand-up are Scrum concepts, not Kanban ones.",
       },
       {
         type: "mcq",
         prompt: "Per the 'Scrum vs Kanban' comparison table, how does Kanban handle workload compared to Scrum?",
-        options: ["Kanban work is pulled as capacity allows, while Scrum work is planned per sprint", "Both handle workload identically", "Kanban requires a fixed sprint length, Scrum does not", "Kanban has no visual board while Scrum requires one"],
-        correctIndex: 0,
+        options: ["Both methodologies handle workload in exactly the same way, with no meaningful difference between them", "Kanban work is pulled as capacity allows, while Scrum work is planned per sprint", "Kanban requires a fixed sprint length of two weeks, while Scrum allows sprint length to vary freely", "Kanban has no visual board for tracking tasks, while Scrum requires a mandatory visual board"],
+        correctIndex: 1,
         modelAnswer: "The comparison table's 'Workload' row states: Scrum = 'Planned per sprint', Kanban = 'Pulled as capacity allows.'",
       },
       {
         type: "mcq",
         prompt: "In the lecture's customer support ticket example, why was Kanban chosen over Scrum?",
-        options: ["There was no strict deadline and the team needed continuous flow with flexibility to handle incoming tickets anytime", "The team needed fixed 2-week sprints", "The company wanted zero visual tracking", "The team had only one person"],
-        correctIndex: 0,
+        options: ["The team needed fixed 2-week sprints with a locked backlog to plan support work in advance", "The company wanted zero visual tracking of tickets and preferred email-based status updates instead", "There was no strict deadline and the team needed continuous flow with flexibility to handle incoming tickets anytime", "The team had only one person handling tickets, so no coordination method was needed at all"],
+        correctIndex: 2,
         modelAnswer: "The example states Kanban was chosen for 'continuous flow of work with no fixed-length iterations' and 'flexibility to handle incoming tickets anytime,' since there was no strict deadline for resolving tickets.",
       },
       {
@@ -126,22 +126,22 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "DevOps is best described in the lecture as which of the following?",
-        options: ["A set of practices that integrates software development and IT operations to shorten the development lifecycle and increase deployment frequency", "A single specific software tool for bug tracking", "A project scheduling technique identical to Waterfall", "A stakeholder engagement framework"],
-        correctIndex: 0,
+        options: ["A single specific software tool used exclusively for tracking, triaging, and assigning reported software bugs across development teams", "A project scheduling technique that is functionally identical to the traditional Waterfall lifecycle, just renamed for marketing purposes", "A stakeholder engagement framework used to categorize stakeholders by their level of power and interest in the project outcome", "A set of practices that integrates software development and IT operations to shorten the development lifecycle and increase deployment frequency"],
+        correctIndex: 3,
         modelAnswer: "The lecture defines DevOps as 'A set of practices that integrates software development and IT operations to shorten the development lifecycle, increase deployment frequency, and deliver high-quality software continuously.'",
       },
       {
         type: "mcq",
         prompt: "Which emerging 'Ops' culture from the lecture 'adds security early in the development process'?",
-        options: ["DevSecOps", "FinOps", "GreenOps", "GitOps"],
-        correctIndex: 0,
+        options: ["FinOps", "GreenOps", "DevSecOps", "GitOps"],
+        correctIndex: 2,
         modelAnswer: "The 'Beyond DevOps' slide states: 'DevSecOps: Adds security early in the development process.'",
       },
       {
         type: "mcq",
         prompt: "Which emerging 'Ops' culture 'tracks and controls cloud spending with finance teams'?",
-        options: ["FinOps", "MLOps", "AIOps", "TestOps"],
-        correctIndex: 0,
+        options: ["MLOps", "AIOps", "TestOps", "FinOps"],
+        correctIndex: 3,
         modelAnswer: "The 'Beyond DevOps' slide states: 'FinOps: Tracks and controls cloud spending with finance teams.'",
       },
       {
@@ -191,15 +191,15 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Per the lecture, what is the primary purpose of a Project Charter?",
-        options: ["It is a formal document that authorizes the project and grants the project manager authority to use organizational resources", "It is a technical design document for the system architecture", "It replaces the need for stakeholder identification", "It is only used after the project has been completed"],
-        correctIndex: 0,
+        options: ["It is a technical design document describing the system architecture and detailed implementation approach", "It is a formal document that authorizes the project and grants the project manager authority to use organizational resources", "It replaces the need for stakeholder identification, since sponsors are assumed to already be known", "It is only used after the project has been completed, as a record for the closure report and lessons learned"],
+        correctIndex: 1,
         modelAnswer: "The lecture states: 'It is a formal document that authorizes the project and grants the project manager the authority to use organizational resources.'",
       },
       {
         type: "mcq",
         prompt: "Which of the following is listed as a 'tool used' in developing a Project Charter?",
-        options: ["Business Case", "Sprint Backlog", "Kanban Board", "Daily Stand-up"],
-        correctIndex: 0,
+        options: ["Sprint Backlog", "Business Case", "Kanban Board", "Daily Stand-up"],
+        correctIndex: 1,
         modelAnswer: "The Project Charter tools listed are Expert Judgment, Business Case, Enterprise Environmental Factors, and Organizational Process Assets.",
       },
       {
@@ -212,22 +212,22 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "What tool does the lecture recommend for categorising and prioritising stakeholders based on power and interest?",
-        options: ["The Power/Interest Grid", "The Triple Constraint triangle", "The Kanban Board", "The RACI matrix"],
-        correctIndex: 0,
+        options: ["The Triple Constraint triangle", "The Kanban Board", "The Power/Interest Grid", "The RACI matrix"],
+        correctIndex: 2,
         modelAnswer: "The 'Stakeholder Identification and Engagement' slide lists 'Prioritize: Categorize using tools like the Power/Interest Grid.'",
       },
       {
         type: "mcq",
         prompt: "Which knowledge area's activity during the 'Defining' phase is 'Project Charter,' per the knowledge-area table?",
-        options: ["Integration Management", "Scope Management", "Risk Management", "Procurement Management"],
-        correctIndex: 0,
+        options: ["Scope Management", "Risk Management", "Procurement Management", "Integration Management"],
+        correctIndex: 3,
         modelAnswer: "The knowledge-area table lists 'Integration Management → Defining: Project Charter,' while Scope Management's Defining activity is 'Initial Scope Idea.'",
       },
       {
         type: "mcq",
         prompt: "Which of the following is listed as a common challenge during Project Initiation/Definition?",
-        options: ["Unclear objectives and scope", "Too much executive support", "Excessive stakeholder engagement", "Overly detailed risk assessment"],
-        correctIndex: 0,
+        options: ["Too much executive support", "Excessive stakeholder engagement", "Overly detailed risk assessment", "Unclear objectives and scope"],
+        correctIndex: 3,
         modelAnswer: "The 'Common challenges in Project Initiation/Definition' slide lists unclear objectives and scope, lack of executive support, poor stakeholder engagement, weak business case, unrealistic timelines/budgets, undefined roles, and inadequate risk awareness — the other options are opposites of these listed problems.",
       },
       {
