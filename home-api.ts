@@ -1,15 +1,17 @@
 // home-api.ts
 import type { Database } from "bun:sqlite";
-import { listProblems, countReviewsToday, listCompletedToday, levelDueLeetcode } from "./leetcode/db";
+import { listProblems, countReviewsToday, listCompletedToday, levelDueLeetcode, getProblem } from "./leetcode/db";
 import { listDueTodos, countTodosCompletedToday, listTodosCompletedToday } from "./todo/db";
 import { listExamPaperRows, countExamPapersSubmittedToday, listExamPapersSubmittedToday, listVisibleCourses } from "./exam/db";
 import { buildExamSchedule, COURSES, weekStartDate, groupExamPapersByWeek } from "./exam/content";
+import { getOrCreateTodaySession } from "./interview/db";
+import { allSystemDesignQuestions } from "./interview/content";
 import { getCurrentLeetcode150, leetcode150CompletedCredit } from "./leetcode150/db";
 import type { CurrentLeetcode150 } from "./leetcode150/db";
 import { leetcode150Url } from "./leetcode150/content";
 import { isDue, localToday, overdueDays } from "./shared/scheduling";
 
-export type DueSource = "leetcode" | "todo" | "exam";
+export type DueSource = "leetcode" | "todo" | "exam" | "interview";
 
 export interface DueItem {
   source: DueSource;
@@ -107,6 +109,28 @@ function examDue(db: Database, today: string): DueItem[] {
   return items;
 }
 
+function interviewDue(db: Database, today: string): DueItem[] {
+  const session = getOrCreateTodaySession(db, today);
+  if (session.completed_at) return [];
+  const question = allSystemDesignQuestions().find((q) => q.id === session.sd_question_id)!;
+  const problem = session.leetcode_problem_id ? getProblem(db, session.leetcode_problem_id) : null;
+  const questionSummary = `${question.company}: ${question.prompt.slice(0, 40)}...`;
+  return [
+    {
+      source: "interview" as const,
+      // Fixed constant, not courseOffset (that helper is keyed to COURSES,
+      // which "interview" isn't part of) — safe because at most one
+      // interview item is ever due at a time, so no collision is possible.
+      id: 900_000_000,
+      title: problem ? `${problem.title} + ${questionSummary}` : questionSummary,
+      subtitle: "Daily interview practice",
+      dueDate: today,
+      overdueDays: 0,
+      linkId: 0,
+    },
+  ];
+}
+
 function leetcodeCompletedToday(db: Database, today: string): DueItem[] {
   return listCompletedToday(db, today).map((p) => ({
     source: "leetcode" as const,
@@ -188,6 +212,7 @@ function homeStats(db: Database, today: string): HomeStats {
     ...leetcode150Due(db, today, leetcode150),
     ...todoDue(db, today),
     ...examDue(db, today),
+    ...interviewDue(db, today),
   ];
   const examSubmittedToday = listVisibleCourses(db).reduce(
     (sum, { code }) => sum + countExamPapersSubmittedToday(db, code, today),
@@ -215,6 +240,7 @@ export function homeApiRoutes(db: Database) {
           ...leetcode150Due(db, today),
           ...todoDue(db, today),
           ...examDue(db, today),
+          ...interviewDue(db, today),
         ];
         items.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
         return Response.json(items);
