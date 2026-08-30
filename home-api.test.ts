@@ -110,6 +110,10 @@ test("GET /api/home/due includes this week's exam item", async () => {
   expect(info5995Item).toBeTruthy();
   expect(info5995Item.linkId).toBe(1);
   expect(info5995Item.title).toContain("Week 1");
+  // Alongside the paper-submission count, the title also reports a
+  // question-level total (e.g. "0/26 questions") so a student can gauge
+  // how much work is actually left, not just how many papers remain.
+  expect(info5995Item.title).toMatch(/\d+\/\d+ questions/);
 });
 
 test("GET /api/home/due gives every exam item a collision-free id", async () => {

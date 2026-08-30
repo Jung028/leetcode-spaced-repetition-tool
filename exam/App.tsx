@@ -15,6 +15,32 @@ function DrawingLink() {
   );
 }
 
+// Question prompts/model answers sometimes embed a real code/data snippet
+// (e.g. tracely's code-reading questions) as a blank-line-separated block
+// within an otherwise plain-English string — there's no markdown fence
+// convention in the content, so a multi-line block containing code-ish
+// punctuation is rendered in a monospace <pre> block; everything else stays
+// normal wrapped prose.
+function looksLikeCode(block: string): boolean {
+  return block.includes("\n") && /[{}()_]|:=|==|=>|\b(def|class|import|return)\b/.test(block);
+}
+
+function PromptText({ text, className }: { text: string; className?: string }) {
+  return (
+    <>
+      {text.split(/\n\n+/).map((block, i) =>
+        looksLikeCode(block) ? (
+          <pre key={i} className="exam-code-block">{block}</pre>
+        ) : (
+          <p key={i} className={className} style={{ whiteSpace: "pre-wrap" }}>
+            {block}
+          </p>
+        ),
+      )}
+    </>
+  );
+}
+
 interface Stats {
   dueCount: number;
   overdueCount: number;
@@ -383,7 +409,7 @@ function McqQuestion({
 
   return (
     <div className="exam-question">
-      <p className="exam-prompt">{question.prompt}</p>
+      <PromptText text={question.prompt} className="exam-prompt" />
       {question.promptImage && <img className="exam-prompt-image" src={question.promptImage} alt="Question reference" />}
       {question.promptDiagram && <MermaidDiagram chart={question.promptDiagram} />}
       <div className="exam-options">
@@ -410,7 +436,7 @@ function McqQuestion({
           );
         })}
       </div>
-      {graded && <p className="exam-explanation">{question.modelAnswer}</p>}
+      {graded && <PromptText text={question.modelAnswer} className="exam-explanation" />}
       {graded && question.answerDiagram && <MermaidDiagram chart={question.answerDiagram} />}
       {graded && question.requiresDrawing && <DrawingLink />}
     </div>
@@ -458,7 +484,7 @@ function ShortOrScenarioQuestion({
 
   return (
     <div className="exam-question">
-      <p className="exam-prompt">{question.prompt}</p>
+      <PromptText text={question.prompt} className="exam-prompt" />
       {question.promptImage && <img className="exam-prompt-image" src={question.promptImage} alt="Question reference" />}
       {question.promptDiagram && <MermaidDiagram chart={question.promptDiagram} />}
       <textarea
@@ -477,7 +503,7 @@ function ShortOrScenarioQuestion({
       {revealed && (
         <div className="theory-model-answer">
           <h3>Model answer</h3>
-          <p>{question.modelAnswer}</p>
+          <PromptText text={question.modelAnswer} />
           {question.answerDiagram && <MermaidDiagram chart={question.answerDiagram} />}
           {question.requiresDrawing && <DrawingLink />}
         </div>
@@ -701,11 +727,14 @@ function WeekPicker({
   onPickPaper: (paperNumber: number) => void;
   onUpdated: () => void;
 }) {
+  const totalQuestions = weekView.papers.reduce((sum, p) => sum + p.questionCount, 0);
+  const doneQuestions = weekView.papers.filter((p) => p.submitted).reduce((sum, p) => sum + p.questionCount, 0);
   return (
     <article className="detail">
       <header className="detail-head">
         <h2>Week {weekView.week}</h2>
         <span className="tag">{weekView.overdue ? "overdue" : "due"} — {weekView.dueDate}</span>
+        <span className="lang-tag">{doneQuestions}/{totalQuestions} questions done</span>
         <UpdateWeekButton course={course} week={weekView.week} onUpdated={onUpdated} />
       </header>
       <ul className="board-rows">
@@ -725,6 +754,7 @@ function WeekPicker({
               <button className="board-row board-row-main" onClick={() => onPickPaper(p.paperNumber)}>
                 <span className="tag">due</span>
                 <span className="board-title">{p.title}</span>
+                <span className="lang-tag">{p.questionCount} questions</span>
               </button>
             )}
           </li>

@@ -1265,6 +1265,19 @@ a.btn {
   white-space: pre-wrap;
 }
 
+.exam-code-block {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  line-height: 1.5;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
 .exam-options {
   display: flex;
   flex-direction: column;

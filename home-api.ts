@@ -90,10 +90,12 @@ function examDue(db: Database, today: string): DueItem[] {
     const weeks = groupExamPapersByWeek(code, visibleRows, today).filter((w) => w.papers.some((p) => !p.submitted));
     for (const week of weeks) {
       const submittedCount = week.papers.filter((p) => p.submitted).length;
+      const totalQuestions = week.papers.reduce((sum, p) => sum + p.questionCount, 0);
+      const doneQuestions = week.papers.filter((p) => p.submitted).reduce((sum, p) => sum + p.questionCount, 0);
       items.push({
         source: "exam" as const,
         id: courseOffset(code) + week.week,
-        title: `Week ${week.week} (${submittedCount}/${week.papers.length} submitted)`,
+        title: `Week ${week.week} (${submittedCount}/${week.papers.length} submitted · ${doneQuestions}/${totalQuestions} questions)`,
         subtitle: name,
         dueDate: week.dueDate,
         overdueDays: overdueDays(week.dueDate, today),

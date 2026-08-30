@@ -72,6 +72,12 @@ test("groupExamPapersByWeek groups multiple papers in the same week into one ent
   expect(groups[0]!.papers[0]!.submitted).toBe(true);
   expect(groups[0]!.papers[0]!.title.length).toBeGreaterThan(0);
   expect(groups[0]!.papers[1]!.submitted).toBe(false);
+  // paper 1 matches INFO5995 Week 1's real (only) paper, so questionCount is
+  // populated from its actual content, independent of submission state.
+  expect(groups[0]!.papers[0]!.questionCount).toBeGreaterThan(0);
+  // paper 2/3 don't exist in INFO5995 Week 1's real content (it has exactly
+  // one combined paper) — questionCount falls back to 0 rather than crashing.
+  expect(groups[0]!.papers[1]!.questionCount).toBe(0);
 });
 
 test("groupExamPapersByWeek marks a week overdue once today passes its due date", () => {

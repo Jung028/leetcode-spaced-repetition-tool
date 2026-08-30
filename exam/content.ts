@@ -5,6 +5,7 @@ import { WEEK_1_PAPERS as INFO5995_WEEK_1_PAPERS } from "../exam-content/info599
 import { WEEK_2_PAPERS as INFO5995_WEEK_2_PAPERS } from "../exam-content/info5995/week-2";
 import { WEEK_3_PAPERS as INFO5995_WEEK_3_PAPERS } from "../exam-content/info5995/week-3";
 import { WEEK_4_PAPERS as INFO5995_WEEK_4_PAPERS } from "../exam-content/info5995/week-4";
+import { WEEK_5_PAPERS as INFO5995_WEEK_5_PAPERS } from "../exam-content/info5995/week-5";
 import { WEEK_1_PAPERS as COMP5348_WEEK_1_PAPERS } from "../exam-content/comp5348/week-1";
 import { WEEK_2_PAPERS as COMP5348_WEEK_2_PAPERS } from "../exam-content/comp5348/week-2";
 import { WEEK_3_PAPERS as COMP5348_WEEK_3_PAPERS } from "../exam-content/comp5348/week-3";
@@ -13,11 +14,13 @@ import { WEEK_1_PAPERS as INFO6007_WEEK_1_PAPERS } from "../exam-content/info600
 import { WEEK_2_PAPERS as INFO6007_WEEK_2_PAPERS } from "../exam-content/info6007/week-2";
 import { WEEK_3_PAPERS as INFO6007_WEEK_3_PAPERS } from "../exam-content/info6007/week-3";
 import { WEEK_4_PAPERS as INFO6007_WEEK_4_PAPERS } from "../exam-content/info6007/week-4";
+import { WEEK_5_PAPERS as INFO6007_WEEK_5_PAPERS } from "../exam-content/info6007/week-5";
 import { WEEK_1_PAPERS as INFO5990_WEEK_1_PAPERS } from "../exam-content/info5990/week-1";
 import { WEEK_2_PAPERS as INFO5990_WEEK_2_PAPERS } from "../exam-content/info5990/week-2";
 import { WEEK_3_PAPERS as INFO5990_WEEK_3_PAPERS } from "../exam-content/info5990/week-3";
+import { WEEK_4_PAPERS as INFO5990_WEEK_4_PAPERS } from "../exam-content/info5990/week-4";
+import { WEEK_5_PAPERS as INFO5990_WEEK_5_PAPERS } from "../exam-content/info5990/week-5";
 import { WEEK_1_PAPERS as TRACELY_WEEK_1_PAPERS } from "../exam-content/tracely/week-1";
-import { WEEK_2_PAPERS as TRACELY_WEEK_2_PAPERS } from "../exam-content/tracely/week-2";
 import type { ExamPaperSeed } from "../exam-content/types";
 import { addDays } from "../shared/scheduling";
 
@@ -26,6 +29,7 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO5995_WEEK_2_PAPERS,
   ...INFO5995_WEEK_3_PAPERS,
   ...INFO5995_WEEK_4_PAPERS,
+  ...INFO5995_WEEK_5_PAPERS,
   ...COMP5348_WEEK_1_PAPERS,
   ...COMP5348_WEEK_2_PAPERS,
   ...COMP5348_WEEK_3_PAPERS,
@@ -34,11 +38,13 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO6007_WEEK_2_PAPERS,
   ...INFO6007_WEEK_3_PAPERS,
   ...INFO6007_WEEK_4_PAPERS,
+  ...INFO6007_WEEK_5_PAPERS,
   ...INFO5990_WEEK_1_PAPERS,
   ...INFO5990_WEEK_2_PAPERS,
   ...INFO5990_WEEK_3_PAPERS,
+  ...INFO5990_WEEK_4_PAPERS,
+  ...INFO5990_WEEK_5_PAPERS,
   ...TRACELY_WEEK_1_PAPERS,
-  ...TRACELY_WEEK_2_PAPERS,
 ];
 
 // COURSES lists every course this app knows about — listExamCourses() below
@@ -49,7 +55,7 @@ export const COURSES: { code: string; name: string }[] = [
   { code: "COMP5348", name: "Enterprise Scale" },
   { code: "INFO6007", name: "Project Management" },
   { code: "INFO5990", name: "Professional Practice in IT" },
-  { code: "TRACELY", name: "Tracely — PM Case Study" },
+  { code: "TRACELY", name: "Tracely" },
 ];
 
 // A paper's identity is (course, week, paperNumber) — all present directly
@@ -88,6 +94,11 @@ export interface ExamWeekPaperSummary {
   submitted: boolean;
   scoreCorrect: number | null;
   scoreTotal: number | null;
+  // Total question count for this paper, known from static content
+  // regardless of submission state — lets the UI show paper size (and
+  // remaining-work totals) before a paper has ever been attempted, when
+  // scoreTotal is still null.
+  questionCount: number;
 }
 
 export interface ExamWeekView {
@@ -135,6 +146,7 @@ export function groupExamPapersByWeek(
           submitted: r.submitted_at !== null,
           scoreCorrect: r.score_correct,
           scoreTotal: r.score_total,
+          questionCount: content?.questions.length ?? 0,
         };
       });
     groups.push({ week, dueDate: weekDueDate(week), overdue: weekDueDate(week) < today, papers });
