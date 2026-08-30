@@ -10,6 +10,8 @@ import { examApiRoutes } from "./exam/api";
 import { homeApiRoutes } from "./home-api";
 import { migrateLeetcode150 } from "./leetcode150/db";
 import { leetcode150ApiRoutes } from "./leetcode150/api";
+import { migrateInterview } from "./interview/db";
+import { interviewApiRoutes } from "./interview/api";
 import { localToday } from "./shared/scheduling";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
@@ -25,6 +27,7 @@ migrateTodo(db);
 migrateAnnouncements(db);
 migrateExam(db, localToday());
 migrateLeetcode150(db);
+migrateInterview(db);
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 
 const server = Bun.serve({
@@ -44,6 +47,7 @@ const server = Bun.serve({
     ...examApiRoutes(db),
     ...homeApiRoutes(db),
     ...leetcode150ApiRoutes(db),
+    ...interviewApiRoutes(db),
   },
   development: {
     hmr: true,
