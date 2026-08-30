@@ -2,8 +2,8 @@
 import type { Database } from "bun:sqlite";
 import { listProblems, countReviewsToday, listCompletedToday, levelDueLeetcode } from "./leetcode/db";
 import { listDueTodos, countTodosCompletedToday, listTodosCompletedToday } from "./todo/db";
-import { listExamPaperRows, countExamPapersSubmittedToday, listExamPapersSubmittedToday } from "./exam/db";
-import { buildExamSchedule, listExamCourses, COURSES, weekStartDate, groupExamPapersByWeek } from "./exam/content";
+import { listExamPaperRows, countExamPapersSubmittedToday, listExamPapersSubmittedToday, listVisibleCourses } from "./exam/db";
+import { buildExamSchedule, COURSES, weekStartDate, groupExamPapersByWeek } from "./exam/content";
 import { getCurrentLeetcode150, leetcode150CompletedCredit } from "./leetcode150/db";
 import type { CurrentLeetcode150 } from "./leetcode150/db";
 import { leetcode150Url } from "./leetcode150/content";
@@ -85,7 +85,7 @@ function todoDue(db: Database, today: string): DueItem[] {
 
 function examDue(db: Database, today: string): DueItem[] {
   const items: DueItem[] = [];
-  for (const { code, name } of listExamCourses()) {
+  for (const { code, name } of listVisibleCourses(db)) {
     const visibleRows = listExamPaperRows(db, code).filter((r) => weekStartDate(r.week) <= today);
     const weeks = groupExamPapersByWeek(code, visibleRows, today).filter((w) => w.papers.some((p) => !p.submitted));
     for (const week of weeks) {
@@ -151,7 +151,7 @@ function todoCompletedToday(db: Database, today: string): DueItem[] {
 
 function examCompletedToday(db: Database, today: string): DueItem[] {
   const items: DueItem[] = [];
-  for (const { code, name } of listExamCourses()) {
+  for (const { code, name } of listVisibleCourses(db)) {
     const papers = listExamPapersSubmittedToday(db, code, today).map((row) => {
       const content = buildExamSchedule().find(
         (p) => p.course === code && p.week === row.week && p.paperNumber === row.paper_number,
@@ -189,7 +189,7 @@ function homeStats(db: Database, today: string): HomeStats {
     ...todoDue(db, today),
     ...examDue(db, today),
   ];
-  const examSubmittedToday = listExamCourses().reduce(
+  const examSubmittedToday = listVisibleCourses(db).reduce(
     (sum, { code }) => sum + countExamPapersSubmittedToday(db, code, today),
     0,
   );

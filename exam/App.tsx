@@ -52,6 +52,10 @@ interface ExamCourse {
   name: string;
 }
 
+interface ExamCourseWithVisibility extends ExamCourse {
+  hidden: boolean;
+}
+
 type View =
   | { name: "board" }
   | { name: "week"; week: number }
@@ -70,7 +74,19 @@ async function json<T>(res: Response): Promise<T> {
 const errorMessage = (err: unknown): string => (err instanceof Error ? err.message : "Something went wrong.");
 
 const api = {
-  courses: () => fetch("/api/exam/courses").then((r) => json<ExamCourse[]>(r)),
+  courses: () => fetch("/api/exam/courses?includeHidden=1").then((r) => json<ExamCourseWithVisibility[]>(r)),
+  renameCourse: (course: string, name: string) =>
+    fetch(`/api/exam/courses/${course}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name }),
+    }).then((r) => json<ExamCourseWithVisibility>(r)),
+  setCourseHidden: (course: string, hidden: boolean) =>
+    fetch(`/api/exam/courses/${course}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ hidden }),
+    }).then((r) => json<ExamCourseWithVisibility>(r)),
   due: (course: string) =>
     fetch(`/api/exam/${course}/due`).then((r) => json<{ weeksDue: ExamWeekView[]; stats: Stats }>(r)),
   completedToday: (course: string) =>
@@ -363,19 +379,124 @@ function CourseSelector({
   courses,
   selected,
   onSelect,
+  onRename,
+  onHide,
 }: {
   courses: ExamCourse[];
-  selected: string;
+  selected: string | null;
   onSelect: (code: string) => void;
+  onRename: (code: string, name: string) => void;
+  onHide: (code: string) => void;
 }) {
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [confirmingHide, setConfirmingHide] = useState<string | null>(null);
+
+  const commitEdit = () => {
+    const trimmed = draft.trim();
+    if (editing && trimmed) onRename(editing, trimmed);
+    setEditing(null);
+  };
+
   return (
     <nav className="tabs" aria-label="Courses" style={{ marginBottom: "1rem" }}>
-      {courses.map((c) => (
-        <button key={c.code} className={c.code === selected ? "tab tab-active" : "tab"} onClick={() => onSelect(c.code)}>
-          {c.name}
-        </button>
-      ))}
+      {courses.map((c) =>
+        editing === c.code ? (
+          <span key={c.code} className="tab">
+            <input
+              className="tab-rename-input"
+              value={draft}
+              autoFocus
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitEdit();
+                if (e.key === "Escape") setEditing(null);
+              }}
+              onBlur={commitEdit}
+            />
+          </span>
+        ) : (
+          <span key={c.code} className={c.code === selected ? "tab tab-active" : "tab"}>
+            <button className="tab-label" onClick={() => onSelect(c.code)}>
+              {c.name}
+            </button>
+            <button
+              className="tab-icon-btn"
+              title="Rename module"
+              aria-label={`Rename ${c.name}`}
+              onClick={() => {
+                setDraft(c.name);
+                setEditing(c.code);
+              }}
+            >
+              ✎
+            </button>
+            {confirmingHide === c.code ? (
+              <>
+                <button
+                  className="tab-icon-btn tab-icon-btn-danger"
+                  title={`Confirm hiding ${c.name}`}
+                  aria-label={`Confirm hiding ${c.name}`}
+                  onClick={() => {
+                    setConfirmingHide(null);
+                    onHide(c.code);
+                  }}
+                >
+                  Hide?
+                </button>
+                <button
+                  className="tab-icon-btn"
+                  title="Cancel"
+                  aria-label="Cancel hide"
+                  onClick={() => setConfirmingHide(null)}
+                >
+                  ✕
+                </button>
+              </>
+            ) : (
+              <button
+                className="tab-icon-btn"
+                title="Hide module (reversible — content and progress are kept)"
+                aria-label={`Hide ${c.name}`}
+                onClick={() => setConfirmingHide(c.code)}
+              >
+                ×
+              </button>
+            )}
+          </span>
+        ),
+      )}
     </nav>
+  );
+}
+
+function HiddenCoursesPanel({
+  hidden,
+  onUnhide,
+}: {
+  hidden: ExamCourseWithVisibility[];
+  onUnhide: (code: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (hidden.length === 0) return null;
+  return (
+    <div className="hidden-courses" style={{ marginBottom: "1rem" }}>
+      <button className="link-btn" onClick={() => setOpen((o) => !o)}>
+        {open ? "Hide" : "Show"} hidden modules ({hidden.length})
+      </button>
+      {open && (
+        <ul className="hidden-courses-list">
+          {hidden.map((c) => (
+            <li key={c.code}>
+              <span>{c.name}</span>
+              <button className="btn" onClick={() => onUnhide(c.code)}>
+                Unhide
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -852,7 +973,9 @@ export default function ExamApp({
   onOpened?: () => void;
 } = {}) {
   const [view, setView] = useState<View>({ name: "board" });
-  const [courses, setCourses] = useState<ExamCourse[]>([]);
+  const [allCourses, setAllCourses] = useState<ExamCourseWithVisibility[]>([]);
+  const courses = allCourses.filter((c) => !c.hidden);
+  const hiddenCourses = allCourses.filter((c) => c.hidden);
   const [course, setCourse] = useState<string | null>(null);
   const [weeksDue, setWeeksDue] = useState<ExamWeekView[]>([]);
   const [stats, setStats] = useState<Stats>({ dueCount: 0, overdueCount: 0, completedToday: 0 });
@@ -876,15 +999,38 @@ export default function ExamApp({
     }
   };
 
-  useEffect(() => {
+  const loadCourses = () =>
     api
       .courses()
       .then((list) => {
-        setCourses(list);
-        if (list.length > 0) setCourse((current) => current ?? list[0]!.code);
+        setAllCourses(list);
+        const visible = list.filter((c) => !c.hidden);
+        if (visible.length > 0) setCourse((current) => (current && visible.some((c) => c.code === current) ? current : visible[0]!.code));
+        else setCourse(null);
       })
       .catch((err) => setError(errorMessage(err)));
+
+  useEffect(() => {
+    loadCourses();
   }, []);
+
+  const renameCourse = async (code: string, name: string) => {
+    try {
+      await api.renameCourse(code, name);
+      await loadCourses();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const setCourseHidden = async (code: string, hidden: boolean) => {
+    try {
+      await api.setCourseHidden(code, hidden);
+      await loadCourses();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
 
   const refresh = (activeCourse: string) => {
     setError(null);
@@ -979,7 +1125,13 @@ export default function ExamApp({
   if (!course) {
     return (
       <div className="theory">
-        {error ? <p className="form-error">{error}</p> : <p className="board-empty">Loading…</p>}
+        <CourseSelector courses={courses} selected={null} onSelect={setCourse} onRename={renameCourse} onHide={(code) => setCourseHidden(code, true)} />
+        <HiddenCoursesPanel hidden={hiddenCourses} onUnhide={(code) => setCourseHidden(code, false)} />
+        {error ? (
+          <p className="form-error">{error}</p>
+        ) : (
+          <p className="board-empty">{allCourses.length === 0 ? "Loading…" : "All modules are hidden — unhide one above to continue."}</p>
+        )}
       </div>
     );
   }
@@ -988,7 +1140,8 @@ export default function ExamApp({
 
   return (
     <div className="theory">
-      <CourseSelector courses={courses} selected={course} onSelect={setCourse} />
+      <CourseSelector courses={courses} selected={course} onSelect={setCourse} onRename={renameCourse} onHide={(code) => setCourseHidden(code, true)} />
+      <HiddenCoursesPanel hidden={hiddenCourses} onUnhide={(code) => setCourseHidden(code, false)} />
       <div className="btn-row" style={{ marginBottom: "1rem" }}>
         <button className="btn" onClick={runSync} disabled={syncing}>
           {syncing ? "Syncing…" : "Sync"}

@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import { buildExamSchedule } from "./content";
+import { buildExamSchedule, listExamCourses } from "./content";
 
 export interface ExamPaperRow {
   course: string;
@@ -48,6 +48,11 @@ export function migrateExam(db: Database, today: string): void {
       score_correct INTEGER NOT NULL,
       score_total INTEGER NOT NULL,
       PRIMARY KEY (course, week, paper_number, attempt_number)
+    );
+    CREATE TABLE IF NOT EXISTS exam_course_overrides (
+      course TEXT PRIMARY KEY,
+      display_name TEXT,
+      hidden INTEGER NOT NULL DEFAULT 0
     );
   `);
 
@@ -288,6 +293,59 @@ function seedNewPapers(db: Database): void {
   for (const paper of buildExamSchedule()) {
     insert.run(paper.course, paper.week, paper.paperNumber);
   }
+}
+
+interface CourseOverrideRow {
+  course: string;
+  display_name: string | null;
+  hidden: number;
+}
+
+function loadOverrides(db: Database): Map<string, CourseOverrideRow> {
+  const rows = db.query(`SELECT course, display_name, hidden FROM exam_course_overrides`).all() as CourseOverrideRow[];
+  return new Map(rows.map((r) => [r.course, r]));
+}
+
+export interface ExamCourseWithVisibility {
+  code: string;
+  name: string;
+  hidden: boolean;
+}
+
+// Every module ("course") the app knows about, with any saved rename/hide
+// override applied — includes hidden ones, for the "manage hidden modules"
+// UI. listVisibleCourses below is the filtered version everything else uses.
+export function listAllCoursesWithOverrides(db: Database): ExamCourseWithVisibility[] {
+  const overrides = loadOverrides(db);
+  return listExamCourses().map(({ code, name }) => {
+    const override = overrides.get(code);
+    return {
+      code,
+      name: override?.display_name ?? name,
+      hidden: override?.hidden === 1,
+    };
+  });
+}
+
+// Courses that should actually surface in tab bars and due-lists.
+export function listVisibleCourses(db: Database): { code: string; name: string }[] {
+  return listAllCoursesWithOverrides(db)
+    .filter((c) => !c.hidden)
+    .map(({ code, name }) => ({ code, name }));
+}
+
+export function renameCourse(db: Database, course: string, name: string): void {
+  db.query(
+    `INSERT INTO exam_course_overrides (course, display_name, hidden) VALUES (?, ?, 0)
+     ON CONFLICT (course) DO UPDATE SET display_name = excluded.display_name`,
+  ).run(course, name);
+}
+
+export function setCourseHidden(db: Database, course: string, hidden: boolean): void {
+  db.query(
+    `INSERT INTO exam_course_overrides (course, display_name, hidden) VALUES (?, NULL, ?)
+     ON CONFLICT (course) DO UPDATE SET hidden = excluded.hidden`,
+  ).run(course, hidden ? 1 : 0);
 }
 
 export function listExamPaperRows(db: Database, course: string): ExamPaperRow[] {

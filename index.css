@@ -1014,6 +1014,9 @@ a.btn {
 }
 
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   font-size: 0.85rem;
   font-weight: 600;
   padding: 0.5rem 1.1rem;
@@ -1021,6 +1024,74 @@ a.btn {
   color: var(--dim);
   position: relative;
   transition: color var(--dur-fast) var(--ease);
+}
+
+.tab-label {
+  color: inherit;
+  font: inherit;
+}
+
+.tab-icon-btn {
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.2rem 0.35rem;
+  border-radius: 4px;
+  color: var(--dim);
+  opacity: 0.5;
+  transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.tab-icon-btn:hover {
+  opacity: 1;
+  color: var(--text);
+  background: var(--panel);
+}
+
+.tab-icon-btn-danger {
+  opacity: 1;
+  color: var(--red);
+  font-weight: 700;
+}
+
+.tab-icon-btn-danger:hover {
+  background: color-mix(in srgb, var(--red) 15%, transparent);
+}
+
+.tab-rename-input {
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  color: var(--text);
+  width: 14ch;
+}
+
+.link-btn {
+  font-size: 0.8rem;
+  color: var(--dim);
+  text-decoration: underline;
+}
+
+.link-btn:hover {
+  color: var(--text);
+}
+
+.hidden-courses-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.hidden-courses-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .tab::after {

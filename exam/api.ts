@@ -11,6 +11,10 @@ import {
   countExamPapersSubmittedToday,
   listExamPapersSubmittedToday,
   listExamAttemptHistory,
+  listVisibleCourses,
+  listAllCoursesWithOverrides,
+  renameCourse,
+  setCourseHidden,
   type ExamPaperRow,
   type ExamAttemptSummary,
 } from "./db";
@@ -128,7 +132,27 @@ export function examApiRoutes(
 ) {
   return {
     "/api/exam/courses": {
-      GET: () => json(listExamCourses()),
+      GET: (req: Request) => {
+        const includeHidden = new URL(req.url).searchParams.get("includeHidden") === "1";
+        return json(includeHidden ? listAllCoursesWithOverrides(db) : listVisibleCourses(db));
+      },
+    },
+    "/api/exam/courses/:course": {
+      PATCH: async (req: Request & { params: { course: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const body = (await req.json().catch(() => null)) as { name?: string; hidden?: boolean } | null;
+        if (!body || (body.name === undefined && body.hidden === undefined)) {
+          return json({ error: "name or hidden required" }, 400);
+        }
+        if (body.name !== undefined) {
+          const name = body.name.trim();
+          if (!name) return json({ error: "name cannot be empty" }, 400);
+          renameCourse(db, course, name);
+        }
+        if (body.hidden !== undefined) setCourseHidden(db, course, body.hidden);
+        return json(listAllCoursesWithOverrides(db).find((c) => c.code === course));
+      },
     },
     "/api/exam/sync": {
       GET: () => json({ pending: findPendingWeeks() }),
