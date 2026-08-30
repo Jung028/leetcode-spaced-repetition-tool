@@ -46,6 +46,7 @@
   --cat-src-theory: #00b8a3;
   --cat-src-goals: #c084fc;
   --cat-src-exam: #ff375f;
+  --cat-src-interview: #5b8def;
   --cat-topic-system-design: #ffa116;
   --cat-topic-dsa: #00b8a3;
   --cat-topic-distributed: #c084fc;
@@ -80,6 +81,7 @@
     --cat-src-theory: #007668;
     --cat-src-goals: #922afa;
     --cat-src-exam: #da002c;
+    --cat-src-interview: #2f5fd1;
     --cat-topic-system-design: #9b5c00;
     --cat-topic-dsa: #007668;
     --cat-topic-distributed: #922afa;
@@ -114,6 +116,7 @@
   --cat-src-theory: #007668;
   --cat-src-goals: #922afa;
   --cat-src-exam: #da002c;
+  --cat-src-interview: #2f5fd1;
   --cat-topic-system-design: #9b5c00;
   --cat-topic-dsa: #007668;
   --cat-topic-distributed: #922afa;

@@ -91,12 +91,14 @@ const SOURCE_LABEL: Record<DueSource, string> = {
   leetcode: "LeetCode",
   todo: "Todo",
   exam: "Modules",
+  interview: "Interview",
 };
 
 const SOURCE_COLOR: Record<DueSource, string> = {
   leetcode: "var(--cat-src-leetcode)",
   todo: "var(--cat-src-theory)",
   exam: "var(--cat-src-exam)",
+  interview: "var(--cat-src-interview)",
 };
 
 // Same two calendars leetcode-srs already overlays elsewhere: Adam's
