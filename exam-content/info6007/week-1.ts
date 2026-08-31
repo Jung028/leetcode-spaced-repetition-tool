@@ -33,7 +33,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "What is the weighting and format of the Early Semester Feedback Task?",
-        options: ["5%, an individual auto-graded multiple-choice quiz on Weeks 1-3 content, due Week 4", "25%, a group presentation delivered in Week 6", "10%, a written report submitted in Week 2", "60%, a closed-book exam held in Week 4"],
+        options: ["5%, an individual auto-graded multiple-choice quiz on Weeks 1-3 content, due Week 4", "25%, a group presentation on the team's project proposal, delivered during tutorial time in Week 6", "10%, an individually written report on stakeholder analysis, submitted online in Week 2", "60%, a closed-book written exam covering all prior weeks, held during the Week 4 tutorial session"],
         correctIndex: 0,
         modelAnswer: "The Assessments slides describe it as an individual, auto-graded multiple choice/true-false quiz worth 5%, covering Week 1 to Week 3 content, held in Week 4.",
       },
@@ -98,8 +98,8 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Per the PMBOK Guide (6th edition), a project is defined as what?",
-        options: ["A temporary effort undertaken to create a unique product, service, or result", "An ongoing operational activity with no defined end date", "Any task assigned to more than one person", "A recurring business process performed the same way each time"],
-        correctIndex: 0,
+        options: ["An ongoing operational activity with no defined end date", "A temporary effort undertaken to create a unique product, service, or result", "Any task assigned to more than one person", "A recurring business process performed the same way each time"],
+        correctIndex: 1,
         modelAnswer: "PMBOK (6th ed., p.4) defines a project as 'a temporary effort/work undertaken to create a unique product, service, or result.'",
       },
       {
@@ -112,15 +112,15 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "According to the Triple Constraint table, if a project's time is reduced, what must happen?",
-        options: ["Cost must increase or scope must decrease", "Quality automatically improves", "Nothing else needs to change", "Scope must always increase"],
-        correctIndex: 0,
+        options: ["Quality automatically improves", "Nothing else needs to change", "Scope must always increase", "Cost must increase or scope must decrease"],
+        correctIndex: 3,
         modelAnswer: "The Triple Constraint table states: 'If Time is reduced → Cost must increase or Scope must decrease.'",
       },
       {
         type: "mcq",
         prompt: "Which of the following sits at the centre of the Triple Constraint triangle (Scope, Time, Cost)?",
-        options: ["Quality", "Risk", "Stakeholders", "Communication"],
-        correctIndex: 0,
+        options: ["Risk", "Quality", "Stakeholders", "Communication"],
+        correctIndex: 1,
         modelAnswer: "The Triple Constraint diagram places 'Quality' at the centre of the triangle formed by Scope (features, functionality), Time (deadlines, schedule), and Cost (budget, resources).",
       },
       {
@@ -133,15 +133,15 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Which of the following best distinguishes a 'program' from a 'project,' per the lecture?",
-        options: ["A program is a collection of related projects managed in a coordinated way to achieve benefits not possible by managing them separately", "A program is simply a smaller task within a single project", "A program never has a manager assigned to it", "A program is always shorter in duration than a single project"],
+        options: ["A program is a collection of related projects managed in a coordinated way to achieve benefits not possible by managing them separately", "A program is simply a smaller task within a single project, assigned to one team member for a short, fixed duration", "A program never has a dedicated manager assigned to it, since oversight is handled entirely by the individual project managers involved", "A program is always shorter in duration than any of the individual projects it happens to be coordinating"],
         correctIndex: 0,
         modelAnswer: "The lecture defines a program as 'a collection of related projects managed in a coordinated way to achieve benefits not possible by managing them separately,' overseen by a Program Manager.",
       },
       {
         type: "mcq",
         prompt: "Who typically manages a portfolio, per the lecture?",
-        options: ["A Portfolio Manager or PMO (Project Management Office)", "A single individual developer", "The Program Manager only, with no separate oversight", "External auditors only"],
-        correctIndex: 0,
+        options: ["A single individual developer", "The Program Manager only, with no separate oversight", "External auditors only", "A Portfolio Manager or PMO (Project Management Office)"],
+        correctIndex: 3,
         modelAnswer: "The 'Portfolio Management' slide states a portfolio is 'Managed by a Portfolio Manager or PMO (Project Management Office).'",
       },
       {
@@ -184,29 +184,29 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Per PMBOK (6th ed.), project management is defined as?",
-        options: ["The application of knowledge, skills, tools, and techniques to project activities to meet project requirements", "The process of hiring staff for a new business unit", "A method for tracking employee attendance", "A financial audit conducted at the end of a project"],
+        options: ["The application of knowledge, skills, tools, and techniques to project activities to meet project requirements", "The process of hiring and onboarding staff for a newly created business unit within the organization", "A method for tracking employee attendance and reporting hours worked across departments", "A financial audit conducted at the end of a project to verify that all invoices have been paid"],
         correctIndex: 0,
         modelAnswer: "PMBOK (6th ed., p.10) defines project management as 'the application of knowledge, skills, tools, and techniques to project activities to meet project requirements.'",
       },
       {
         type: "mcq",
         prompt: "Which of the following is one of the seven key elements of Project Management listed in the lecture?",
-        options: ["Risk", "Marketing", "Sales forecasting", "Recruitment"],
-        correctIndex: 0,
+        options: ["Marketing", "Sales forecasting", "Risk", "Recruitment"],
+        correctIndex: 2,
         modelAnswer: "The seven key elements are Scope, Time, Cost, Quality, Risk, Communication, and Resources — Risk is explicitly one of them ('what could go wrong, and how do we mitigate it?').",
       },
       {
         type: "mcq",
         prompt: "Which category do 'Jira, Trello, or Asana' fall under in the 'Skills required for Project Management' slide?",
-        options: ["Technical skills", "Soft skills", "Strategic skills", "Core PM skills"],
-        correctIndex: 0,
+        options: ["Soft skills", "Technical skills", "Strategic skills", "Core PM skills"],
+        correctIndex: 1,
         modelAnswer: "The slide lists 'Technical skills' as including 'Understanding of PM methodologies, Tools like Jira, Trello, or Asana, Reporting, etc.'",
       },
       {
         type: "mcq",
         prompt: "Which of these is listed as a 'soft skill' for project managers, per the lecture?",
-        options: ["Conflict resolution", "Budgeting & cost control", "Understanding of PM methodologies", "Stakeholder management"],
-        correctIndex: 0,
+        options: ["Budgeting & cost control", "Understanding of PM methodologies", "Stakeholder management", "Conflict resolution"],
+        correctIndex: 3,
         modelAnswer: "Soft skills listed are Communication, Leadership, Conflict resolution, Negotiation, Decision making, and Adaptability — budgeting is a core PM skill, PM methodologies is a technical skill, and stakeholder management is a strategic skill.",
       },
       {

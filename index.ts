@@ -1,14 +1,18 @@
 import index from "./index.html";
-import { openDb } from "./db";
-import { apiRoutes } from "./api";
-import { migrateTodo } from "./todo-db";
-import { todoApiRoutes } from "./todo-api";
-import { migrateExam } from "./exam-db";
-import { examApiRoutes } from "./exam-api";
+import { openDb } from "./leetcode/db";
+import { apiRoutes } from "./leetcode/api";
+import { migrateTodo } from "./todo/db";
+import { todoApiRoutes } from "./todo/api";
+import { migrateAnnouncements } from "./announcement-db";
+import { announcementApiRoutes } from "./announcement-api";
+import { migrateExam } from "./exam/db";
+import { examApiRoutes } from "./exam/api";
 import { homeApiRoutes } from "./home-api";
-import { migrateLeetcode150 } from "./leetcode150-db";
-import { leetcode150ApiRoutes } from "./leetcode150-api";
-import { localToday } from "./scheduling";
+import { migrateLeetcode150 } from "./leetcode150/db";
+import { leetcode150ApiRoutes } from "./leetcode150/api";
+import { migrateInterview } from "./interview/db";
+import { interviewApiRoutes } from "./interview/api";
+import { localToday } from "./shared/scheduling";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
 // One-time cleanup: the Theory and Goals features were removed along with
@@ -20,8 +24,10 @@ db.exec(`
   DROP TABLE IF EXISTS theory_schedule; DROP TABLE IF EXISTS theory_state;
 `);
 migrateTodo(db);
+migrateAnnouncements(db);
 migrateExam(db, localToday());
 migrateLeetcode150(db);
+migrateInterview(db);
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 
 const server = Bun.serve({
@@ -37,9 +43,11 @@ const server = Bun.serve({
       }),
     ...apiRoutes(db),
     ...todoApiRoutes(db),
+    ...announcementApiRoutes(db),
     ...examApiRoutes(db),
     ...homeApiRoutes(db),
     ...leetcode150ApiRoutes(db),
+    ...interviewApiRoutes(db),
   },
   development: {
     hmr: true,

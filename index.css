@@ -46,6 +46,7 @@
   --cat-src-theory: #00b8a3;
   --cat-src-goals: #c084fc;
   --cat-src-exam: #ff375f;
+  --cat-src-interview: #5b8def;
   --cat-topic-system-design: #ffa116;
   --cat-topic-dsa: #00b8a3;
   --cat-topic-distributed: #c084fc;
@@ -80,6 +81,7 @@
     --cat-src-theory: #007668;
     --cat-src-goals: #922afa;
     --cat-src-exam: #da002c;
+    --cat-src-interview: #2f5fd1;
     --cat-topic-system-design: #9b5c00;
     --cat-topic-dsa: #007668;
     --cat-topic-distributed: #922afa;
@@ -114,6 +116,7 @@
   --cat-src-theory: #007668;
   --cat-src-goals: #922afa;
   --cat-src-exam: #da002c;
+  --cat-src-interview: #2f5fd1;
   --cat-topic-system-design: #9b5c00;
   --cat-topic-dsa: #007668;
   --cat-topic-distributed: #922afa;
@@ -1014,6 +1017,9 @@ a.btn {
 }
 
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   font-size: 0.85rem;
   font-weight: 600;
   padding: 0.5rem 1.1rem;
@@ -1021,6 +1027,74 @@ a.btn {
   color: var(--dim);
   position: relative;
   transition: color var(--dur-fast) var(--ease);
+}
+
+.tab-label {
+  color: inherit;
+  font: inherit;
+}
+
+.tab-icon-btn {
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.2rem 0.35rem;
+  border-radius: 4px;
+  color: var(--dim);
+  opacity: 0.5;
+  transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.tab-icon-btn:hover {
+  opacity: 1;
+  color: var(--text);
+  background: var(--panel);
+}
+
+.tab-icon-btn-danger {
+  opacity: 1;
+  color: var(--red);
+  font-weight: 700;
+}
+
+.tab-icon-btn-danger:hover {
+  background: color-mix(in srgb, var(--red) 15%, transparent);
+}
+
+.tab-rename-input {
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  color: var(--text);
+  width: 14ch;
+}
+
+.link-btn {
+  font-size: 0.8rem;
+  color: var(--dim);
+  text-decoration: underline;
+}
+
+.link-btn:hover {
+  color: var(--text);
+}
+
+.hidden-courses-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.hidden-courses-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .tab::after {
@@ -1149,6 +1223,7 @@ a.btn {
 .theory-model-answer p {
   margin: 0;
   line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .theory-model-answer-image {
@@ -1232,6 +1307,26 @@ a.btn {
   transition: accent-color var(--dur-fast) var(--ease);
 }
 
+/* Announcements board — messages can run several lines (e.g. a drafted
+   email), so unlike other board rows they wrap instead of truncating. */
+.announcements-board .board-row-main {
+  align-items: flex-start;
+}
+
+.announcement-message {
+  white-space: pre-wrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.announcement-done {
+  opacity: 0.55;
+}
+
+.announcement-done .announcement-message {
+  text-decoration: line-through;
+}
+
 /* Exam tab */
 .exam-question {
   border-top: 1px solid var(--line);
@@ -1241,6 +1336,20 @@ a.btn {
 .exam-prompt {
   font-weight: 500;
   margin-bottom: 0.75rem;
+  white-space: pre-wrap;
+}
+
+.exam-code-block {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  line-height: 1.5;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+  white-space: pre-wrap;
+  overflow-x: auto;
 }
 
 .exam-options {
@@ -1274,6 +1383,15 @@ a.btn {
 .exam-explanation {
   margin-top: 0.75rem;
   color: var(--dim);
+  white-space: pre-wrap;
+}
+
+.exam-prompt-image {
+  max-width: 100%;
+  display: block;
+  margin: 0.75rem 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
 }
 
 .exam-diagram {
@@ -1322,4 +1440,48 @@ a.btn {
 .exam-focus .exam-prompt {
   font-size: 1.3rem;
   margin-bottom: 1.5rem;
+}
+
+.interview-part-tabs {
+  margin-bottom: var(--space-4);
+}
+
+.interview-timer {
+  margin-left: var(--space-2);
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  color: var(--dim);
+}
+
+.interview-timer-over {
+  color: var(--red);
+}
+
+.interview-canvas {
+  height: 480px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: var(--space-4) 0;
+}
+
+.interview-rubric {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.interview-rubric label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.interview-timer-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }

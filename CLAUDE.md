@@ -115,10 +115,31 @@ For more information, read the Bun API docs in `node_modules/bun-types/docs/**.m
 
 Use the type mix and ratio from `docs/exam-content-authoring-guide.md` (mcq/truefalse/short/scenario) — questions are no longer restricted to `mcq` only. Every question must still include a written `modelAnswer`: for mcq/truefalse, why the correct option is correct; for short/scenario, the revealed answer itself. Always traceable to the source material, never invented.
 
+### Question count per paper
+
+Author enough questions to genuinely cover the source material — target
+roughly **30–40 `mcq` questions and roughly 20 multiple-answer
+(select-all-that-apply) questions per paper**, but let coverage drive the
+count, not the other way around: reason about what's actually important in
+the source material first, then write questions for it. Never skip a real
+topic just to hit the numeric target, and never pad with filler or
+near-duplicate questions just to reach the quota either — treat these
+numbers as a floor to aim for when the material genuinely supports it, not
+a ceiling and not a shortcut.
+
+**Outstanding gap:** `ExamQuestionType` (`exam-content/types.ts:1`) is
+currently `"mcq" | "truefalse" | "short" | "scenario"` — there is no
+select-all-that-apply type yet, `correctIndex` is a single index (not a set
+of indices), and `gradeExamAnswer`/the exam UI both assume one correct
+option. Authoring "multiple-answer" questions per this target requires
+adding that type to the schema, grading, and `ExamApp.tsx` first — treat
+this as a prerequisite task, not something to fake with `mcq` in the
+meantime.
+
 Questions must be genuinely exam-hard, not easy recall:
 - Distractor options must be *close* — plausible, same-category wrong answers that require real understanding to rule out (e.g. a term from the same lecture, a common misconception, an almost-right-but-subtly-wrong mechanism) — never filler options that are obviously unrelated or absurd, since those let a student guess correctly without knowing the material.
 - Favor questions that require distinguishing between similar concepts, applying a concept to a new example, or spotting a subtle error, over questions that are answerable from the shape of the question alone (e.g. "which of these is a security term" when only one option is security-related).
-- Keep every option the same rough length and level of detail — never let the correct option be noticeably longer, more specific, or more hedged than the distractors. That length tell lets a student guess right without knowing the material; distractors need the same care and specificity as the correct answer, not shorter afterthoughts.
+- Keep every option the same rough length and level of detail — never let the correct option be noticeably longer, more specific, or more hedged than the distractors. That length tell lets a student guess right without knowing the material; distractors need the same care and specificity as the correct answer, not shorter afterthoughts. **This rule has been violated repeatedly by bulk/auto-authored batches even though it was already written down** — "keep it in mind" is not enough; run `bun scripts/check-mcq-lengths.ts [COURSE]` after authoring or editing any mcq content and fix every flagged question before considering the work done (see the mandatory step in "Exam content generation workflow" below).
 
 ### Diagrams, symbols, and drawing
 
@@ -160,10 +181,27 @@ wasn't available when it was first authored), do it this way:
    shared `exam-content.ts` (new import + `ALL_PAPERS` entry for a brand
    new week), and two agents editing that file at once can race.
 4. **Verify independently after each agent finishes** — don't just trust
-   its self-reported summary. Rerun `bun test` yourself, and grep the
-   new/changed file's `correctIndex:` values to confirm they're roughly
-   even across 0-3 (see the known MCQ positional-bias risk — auto-authored
-   MCQs skew toward one index unless deliberately checked).
+   its self-reported summary. Rerun `bun test` yourself (this runs
+   `scripts/check-mcq-lengths.test.ts`'s `buildExamSchedule()` regression
+   check, so a length tell anywhere in the aggregated content already
+   fails the suite), and grep the new/changed file's `correctIndex:`
+   values to confirm they're roughly even across 0-3 (see the known MCQ
+   positional-bias risk — auto-authored MCQs skew toward one index unless
+   deliberately checked; `bun scripts/shuffle-week-options.ts <file>` fixes
+   this). Also run `bun scripts/check-mcq-lengths.ts [COURSE]` directly —
+   it prints every mcq question whose correct option is a length/detail
+   outlier (too long *or* too short vs. its distractors) and exits nonzero
+   if any remain; **do not consider authoring done while it reports any
+   flags**. This is the same length-tell called out in the "Exam content
+   question format" rule above, and like positional bias it recurs by
+   default in bulk/auto-authored batches unless something actually
+   measures it — a prose reminder alone was not enough to stop it
+   recurring, which is why this script exists. Fix flags by rewriting the
+   short distractors to match the correct option's length and specificity
+   (or, for the rarer inverse case, lengthening a too-short correct
+   option) — never by trimming a correct option that's long because it's
+   genuinely more detailed; cutting detail from the right answer degrades
+   the model answer's usefulness for studying.
 
 ## Spec requirement: continuous testing
 

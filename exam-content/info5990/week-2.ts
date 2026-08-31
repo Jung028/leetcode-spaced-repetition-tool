@@ -11,6 +11,8 @@ const PAPER: ExamPaperSeed =
       "tutorial/INFO5990 2026-S2 Week 02 - IT and Organizational Value (1).pdf",
       "tutorial/INFO5990 2026-S2 Week 02 Tutorial Sheet.pdf",
       "tutorial/Week 2 Tutorial - Answers.md",
+      "tutorial/INFO5990 Your Free Business & IT Toolkit.pptx",
+      "tutorial/Reading 1 - The McKinsey article.pdf",
     ],
     questions: [
       {
@@ -26,7 +28,7 @@ const PAPER: ExamPaperSeed =
         type: "mcq",
         prompt: "According to the 'Organisation vs Business' comparison slide, what is the key distinguishing feature of a business?",
         options: [
-          "A business is any group of people working toward a common goal", "A business is a type of Organisation whose primary goal is to make a profit by providing goods or services", "A business must be a large corporation with multiple departments", "A business is defined by having government funding",
+          "A business is simply any group of people working toward a shared common goal, regardless of profit motive", "A business is a type of Organisation whose primary goal is to make a profit by providing goods or services", "A business must be a large corporation with multiple departments and layers of management", "A business is defined by receiving government funding to deliver services to citizens",
         ],
         correctIndex: 1,
         modelAnswer: "The slide states an Organisation is a broad term for any structured group working toward a goal (not always profit-driven, e.g. non-profits, governments, universities, clubs), while a business is specifically 'a type of Organisation whose primary goal is to make a profit by providing goods or services' (e.g. Canva, Apple, local cafes).",
@@ -49,7 +51,7 @@ const PAPER: ExamPaperSeed =
         type: "mcq",
         prompt: "In a Matrix organisational structure, as illustrated by the lecture's Google example, how do employees typically report?",
         options: [
-          "To no manager at all — fully self-directed", "To a single functional manager only", "To two managers — one for function (e.g. Engineering or UX) and one for project/product (e.g. Android or YouTube)", "To the CEO directly regardless of role",
+          "To no manager at all — fully self-directed teams that set their own priorities", "To a single functional manager only, who oversees both daily work and project assignments", "To two managers — one for function (e.g. Engineering or UX) and one for project/product (e.g. Android or YouTube)", "To the CEO directly regardless of role, bypassing functional and project layers entirely",
         ],
         correctIndex: 2,
         modelAnswer: "Employees report to more than one manager, typically by function and project/team. The Google example: employees often report to both a product manager (e.g. for Android or YouTube) and a functional manager (e.g. Engineering or UX) — dual-reporting that allows better cross-project collaboration while maintaining technical excellence.",
@@ -58,7 +60,7 @@ const PAPER: ExamPaperSeed =
         type: "mcq",
         prompt: "The lecture's Valve Corporation example illustrates which organisational structure, and what is its defining feature?",
         options: [
-          "Hierarchical — multiple layers of command", "Flat — few or no levels of middle management, with employees choosing what projects to work on", "Matrix — dual reporting lines", "Functional — departments organised by specialism",
+          "Hierarchical — multiple layers of command with strict approval before any project decision", "Flat — few or no levels of middle management, with employees choosing what projects to work on", "Matrix — dual reporting lines to both a functional and a project manager", "Functional — departments organised by specialism, such as engineering and marketing",
         ],
         correctIndex: 1,
         modelAnswer: "Flat structure. Valve 'famously operates with no formal hierarchy' — employees choose what projects to work on and everyone contributes equally to decision-making, which the lecture says fostered innovation and rapid iteration in the creative, agile gaming industry.",
@@ -67,7 +69,7 @@ const PAPER: ExamPaperSeed =
         type: "mcq",
         prompt: "IBM is given as the lecture's example of which organisational structure, and why did the lecture say it 'worked' for IBM?",
         options: [
-          "Flat — because small teams move faster", "Hierarchical — because in such a massive enterprise, a strict hierarchy ensures stability, control, and accountability across global operations", "Matrix — because IBM needed dual reporting for R&D", "Functional — because IBM has only one product line",
+          "Flat — because removing middle-management layers lets small, self-directed teams move faster than routing every decision through IBM's many layers of global approval", "Hierarchical — because in such a massive enterprise, a strict hierarchy ensures stability, control, and accountability across global operations", "Matrix — because IBM needed dual reporting lines, splitting authority between regional division heads and global functional leads, to coordinate R&D across its many regions", "Functional — because IBM has only one product line and therefore no real need for specialised departments like engineering, sales, or finance",
         ],
         correctIndex: 1,
         modelAnswer: "Hierarchical. IBM follows a classic top-down structure with multiple layers of management and a clear chain of command from junior employees to executives; the lecture states this works because 'in such a massive enterprise, a strict hierarchy ensures stability, control, and accountability across global operations.'",
@@ -83,7 +85,7 @@ const PAPER: ExamPaperSeed =
         type: "mcq",
         prompt: "What is listed as a key 'con' of the Matrix organisational structure?",
         options: [
-          "It is only usable by small startups", "Dual authority can cause confusion, and it requires strong communication and coordination", "It has no defined roles at all", "It cannot scale across projects",
+          "It is only usable by small startups with fewer than a handful of employees", "Dual authority can cause confusion, and it requires strong communication and coordination", "It has no defined roles at all, leaving employees unsure who owns a task", "It cannot scale across projects once an organisation grows past one initiative",
         ],
         correctIndex: 1,
         modelAnswer: "The Matrix structure slide lists 'dual authority can cause confusion' and 'requires strong communication and coordination' as cons, despite pros like efficient resource use across projects, cross-functional teamwork, and flexibility.",
@@ -92,7 +94,7 @@ const PAPER: ExamPaperSeed =
         type: "mcq",
         prompt: "Which of the following is listed as a 'con' of the Hierarchical organisational structure?",
         options: [
-          "It cannot support growth or delegation", "Slower decision-making, and it can stifle creativity and employee autonomy", "It has no clear chain of command", "It is unsuitable for government bodies",
+          "It cannot support growth or delegation as staff and locations are added", "Slower decision-making, and it can stifle creativity and employee autonomy", "It has no clear chain of command for final decision authority", "It is unsuitable for government bodies needing auditable accountability",
         ],
         correctIndex: 1,
         modelAnswer: "The Hierarchical structure slide lists 'slower decision-making' and 'can stifle creativity and employee autonomy' as cons, against pros of clear reporting lines/accountability, stability for managing large teams, and support for growth and delegation.",
@@ -110,7 +112,7 @@ const PAPER: ExamPaperSeed =
         type: "mcq",
         prompt: "According to the lecture, what question does 'Organisational Value' answer, as distinct from plain 'Value'?",
         options: [
-          "'How much profit did we make this quarter?'", "'How does the Organisation create meaningful outcomes for its stakeholders?'", "'How fast can we ship this feature?'", "'How does this benefit me personally?'",
+          "'How much profit did we make this quarter compared to the forecast budget?'", "'How does the Organisation create meaningful outcomes for its stakeholders?'", "'How fast can we ship this feature before the next release deadline?'", "'How does this specific decision benefit me personally, not the wider team?'",
         ],
         correctIndex: 1,
         modelAnswer: "Organisational value refers to value created, delivered, and sustained by an Organisation for its stakeholders (customers, employees, shareholders, and society), and answers: 'How does the Organisation create meaningful outcomes for its stakeholders?' — versus plain Value, which answers 'How does this benefit me or others?'",
@@ -119,7 +121,7 @@ const PAPER: ExamPaperSeed =
         type: "mcq",
         prompt: "Which of these is an accurate definition of an 'IT investment', per the lecture?",
         options: [
-          "Only money spent on new laptops for staff", "The allocation of financial, human, and technological resources into IT systems, tools, or services to support or improve an Organisation's operations, performance, or strategic goals — which can be insourced or outsourced", "A one-off purchase of software with no ongoing organisational impact", "Any expense the IT department incurs, regardless of strategic purpose",
+          "Only money spent on new laptops, desktops, and other physical hardware purchased for staff use, treated as a pure procurement cost unrelated to software, cloud services, or broader strategy", "The allocation of financial, human, and technological resources into IT systems, tools, or services to support or improve an Organisation's operations, performance, or strategic goals — which can be insourced or outsourced", "A one-off purchase of a software licence that delivers value only at the moment of purchase, with no ongoing organisational impact and no connection to the Organisation's longer-term performance goals", "Any expense the IT department incurs on day-to-day operations such as helpdesk support or routine maintenance, regardless of whether that spending supports a specific strategic goal",
         ],
         correctIndex: 1,
         modelAnswer: "An IT investment is the allocation of financial, human, and technological resources into IT systems, tools, or services to support or improve an Organisation's operations, performance, or strategic goals. These resources/capabilities can be internally owned (insourced) or externally sourced (outsourced); examples include hardware, software, data, people, and processes/frameworks.",
@@ -145,9 +147,9 @@ const PAPER: ExamPaperSeed =
         prompt: "Which set correctly matches the lecture's 'critical role of IT in creating Organisational Value' to its example technologies?",
         options: [
           "Improving efficiency – automation/cloud/databases; Enhancing decisions – data analytics/BI/AI; Driving innovation – IoT/Blockchain/Agentic AI; Customer-centric strategies – CRM/self-service; Scalability – AWS/GCP/Azure",
-          "Improving efficiency – CRM; Enhancing decisions – AWS; Driving innovation – databases; Customer-centric – Blockchain; Scalability – BI tools",
-          "All five roles are only achieved through cybersecurity tooling",
-          "IT's role is limited to technical support and troubleshooting",
+          "Improving efficiency – CRM systems; Enhancing decisions – AWS infrastructure; Driving innovation – customer databases; Customer-centric strategies – Blockchain ledgers; Scalability – BI dashboards and reports",
+          "All five roles listed on the slide — efficiency, decisions, innovation, customer strategy, and scalability — are only ever achieved through dedicated cybersecurity tooling and round-the-clock IT support desks",
+          "IT's role is limited strictly to technical support and troubleshooting tickets, with no meaningful involvement in decision-making, innovation, customer strategy, or scaling operations",
         ],
         correctIndex: 0,
         modelAnswer: "The 'critical role of IT' slide lists exactly this mapping: improving operational efficiency (automation, cloud systems, databases), enhancing decision-making (data analytics, BI tools, AI), driving innovation (IoT, Blockchain, Agentic AI), enabling customer-centric strategies (CRM systems, self-service platforms), and supporting scalability/flexibility (AWS, GCP, Azure).",
@@ -179,7 +181,7 @@ const PAPER: ExamPaperSeed =
         type: "mcq",
         prompt: "How does the lecture distinguish a business goal from a business objective?",
         options: [
-          "They are interchangeable terms with no real difference", "A business goal represents the direction the company intends to go and what it wants to achieve; a business objective specifies the measurable methods/paths to help achieve that goal", "A business objective is always about a company's overall vision; a business goal is a specific number", "Business goals only apply to non-profits, objectives only apply to businesses",
+          "They are interchangeable terms with no real difference between them, both simply describing the same long-term direction the company intends to head toward over time", "A business goal represents the direction the company intends to go and what it wants to achieve; a business objective specifies the measurable methods/paths to help achieve that goal", "A business objective is always about a company's overall long-term vision and direction; a business goal, by contrast, is instead just a specific measurable number tracked on a dashboard", "Business goals only ever apply to non-profit organisations pursuing a mission, while business objectives only ever apply to for-profit businesses chasing revenue targets",
         ],
         correctIndex: 1,
         modelAnswer: "A business goal defines what the organisation ultimately wants to achieve, providing direction and purpose (e.g. 'Increase customer satisfaction in the next 12 months'). A business objective specifies measurable targets/methods that help achieve that goal (e.g. 'reduce expenses by 5%', 'increase sales by 5%').",
@@ -197,7 +199,7 @@ const PAPER: ExamPaperSeed =
         type: "mcq",
         prompt: "Which of the following are listed as QuickCart's IT Strategy elements?",
         options: [
-          "Cloud-first infrastructure, AI-driven logistics, real-time tracking system, mobile app/digital payment platform, data analytics for demand forecasting", "Hiring only in-house delivery drivers and avoiding all outsourcing", "A purely paper-based order tracking system", "Avoiding cloud computing in favour of on-premise servers only",
+          "Cloud-first infrastructure, AI-driven logistics, real-time tracking system, mobile app/digital payment platform, data analytics for demand forecasting", "Hiring only in-house delivery drivers on fixed salaries and avoiding all outsourcing to independent contractors or gig-economy delivery partners", "A purely paper-based order tracking system maintained manually with handwritten logs at each regional warehouse, updated only once per day", "Avoiding cloud computing entirely in favour of on-premise servers housed at the head office and upgraded only every few years",
         ],
         correctIndex: 0,
         modelAnswer: "QuickCart's IT Strategy includes: cloud-first infrastructure for scalability/availability, AI-driven logistics for route optimisation/delivery prediction, a real-time tracking system for customers and drivers, a mobile app and digital payment platform, and data analytics to forecast demand and optimise inventory.",
@@ -206,7 +208,7 @@ const PAPER: ExamPaperSeed =
         type: "mcq",
         prompt: "What are QuickCart's revenue streams, per its Business Model?",
         options: [
-          "Delivery fees, QuickCart Prime subscriptions, and commissions from partner stores", "Government grants and venture capital only", "Advertising revenue exclusively", "One-off app purchase fees",
+          "Delivery fees, QuickCart Prime subscriptions, and commissions from partner stores", "Government grants and venture capital funding only, with nothing collected from customers", "Advertising revenue exclusively, sold as banner placements to partner stores in the app", "One-off app purchase fees charged the first time a customer downloads the app",
         ],
         correctIndex: 0,
         modelAnswer: "QuickCart uses a digital platform model connecting customers, grocery stores, and delivery partners, with revenue streams of: delivery fees, QuickCart Prime subscriptions, and commissions from partner stores.",
@@ -222,7 +224,7 @@ const PAPER: ExamPaperSeed =
         type: "mcq",
         prompt: "How does the lecture define 'Value stream orchestration'?",
         options: [
-          "A synonym for the IT department's ticketing system", "Coordinating business and IT to deliver continuous value by synchronising people, processes, and technology to maximise value delivered to stakeholders", "A method exclusively for managing cloud server costs", "The process of writing a business model canvas",
+          "A synonym for the IT department's internal ticketing system used to log, prioritise, and track support requests raised by staff", "Coordinating business and IT to deliver continuous value by synchronising people, processes, and technology to maximise value delivered to stakeholders", "A method used exclusively for forecasting and managing cloud server costs across an infrastructure budget, reviewed monthly by finance", "The process of writing a business model canvas to document value propositions, customer segments, and revenue streams before launch",
         ],
         correctIndex: 1,
         modelAnswer: "Value stream orchestration is 'about coordinating business and IT to deliver continuous value,' involving synchronising people, processes, and technology to maximise value delivered to stakeholders, enabling smooth flow of value from idea to delivery so technology investments produce real business outcomes.",
@@ -352,6 +354,148 @@ const PAPER: ExamPaperSeed =
         type: "scenario",
         prompt: "A new logistics startup is defining its Business Goal, Business Strategy, and IT Strategy for the first time, modelling itself on the QuickCart example from the lecture. Write a plausible Business Goal, Business Strategy, and IT Strategy for this startup, explicitly showing how each level supports the one above it.",
         modelAnswer: "Business Goal: become the most trusted same-day parcel-delivery service for small businesses in a metro region — the broad, long-term outcome (mirroring QuickCart's 'become a preferred ultra-fast grocery-delivery service'). Business Strategy: differentiate through guaranteed same-day delivery windows and transparent real-time tracking, supported by AI-driven route planning — this is 'how' the goal will be achieved, choosing a competitive position (speed/transparency) the way QuickCart chose 'fast delivery, real-time order tracking, and AI-driven logistics.' IT Strategy: cloud-first infrastructure for scalability, AI-driven route optimisation, a real-time tracking system for customers and drivers, and a mobile app for booking and payment — this is the technology roadmap for delivering the strategy, directly mirroring QuickCart's IT Strategy slide. Each level narrows the one above: the goal sets direction, the strategy sets the competitive approach to get there, and the IT strategy is the concrete technology roadmap that makes the strategy executable — exactly the 'lockstep' relationship the lecture's dashed-line diagram shows between Business Strategy and IT Strategy.",
+      },
+      {
+        type: "mcq",
+        prompt: "Per the McKinsey Quarterly interview with Marc Andreessen ('Find the smartest technologist in the company and make them CEO'), what is the distinction between his partner Chris Dixon's 'search mode' and 'hill-climbing mode'?",
+        options: [
+          "Search mode means scaling an already-proven product to a global mass market; hill-climbing mode means the early research phase before any product exists at all",
+          "Search mode is a term used only by venture capital firms to describe fundraising; hill-climbing mode is a term used only by engineering teams to describe sprint planning",
+          "Search mode means exploring unfamiliar territory for new technologies or markets that might work; hill-climbing mode means exploiting an already-found opportunity by refining and scaling the product",
+          "Search mode and hill-climbing mode describe the exact same activity, just applied to companies of different sizes and funding stages",
+        ],
+        correctIndex: 2,
+        modelAnswer: "Search mode is 'wandering around through unfamiliar territory... searching for new technologies that will work and that will capture the imagination.' Hill-climbing mode is 'when you exploit the new opportunity or market' by refining products and proliferating them to a mass market along the adoption S-curve.",
+      },
+      {
+        type: "mcq",
+        prompt: "In the McKinsey interview, what convenient acronym does Andreessen use to summarise the three 'hills' his firm currently sees forming through tracking talent flows?",
+        options: [
+          "ABC: Automation, Blockchain, Cybersecurity",
+          "ABC: Agile, Blockchain, Cloud",
+          "ABC: Analytics, Big data, Cybersecurity",
+          "ABC: Artificial intelligence, Biotech, Crypto/Web3",
+        ],
+        correctIndex: 3,
+        modelAnswer: "Andreessen says the search has turned up three promising new hills that 'conveniently line up in the acronym ABC': Artificial intelligence, Biotech (genomics, mRNA), and Crypto/Web3 — identified by tracking where the smartest engineers, scientists, and founders are flooding into.",
+      },
+      {
+        type: "mcq",
+        prompt: "Per Andreessen, why does tracking talent flows (where smart engineers and entrepreneurs choose to work) serve as a better predictive signal than tracking stock prices or MBA career choices?",
+        options: [
+          "Because engineers are contractually required under industry regulation to report their current research projects directly to McKinsey analysts every quarter",
+          "Because engineers keep improving a technology regardless of whether it's currently fashionable, whereas MBAs chase whatever trend looks most immediately rewarding at the time",
+          "Because MBA graduates always predict the exact opposite of what will eventually succeed, so their choices can simply be inverted for a forecast",
+          "Because publicly traded stock prices in any market are ultimately set entirely by engineers, not by investors or fund managers",
+        ],
+        correctIndex: 1,
+        modelAnswer: "Andreessen says engineers 'just go to work and write software and build gizmos' regardless of sentiment, so 'whatever the smart engineers work on is going to get better,' whether or not it's commercially successful — whereas MBAs are 'complete, 100 percent heat seekers' who are 'very fad and trend driven' and left tech entirely after the 2000 crash until new hills reappeared.",
+      },
+      {
+        type: "truefalse",
+        prompt: "True or False: In the McKinsey interview, Andreessen argues that the best technology always wins in the marketplace, using Tesla as the sole proof.",
+        options: ["True", "False"],
+        correctIndex: 1,
+        modelAnswer: "False. Andreessen explicitly says 'the best technology doesn't always win,' citing Betamax vs VHS, Qwerty vs Dvorak, and DOS vs Macintosh — but he argues companies and MBAs misuse that idea as an excuse to avoid investing in genuinely good technology. Tesla is his example of the opposite: a company whose product is good enough that it has 'not spent a dollar on advertising.'",
+      },
+      {
+        type: "mcq",
+        prompt: "Andreessen gives a 'two-part' answer for why incumbent companies are disadvantaged versus digital start-ups. Which pairing matches the two parts of his answer?",
+        options: [
+          "(1) incumbent companies structurally lack the capital reserves to compete, and (2) incumbents are legally prohibited from hiring engineers away from smaller start-up competitors",
+          "(1) a general theory — top engineers go where they're treated as first-class citizens, not siloed into a digital department, and (2) during downturns, big companies feel relieved to stop taking tech seriously",
+          "(1) start-ups can always pay noticeably higher salaries than incumbents, and (2) incumbent companies are consistently located in less desirable office locations",
+          "(1) incumbent company boards are on average significantly older than start-up boards, and (2) start-ups carry no legacy codebase they need to maintain",
+        ],
+        correctIndex: 1,
+        modelAnswer: "Part one is a general theory: the finite number of super-smart engineers go to companies 'where leadership really understands what they do,' not ones that segregate technologists into an IT department or a 'digital division.' Part two is what happens during a market downturn specifically: the minute tech stocks get hit, big companies feel 'palpable relief' that they don't have to take technology as seriously anymore.",
+      },
+      {
+        type: "mcq",
+        prompt: "Andreessen's Tesla example is used to illustrate which point about how technologists are treated inside a company?",
+        options: [
+          "Tesla outsources essentially all of its self-driving engineering work to third-party contractors and offshore firms, unlike traditional automakers, who keep this development fully in-house",
+          "Tesla's self-driving engineers report through a separate digital division led by a vice president of digital, the same organisational pattern used by most Fortune 500 companies",
+          "At Tesla, engineers building self-driving technology are treated as the company's most important people and effectively help lead it — unlike equivalent engineers at traditional auto makers, who stay a back-room function",
+          "Traditional auto manufacturers actually pay their self-driving engineers more than Tesla does, which reportedly explains why Tesla struggles to compete for top talent",
+        ],
+        correctIndex: 2,
+        modelAnswer: "'At Tesla, the engineers working on self-driving cars are the most important people at Tesla... they're basically the leaders in the company.' The people working on equivalent technology at traditional auto OEMs 'are not' treated this way — 'they're still in this kind of \\\"back room\\\" thing,' run instead by people with classical business training rather than technologists.",
+      },
+      {
+        type: "short",
+        prompt: "Explain Andreessen's direct advice when asked how he'd tell big companies to digitally transform, and the anecdote he tells about spotting the 'real technologist' in the room.",
+        modelAnswer: "His direct advice: 'Find the smartest technologist in the company and make them CEO.' He describes sitting in strategy meetings with non-technologist CEOs and boards and being able to always spot the real technologist in the room — they're not sitting at the main table, they're sitting against the wall, nodding along, thinking 'finally somebody is showing up and actually saying this to these people.' He contrasts this pattern — a lone technologist sidelined into a digital department — with genuinely tech-native companies like Netflix, Amazon, Google, and Tesla, which are run by people who actually know how to build the technology.",
+      },
+      {
+        type: "mcq",
+        prompt: "Per Andreessen, what does he mean by describing Web3/blockchain/crypto as 'the second half of the internet'?",
+        options: [
+          "It layers trust — identity, contracts, money, and ownership — on top of the internet's original untrusted, permissionless network, enabling things like internet-native money and micropayments",
+          "It refers simply to the second major wave of internet users who came online sometime after 2010, once broadband access became widespread",
+          "It means Web3 technology will physically replace the entire first half of the internet's infrastructure within about five years, making old sites obsolete",
+          "It refers to the second version of the HTTP networking protocol, which primarily added built-in encryption and faster page-load speeds for websites",
+        ],
+        correctIndex: 0,
+        modelAnswer: "The first half of the internet was built as an untrusted, permissionless network where 'anybody can connect to it, anybody can create a website' — which unleashed creativity but never solved trust. Blockchain/Web3/crypto is 'that second half of the internet': it 'layers trust on top of the untrusted network,' enabling concepts like internet-native money and micropayments that never existed before (Andreessen notes there was 'no internet money,' which is why sites still rely on advertising).",
+      },
+      {
+        type: "mcq",
+        prompt: "Per Andreessen's 'Why Software Is Eating the World' framework referenced in the interview, what are the three stages of software 'eating' a sector?",
+        options: [
+          "(1) an existing product becomes a software product, (2) the company that builds it becomes a software company, and (3) the best software company ultimately wins the final battle",
+          "(1) a startup is founded, (2) it raises several rounds of venture capital, and (3) it eventually goes public on a stock exchange",
+          "(1) hardware for a category is invented first, (2) software is added later as an afterthought, and (3) the hardware company always wins",
+          "(1) a sector initially resists software entirely, (2) regulators intervene to slow it down, and (3) software companies are ultimately banned",
+        ],
+        correctIndex: 0,
+        modelAnswer: "Andreessen describes 'a three-stage process of software eating a sector': step one is where an existing product becomes a software product; then the company that builds the thing becomes a software company; and then 'there's the final battle, where the best software company wins.'",
+      },
+      {
+        type: "short",
+        prompt: "Summarise the J.P. Morgan/Edison story Andreessen tells, and explain what he means by a 'mistake of commission' versus a 'mistake of omission' in venture capital.",
+        modelAnswer: "J.P. Morgan was an early investor of Thomas Edison's; the first electric lighting installation, in Morgan's own library, caught fire, but Morgan re-hired Edison to fix it, and the second attempt worked without burning the house down. Andreessen's point: Edison and his engineers invented the lightbulb, but it took someone like Morgan — lending credibility, capital, and help getting to market — to turn the invention into a widely adopted 'thing'; he calls Morgan 'the venture capitalist' of the Second Industrial Revolution. A mistake of commission is investing in or joining a company that then fails — painful, but bounded, since the company disappears and you stop hearing about it. A mistake of omission is passing on an opportunity that then succeeds — Andreessen says this is 'much, much worse,' because you have to watch that company 'climb to new heights of success for the next three decades,' a mistake investors 'talked themselves out of.'",
+      },
+      {
+        type: "scenario",
+        prompt: "BrightCare (from this week's lecture scenario) is hiring a CIO and restructuring to align IT and business. Using Andreessen's 'find the smartest technologist and make them CEO' argument from the McKinsey reading, evaluate whether hiring a CIO — rather than elevating a technologist to CEO — is a sufficient response to BrightCare's siloed, functionally-structured starting point.",
+        modelAnswer: "A CIO hire is a real step toward taking technology seriously, and fits the lecture's IT/business alignment model. But per Andreessen's argument, a CIO role can still resemble the 'digital department led by a VP of digital' pattern he describes — technologists made visible, but still a separate function rather than genuinely central to leadership, which he says is the exact pattern still under-serving incumbents 20 years after they first tried it. A stronger, more Andreessen-aligned response would put someone with deep technical understanding of the HIS platform directly in the room for every major business decision, not just technology ones — the difference between a CIO who reports into strategy and one who helps set it. In BrightCare's favour: the plan pairs the CIO with real structural change (matrix restructure) and measurable goals, going further than the token 'one technologist on the team' pattern Andreessen critiques.",
+      },
+      {
+        type: "scenario",
+        prompt: "The lecture's 'Best practices for IT investments' slide says BrightCare should rank IT initiatives using a cost-benefit or value-risk matrix. Reframe this using Andreessen's 'mistake of commission vs mistake of omission' distinction from the McKinsey reading: what is BrightCare's mistake-of-commission risk here, and what is its mistake-of-omission risk if it delays the HIS rollout?",
+        modelAnswer: "A mistake of commission for BrightCare would be investing in the cloud HIS, CIO hire, and matrix restructure and having it fail — wasted budget, disrupted clinical workflows, a rollback to the old functional structure — painful, but bounded and visible, and the organisation moves on. A mistake of omission would be delaying or cancelling the investment out of caution, only to watch a competitor telehealth provider successfully modernise its HIS, cut wait times, and win over BrightCare's patients and staff — a slower, harder-to-see loss that, per Andreessen, is 'much, much worse' precisely because you keep watching the market reward the choice you didn't make. This reframes 'Best practices for IT investments' from a pure cost-benefit exercise into a genuine strategic risk call: doing nothing is not the safe option it looks like on a spreadsheet.",
+      },
+      {
+        type: "mcq",
+        prompt: "Per the Week 2 tutorial's 'Your Free Business & IT Toolkit,' which free tool is recommended specifically for TOGAF-like enterprise architecture modelling and IT capability mapping?",
+        options: ["Miro", "HubSpot CRM", "Google Sheets", "Archi"],
+        correctIndex: 3,
+        modelAnswer: "Archi — listed in the toolkit as free and open-source, described as being 'for TOGAF-like diagrams; more technical,' with its area of use given as 'Enterprise architecture modelling, IT capability mapping.'",
+      },
+      {
+        type: "mcq",
+        prompt: "Which pair of tools does the Week 2 tutorial's toolkit recommend specifically for ROI calculations and IT investment cost–benefit analysis?",
+        options: [
+          "Lucidchart and Archi",
+          "HubSpot CRM and Zoho CRM",
+          "Strategyzer BMC and Miro",
+          "Google Sheets and Excel Online",
+        ],
+        correctIndex: 3,
+        modelAnswer: "Google Sheets and Excel Online — the toolkit lists Google Sheets as 'Perfect for ROI / cost–benefit demo' with area of use 'ROI calculations, IT investment analysis,' and Excel Online (the cloud version of Excel) with area of use 'ROI calculations, cost–benefit analysis.'",
+      },
+      {
+        type: "truefalse",
+        prompt: "True or False: Per the Week 2 tutorial's toolkit, Zoho CRM's free plan is limited to a maximum of three users, while HubSpot CRM's free plan is described simply as having 'basic CRM features' with no user cap stated.",
+        options: ["True", "False"],
+        correctIndex: 0,
+        modelAnswer: "True. The toolkit lists Zoho CRM as 'Free for up to 3 users,' noting it's 'Similar to HubSpot, but slightly different interface,' while HubSpot CRM is listed only as a 'Free plan with basic CRM features,' with no explicit user limit given.",
+      },
+      {
+        type: "short",
+        prompt: "The lecture's 'Best practices for IT investments' slide recommends a cost-benefit or value-risk matrix to rank IT initiatives, and its 'Aligning IT and Business' diagram shows the Business Operating Model connecting to the IT Operating Model. Which toolkit tool(s) would BrightCare's CIO practically use to build the matrix, and which would best map the operating-model alignment for the HIS rollout?",
+        modelAnswer: "For the cost-benefit/value-risk matrix and ROI calculations behind the HIS investment, the CIO would use Google Sheets or Excel Online — the toolkit lists both specifically for 'ROI calculations' and 'cost–benefit analysis / IT investment analysis.' To map how the new HIS connects BrightCare's Business Operating Model to its IT Operating Model, Miro is the better fit — listed in the toolkit for 'value stream mapping, brainstorming IT–business alignment' — with Lucidchart as a complement for the accompanying organisational structure diagram showing the shift from functional to matrix reporting.",
       },
     ],
   }

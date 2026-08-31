@@ -19,7 +19,7 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Per the SEI definition quoted in the lecture, software architecture comprises which three things?",
-        options: ["The structure(s) of the system, the externally visible properties of its elements, and the relationships among them", "The source code, its comments, and its version history", "The UI, the API, and the database schema", "The requirements document, the design document, and the test plan"],
+        options: ["The structure(s) of the system, the externally visible properties of its elements, and the relationships among them", "The source code files themselves, the inline comments explaining them, and the complete version-control commit history", "The visible user interface design, the published API contract, and the underlying database schema definition", "The initial requirements document, the detailed design document, and the final test plan signed off before release"],
         correctIndex: 0,
         modelAnswer: "The SEI definition: 'the structure or structures of the system, which comprise software elements, the externally visible properties of those elements, and the relationships among them.'",
       },
@@ -105,14 +105,14 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "Why does the lecture say '99th percentile latency' matters more than a simple average latency figure?",
-        options: ["Because averages hide worst-case outliers that some users still experience ('averages are evil')", "Because percentiles are cheaper to compute than averages", "Because the 99th percentile is always lower than the average", "Because regulators require percentile reporting for all software"],
+        options: ["Because averages hide worst-case outliers that some users still experience ('averages are evil')", "Because percentile calculations run faster and use less server compute than averaging the full dataset", "Because the 99th percentile value is mathematically guaranteed to always be lower than the mean average", "Because industry regulators mandate percentile-based latency reporting for all production software systems"],
         correctIndex: 0,
         modelAnswer: "The Performance slide lists '99th percentile latency (averages are evil)' as more meaningful than a plain average, since an average can look fine even while a meaningful fraction of requests are slow.",
       },
       {
         type: "mcq",
         prompt: "In the ISP scalability example, what ultimately caused the 'tech crash'?",
-        options: ["Each user connection spawned a new process, exceeding server virtual memory at ~2,000 users while the business needed to support hundreds of thousands", "The database ran out of disk space", "The load balancer had a misconfigured DNS entry", "The firewall blocked too many legitimate requests"],
+        options: ["Each user connection spawned a new process, exceeding server virtual memory at ~2,000 users while the business needed to support hundreds of thousands", "The production database's disk volume filled up completely because transaction logs were never rotated during peak usage", "The load balancer's DNS entry pointed at a decommissioned server pool after an overnight deployment script misconfigured it", "The firewall's connection-tracking table ran out of capacity and began blocking legitimate inbound customer requests"],
         correctIndex: 0,
         modelAnswer: "'Scalability - connections' describes an ISP where each user connection spawned a new process; virtual memory on each server was exceeded at 2000 users, but the business needed to support 100Ks of users — leading to a tech crash.",
       },
@@ -198,14 +198,14 @@ const PAPER: ExamPaperSeed =
       {
         type: "mcq",
         prompt: "In the Spring Boot tutorial demo, what is the purpose of the @RestController annotation on BookController?",
-        options: ["It marks the class as a Spring MVC controller whose methods return data (e.g. JSON) directly in the HTTP response body rather than rendering a view", "It configures the database connection string", "It defines a new REST endpoint route with no Java code required", "It automatically enables cross-origin requests for every domain"],
+        options: ["It marks the class as a Spring MVC controller whose methods return data (e.g. JSON) directly in the HTTP response body rather than rendering a view", "It configures the database connection string and credentials used by the application's DataSource bean at startup", "It automatically defines a new REST endpoint route mapping without requiring any Java method implementation", "It automatically enables cross-origin resource sharing (CORS) requests from every domain without further configuration"],
         correctIndex: 0,
         modelAnswer: "@RestController is a Spring Boot annotation that combines @Controller and @ResponseBody, so handler methods (like getAllBooks) return data directly as the HTTP response body instead of a view name to render.",
       },
       {
         type: "mcq",
         prompt: "What does the @Autowired annotation do when applied to the bookRepository field in BookController?",
-        options: ["It tells Spring to automatically inject a managed bean instance (dependency injection) instead of the developer instantiating it manually", "It marks the field as read-only so it can never be reassigned", "It creates a new database table matching the field's type", "It schedules the field to be recalculated on every request"],
+        options: ["It tells Spring to automatically inject a managed bean instance (dependency injection) instead of the developer instantiating it manually", "It marks the field as immutable and read-only, preventing any code from ever reassigning its reference afterward", "It creates a new database table whose schema matches the field's declared Java type when the app starts up", "It schedules the field's value to be automatically recalculated and refreshed on every incoming HTTP request"],
         correctIndex: 0,
         modelAnswer: "@Autowired triggers Spring's dependency injection: Spring finds (or creates) a managed BookRepository bean and injects it into the controller, so the developer never manually instantiates it with `new`.",
       },
