@@ -26,6 +26,15 @@ export interface InterviewSessionView {
   sdRevealedAt: string | null;
 }
 
+function parseRubricChecked(raw: string): boolean[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.every((v) => typeof v === "boolean") ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function sessionView(row: InterviewSessionRow): InterviewSessionView {
   const question = allSystemDesignQuestions().find((q) => q.id === row.sd_question_id)!;
   return {
@@ -43,7 +52,7 @@ function sessionView(row: InterviewSessionRow): InterviewSessionView {
     },
     sdAnswer: row.sd_answer,
     sdExcalidrawScene: row.sd_excalidraw_scene,
-    sdRubricChecked: JSON.parse(row.sd_rubric_checked) as boolean[],
+    sdRubricChecked: parseRubricChecked(row.sd_rubric_checked),
     sdRevealedAt: row.sd_revealed_at,
   };
 }
@@ -54,29 +63,48 @@ export function interviewApiRoutes(db: Database) {
       GET: () => json(sessionView(getOrCreateTodaySession(db, localToday()))),
     },
     "/api/interview/today/start-coding": {
-      POST: () => json(sessionView(startCodingTimer(db, localToday()))),
+      POST: (req: Request) => {
+        const today = localToday();
+        const date = new URL(req.url).searchParams.get("date");
+        if (date !== today) return json({ error: "stale-date", today }, 409);
+        return json(sessionView(startCodingTimer(db, today)));
+      },
     },
     "/api/interview/today/start-design": {
-      POST: () => json(sessionView(startDesignTimer(db, localToday()))),
+      POST: (req: Request) => {
+        const today = localToday();
+        const date = new URL(req.url).searchParams.get("date");
+        if (date !== today) return json({ error: "stale-date", today }, 409);
+        return json(sessionView(startDesignTimer(db, today)));
+      },
     },
     "/api/interview/today/design-answer": {
       POST: async (req: Request) => {
-        const body = (await req.json().catch(() => null)) as { answer?: unknown; scene?: unknown } | null;
+        const today = localToday();
+        const body = (await req.json().catch(() => null)) as { answer?: unknown; scene?: unknown; date?: unknown } | null;
+        if (body?.date !== today) return json({ error: "stale-date", today }, 409);
         const answer = typeof body?.answer === "string" ? body.answer : "";
         const scene = typeof body?.scene === "string" ? body.scene : null;
-        return json(sessionView(saveDesignAnswer(db, localToday(), answer, scene)));
+        return json(sessionView(saveDesignAnswer(db, today, answer, scene)));
       },
     },
     "/api/interview/today/reveal": {
-      POST: () => json(sessionView(revealModelAnswer(db, localToday()))),
+      POST: (req: Request) => {
+        const today = localToday();
+        const date = new URL(req.url).searchParams.get("date");
+        if (date !== today) return json({ error: "stale-date", today }, 409);
+        return json(sessionView(revealModelAnswer(db, today)));
+      },
     },
     "/api/interview/today/rubric": {
       POST: async (req: Request) => {
-        const body = (await req.json().catch(() => null)) as { checked?: unknown } | null;
-        if (!Array.isArray(body?.checked) || !body.checked.every((v) => typeof v === "boolean")) {
+        const today = localToday();
+        const body = (await req.json().catch(() => null)) as { checked?: unknown; date?: unknown } | null;
+        if (body?.date !== today) return json({ error: "stale-date", today }, 409);
+        if (!Array.isArray(body.checked) || !body.checked.every((v) => typeof v === "boolean")) {
           return json({ error: "checked must be an array of booleans" }, 400);
         }
-        return json(sessionView(saveRubricChecked(db, localToday(), body.checked as boolean[])));
+        return json(sessionView(saveRubricChecked(db, today, body.checked as boolean[])));
       },
     },
   };

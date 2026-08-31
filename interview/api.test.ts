@@ -39,14 +39,19 @@ test("GET /api/interview/today includes the due LeetCode problem", async () => {
 });
 
 test("POST /api/interview/today/start-coding sets codingStartedAt once", async () => {
-  const first: any = await (await fetch(`${base}/api/interview/today/start-coding`, { method: "POST" })).json();
+  const first: any = await (await fetch(`${base}/api/interview/today/start-coding?date=${TODAY}`, { method: "POST" })).json();
   expect(first.codingStartedAt).not.toBeNull();
-  const second: any = await (await fetch(`${base}/api/interview/today/start-coding`, { method: "POST" })).json();
+  const second: any = await (await fetch(`${base}/api/interview/today/start-coding?date=${TODAY}`, { method: "POST" })).json();
   expect(second.codingStartedAt).toBe(first.codingStartedAt);
 });
 
+test("POST /api/interview/today/start-coding rejects a stale date", async () => {
+  const res = await fetch(`${base}/api/interview/today/start-coding?date=${addDays(TODAY, -1)}`, { method: "POST" });
+  expect(res.status).toBe(409);
+});
+
 test("POST /api/interview/today/start-design sets designStartedAt once", async () => {
-  const first: any = await (await fetch(`${base}/api/interview/today/start-design`, { method: "POST" })).json();
+  const first: any = await (await fetch(`${base}/api/interview/today/start-design?date=${TODAY}`, { method: "POST" })).json();
   expect(first.designStartedAt).not.toBeNull();
 });
 
@@ -55,15 +60,24 @@ test("POST /api/interview/today/design-answer saves the answer and scene", async
     await fetch(`${base}/api/interview/today/design-answer`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ answer: "my approach", scene: JSON.stringify({ elements: [] }) }),
+      body: JSON.stringify({ date: TODAY, answer: "my approach", scene: JSON.stringify({ elements: [] }) }),
     })
   ).json();
   expect(updated.sdAnswer).toBe("my approach");
   expect(updated.sdExcalidrawScene).toBe(JSON.stringify({ elements: [] }));
 });
 
+test("POST /api/interview/today/design-answer rejects a stale date", async () => {
+  const res = await fetch(`${base}/api/interview/today/design-answer`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ date: addDays(TODAY, -1), answer: "my approach", scene: null }),
+  });
+  expect(res.status).toBe(409);
+});
+
 test("POST /api/interview/today/reveal sets sdRevealedAt", async () => {
-  const updated: any = await (await fetch(`${base}/api/interview/today/reveal`, { method: "POST" })).json();
+  const updated: any = await (await fetch(`${base}/api/interview/today/reveal?date=${TODAY}`, { method: "POST" })).json();
   expect(updated.sdRevealedAt).not.toBeNull();
 });
 
@@ -74,7 +88,7 @@ test("POST /api/interview/today/rubric saves the checked array and rejects a non
     await fetch(`${base}/api/interview/today/rubric`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ checked }),
+      body: JSON.stringify({ date: TODAY, checked }),
     })
   ).json();
   expect(updated.sdRubricChecked).toEqual(checked);
@@ -82,7 +96,16 @@ test("POST /api/interview/today/rubric saves the checked array and rejects a non
   const badRes = await fetch(`${base}/api/interview/today/rubric`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ checked: "nope" }),
+    body: JSON.stringify({ date: TODAY, checked: "nope" }),
   });
   expect(badRes.status).toBe(400);
+});
+
+test("POST /api/interview/today/rubric rejects a stale date", async () => {
+  const res = await fetch(`${base}/api/interview/today/rubric`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ date: addDays(TODAY, -1), checked: [] }),
+  });
+  expect(res.status).toBe(409);
 });

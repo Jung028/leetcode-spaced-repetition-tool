@@ -131,6 +131,23 @@ function interviewDue(db: Database, today: string): DueItem[] {
   ];
 }
 
+function interviewCompletedToday(db: Database, today: string): DueItem[] {
+  const session = getOrCreateTodaySession(db, today);
+  if (!session.completed_at) return [];
+  const question = allSystemDesignQuestions().find((q) => q.id === session.sd_question_id)!;
+  return [
+    {
+      source: "interview" as const,
+      id: 900_000_000,
+      title: `${question.company} system design + coding`,
+      subtitle: "Daily interview practice",
+      dueDate: today,
+      overdueDays: 0,
+      linkId: 0,
+    },
+  ];
+}
+
 function leetcodeCompletedToday(db: Database, today: string): DueItem[] {
   return listCompletedToday(db, today).map((p) => ({
     source: "leetcode" as const,
@@ -226,7 +243,8 @@ function homeStats(db: Database, today: string): HomeStats {
       countReviewsToday(db, today) +
       countTodosCompletedToday(db, today) +
       examSubmittedToday +
-      leetcode150CompletedCount,
+      leetcode150CompletedCount +
+      interviewCompletedToday(db, today).length,
   };
 }
 
@@ -257,6 +275,7 @@ export function homeApiRoutes(db: Database) {
           ...leetcode150CompletedToday(db, today),
           ...todoCompletedToday(db, today),
           ...examCompletedToday(db, today),
+          ...interviewCompletedToday(db, today),
         ];
         items.sort((a, b) => a.source.localeCompare(b.source) || a.title.localeCompare(b.title));
         return Response.json(items);

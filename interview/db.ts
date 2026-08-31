@@ -39,7 +39,7 @@ export function migrateInterview(db: Database): void {
 function isCodingPartDone(db: Database, row: InterviewSessionRow, today: string): boolean {
   if (row.leetcode_problem_id === null) return true;
   const problem = getProblem(db, row.leetcode_problem_id);
-  return problem !== null && problem.next_review > today;
+  return problem === null || problem.next_review > today;
 }
 
 function isDesignPartDone(row: InterviewSessionRow): boolean {

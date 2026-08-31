@@ -2,6 +2,15 @@ import React, { useRef } from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 
+function safeParseScene(scene: string | null): any {
+  if (!scene) return null;
+  try {
+    return JSON.parse(scene);
+  } catch {
+    return null;
+  }
+}
+
 export function ExcalidrawCanvas({
   initialScene,
   onChange,
@@ -15,7 +24,7 @@ export function ExcalidrawCanvas({
   // Excalidraw's real `ExcalidrawInitialDataState.elements` type is its own
   // internal `ExcalidrawElement[]`, which a plain JSON round-trip can't be
   // typed against without importing Excalidraw's internal types.
-  const initialData = useRef<any>(initialScene ? JSON.parse(initialScene) : null);
+  const initialData = useRef<any>(safeParseScene(initialScene));
 
   return (
     <div className="interview-canvas">

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { LADDER, isDue, localToday } from "./shared/scheduling";
 import type { ProblemSummary, ProblemDetail } from "./leetcode/db";
@@ -6,7 +6,7 @@ import { highlightCode } from "./leetcode/highlight";
 import TodoApp from "./todo/App";
 import HomeApp from "./HomeApp";
 import ExamApp from "./exam/App";
-import InterviewApp from "./interview/App";
+const InterviewApp = React.lazy(() => import("./interview/App"));
 import "./index.css";
 
 type View =
@@ -745,7 +745,11 @@ function App() {
           onOpened={() => setDeepLink(null)}
         />
       )}
-      {tab === "interview" && <InterviewApp />}
+      {tab === "interview" && (
+        <Suspense fallback={<p className="board-empty">Loading…</p>}>
+          <InterviewApp />
+        </Suspense>
+      )}
     </div>
   );
 }

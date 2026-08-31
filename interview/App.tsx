@@ -23,27 +23,33 @@ interface InterviewSessionView {
   sdRevealedAt: string | null;
 }
 
+class StaleSessionError extends Error {}
+
 async function json<T>(res: Response): Promise<T> {
+  if (res.status === 409) throw new StaleSessionError();
   if (!res.ok) throw new Error(`Request failed (${res.status})`);
   return res.json();
 }
 
 const api = {
   today: () => fetch("/api/interview/today").then((r) => json<InterviewSessionView>(r)),
-  startCoding: () => fetch("/api/interview/today/start-coding", { method: "POST" }).then((r) => json<InterviewSessionView>(r)),
-  startDesign: () => fetch("/api/interview/today/start-design", { method: "POST" }).then((r) => json<InterviewSessionView>(r)),
-  saveDesignAnswer: (answer: string, scene: string | null) =>
+  startCoding: (date: string) =>
+    fetch(`/api/interview/today/start-coding?date=${encodeURIComponent(date)}`, { method: "POST" }).then((r) => json<InterviewSessionView>(r)),
+  startDesign: (date: string) =>
+    fetch(`/api/interview/today/start-design?date=${encodeURIComponent(date)}`, { method: "POST" }).then((r) => json<InterviewSessionView>(r)),
+  saveDesignAnswer: (date: string, answer: string, scene: string | null) =>
     fetch("/api/interview/today/design-answer", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ answer, scene }),
+      body: JSON.stringify({ date, answer, scene }),
     }).then((r) => json<InterviewSessionView>(r)),
-  reveal: () => fetch("/api/interview/today/reveal", { method: "POST" }).then((r) => json<InterviewSessionView>(r)),
-  saveRubric: (checked: boolean[]) =>
+  reveal: (date: string) =>
+    fetch(`/api/interview/today/reveal?date=${encodeURIComponent(date)}`, { method: "POST" }).then((r) => json<InterviewSessionView>(r)),
+  saveRubric: (date: string, checked: boolean[]) =>
     fetch("/api/interview/today/rubric", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ checked }),
+      body: JSON.stringify({ date, checked }),
     }).then((r) => json<InterviewSessionView>(r)),
 };
 
@@ -124,6 +130,19 @@ export default function InterviewApp() {
     setScene(s.sdExcalidrawScene);
     if (s.leetcodeProblemId === null) setPart("design");
   };
+
+  const runOrRefresh = async (fn: () => Promise<InterviewSessionView>) => {
+    try {
+      setSession(await fn());
+    } catch (e) {
+      if (e instanceof StaleSessionError) {
+        await refresh();
+        return;
+      }
+      throw e;
+    }
+  };
+
   useEffect(() => {
     if (typeof Notification !== "undefined" && Notification.permission === "default") {
       Notification.requestPermission();
@@ -134,25 +153,26 @@ export default function InterviewApp() {
   useEffect(() => {
     if (!session) return;
     if (part === "coding" && session.leetcodeProblemId !== null && !session.codingStartedAt) {
-      api.startCoding().then(setSession);
+      runOrRefresh(() => api.startCoding(session.date));
     }
     if (part === "design" && !session.designStartedAt) {
-      api.startDesign().then(setSession);
+      runOrRefresh(() => api.startDesign(session.date));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [part, session?.date]);
 
   const scheduleSave = (nextAnswer: string, nextScene: string | null) => {
+    if (!session) return;
+    const date = session.date;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      const updated = await api.saveDesignAnswer(nextAnswer, nextScene);
-      setSession(updated);
+    saveTimer.current = setTimeout(() => {
+      runOrRefresh(() => api.saveDesignAnswer(date, nextAnswer, nextScene));
     }, 800);
   };
 
   const reveal = async () => {
-    const updated = await api.reveal();
-    setSession(updated);
+    if (!session) return;
+    await runOrRefresh(() => api.reveal(session.date));
   };
 
   const toggleRubric = async (index: number) => {
@@ -164,8 +184,7 @@ export default function InterviewApp() {
     // booleans first so every element is always `true`/`false`, never a hole.
     const next = session.sdQuestion.rubric.map((_, i) => session.sdRubricChecked[i] ?? false);
     next[index] = !next[index];
-    const updated = await api.saveRubric(next);
-    setSession(updated);
+    await runOrRefresh(() => api.saveRubric(session.date, next));
   };
 
   if (!session) return <p className="board-empty">Loading…</p>;
@@ -192,7 +211,7 @@ export default function InterviewApp() {
       </nav>
 
       {part === "coding" && session.leetcodeProblemId !== null && (
-        <Detail id={session.leetcodeProblemId} today={session.date} onBack={() => {}} onChanged={refresh} />
+        <Detail id={session.leetcodeProblemId} today={session.date} onBack={() => setPart("design")} onChanged={refresh} />
       )}
 
       {part === "design" && (
