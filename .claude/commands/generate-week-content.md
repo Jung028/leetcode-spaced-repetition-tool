@@ -1,15 +1,53 @@
 ---
-description: Scan every course module for new or unauthored week material and author/update exam-content accordingly, in-session (no dev server needed)
+description: Author or update exam-content for a specified course week, in-session (no dev server needed)
+argument-hint: <COURSE> <week>   (e.g. COMP5348 5  |  week 5  |  5 all)
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent
 ---
 
 # Generate week content
 
-Do this yourself in this session — don't just describe the plan. This is the
-manual/in-session equivalent of the app's Modules-tab Generate/Update
-buttons (`exam-generate.ts`), for when there's no dev server running.
+Do this yourself in this session — don't just describe the plan. This is
+the in-session equivalent of the app's Modules-tab buttons, for when
+there's no dev server running:
 
-## 1. Detect what's pending
+- **Sync banner → "Generate"** — authors a brand-new week from scratch
+  (`/api/exam/:course/:week/generate` → `startGenerateJob` with
+  `buildGeneratePrompt`, in `exam/generate.ts`). This is the *normal
+  generation* path.
+- **"Update from new material"** — enriches an already-authored week with
+  material that landed in its folder afterwards
+  (`/api/exam/:course/:week/update` → `buildUpdatePrompt`).
+
+Both prompt builders live in `exam/generate.ts`; the schedule/pending
+detection lives in `exam/sync.ts` and `exam/content.ts` (the app's Sync
+button calls `findPendingWeeks`). The authored data itself is under
+`exam-content/<course>/` — that path was left untouched by the `exam/`
+refactor.
+
+**Scope: one week, unless told otherwise.** This command normally
+authors/updates a single course week — the one named in the arguments. The
+one exception is when a bare week number matches several courses and the
+user answers `all` (see step 0).
+
+## 0. Parse the target week
+
+The invocation is `/generate-week-content $ARGUMENTS`. Expect a course code
+and a week number, in either order, e.g. `COMP5348 5`, `5 COMP5348`,
+`comp5348 week 5`.
+
+- **No arguments** → stop and ask the user which course + week to generate.
+  Do not run anything or fall back to "every pending week".
+- **Course + week given** → that is `<COURSE>` and `<week>`; go to step 1
+  with the single target.
+- **Week number but no course** → run `bun scripts/find-week-updates.ts`,
+  list every course that has that week number in `newWeeks` or
+  `updatableWeeks`, and ask the user which one (offer the individual
+  courses **and** an `all` option).
+  - User picks one course → single target, as above.
+  - User answers `all` → the target set is *every* listed course at that
+    week number. Process them per step 3's "multiple targets" rule.
+
+## 1. Confirm each target week is pending
 
 Run:
 
@@ -17,78 +55,94 @@ Run:
 bun scripts/find-week-updates.ts
 ```
 
-This prints `{ newWeeks, updatableWeeks }` JSON:
+For each target `<COURSE>`/`<week>`, find its entry in the output:
 
-- `newWeeks` — a course/week has real material on disk but no
-  `exam-content/<course>/week-N.ts` yet.
-- `updatableWeeks` — a week is already authored, but its folder now has
-  material no paper's `sourceFiles` lists yet (`newSourceFiles`), and/or a
-  video with no transcript yet (`pendingVideos`).
+- In `newWeeks` → brand-new week (no `exam-content/<course>/week-N.ts`
+  yet). Use `buildGeneratePrompt` in step 3. `weekDir` comes from that
+  entry.
+- In `updatableWeeks` → already authored, but its folder has material no
+  paper's `sourceFiles` lists yet (`newSourceFiles`) and/or a video with
+  no transcript (`pendingVideos`). Use `buildUpdatePrompt` in step 3.
+  `weekDir` comes from that entry.
+- **In neither** → tell the user that week is already up to date (or has no
+  material on disk) and drop it from the target set. Do not touch any
+  other week.
 
-If both arrays are empty, tell the user every module is up to date and stop
-here.
+Show the user a one-line summary per target (new vs. updatable, and for
+updatable, which new files / videos) before doing any writing.
 
-Otherwise, show the user a short summary (which course/weeks are new, which
-are updatable and why) before doing any writing.
+## 2. Transcribe pending videos with the transcription tool
 
-## 2. Transcribe pending videos first
-
-For every `updatableWeeks` entry with a non-empty `pendingVideos`, run (per
-`docs/exam-content-authoring-guide.md` point 1):
+For each target with a non-empty `pendingVideos`, transcribe each video
+**only** via the project's transcription tool:
 
 ```
 bun scripts/transcribe-lecture.ts <path-to-video>
 ```
 
-Long lectures take real wall-clock time on CPU — run each as a background
-Bash command rather than blocking, but wait for it to finish before
-authoring that week (the transcript is what makes the new material
-readable). After all transcriptions for a week finish, re-run
-`bun scripts/find-week-updates.ts` (or reason locally: the video's
-`<name>.transcript.md` now counts as a `newSourceFiles` entry) so the
-authoring step below sees the real up-to-date file list.
+This runs a local open-source pipeline (`ffmpeg` + `whisper-cpp`,
+`base.en` model) — it costs **zero API tokens** and no model/agent effort.
 
-## 3. Process weeks ONE AT A TIME, never in parallel
+- **Never** transcribe a lecture by hand, and never feed the video, its
+  audio, or extracted frames/screenshots to the model or to a subagent —
+  that wastes tokens and produces a worse transcript than the tool.
+- Long lectures (~1–2h) take real wall-clock time on CPU. Run each
+  transcription as a **background** Bash command, but wait for it to finish
+  before authoring that week.
+- If the tool errors because `ffmpeg`/`whisper-cpp`/the ggml model isn't
+  installed, report the exact install command it prints and stop for that
+  week; don't substitute a manual transcription.
 
-Both `newWeeks` and `updatableWeeks` edit the shared `exam-content.ts` (new
-weeks) or risk racing on the same course's files (updates), so dispatch one
-`general-purpose` Agent per week and wait for it to fully finish — including
-its own `bun test` pass — before starting the next. Process `newWeeks`
-before `updatableWeeks` (or interleave in whatever course/week order makes
-sense) but never run two of these agents concurrently.
+**The transcript is written once and kept.** The tool saves it as
+`<video-name>.transcript.md` right next to the video (same rule as
+`transcribeWeekVideos` in `exam/generate.ts`). `find-week-updates.ts`,
+`transcribeWeekVideos`, and this command all skip any video that already
+has a `.transcript.md` beside it — so once a recording is transcribed it is
+never transcribed again. Leave that file in place; commit it alongside the
+week's `.ts` so future runs (and other machines) reuse it. After a
+transcription finishes, its `.transcript.md` now counts as a new source
+file — factor it into step 3 (re-run `bun scripts/find-week-updates.ts` for
+the refreshed `newSourceFiles` list if you want).
 
-For each week, get the exact authoring prompt by reusing the same builders
-the app itself uses, so the instructions this command gives never drift
-from what the app's buttons already do:
+## 3. Author / update the target week(s) with a subagent
+
+Get the exact authoring prompt by reusing the same builder the app itself
+uses, so this command never drifts from what the app's buttons do:
 
 ```
-bun -e "import { buildGeneratePrompt } from './exam-generate'; console.log(buildGeneratePrompt('<COURSE>', <week>, '<weekDir>'))"
+bun -e "import { buildGeneratePrompt } from './exam/generate'; console.log(buildGeneratePrompt('<COURSE>', <week>, '<weekDir>'))"
 ```
 
-for a `newWeeks` entry, or
+for a `newWeeks` target, or
 
 ```
-bun -e "import { buildUpdatePrompt } from './exam-generate'; console.log(buildUpdatePrompt('<COURSE>', <week>, '<weekDir>'))"
+bun -e "import { buildUpdatePrompt } from './exam/generate'; console.log(buildUpdatePrompt('<COURSE>', <week>, '<weekDir>'))"
 ```
 
-for an `updatableWeeks` entry (`<COURSE>`, `<week>`, `<weekDir>` from that
-entry's JSON). Pass the printed text as the Agent's task prompt verbatim,
-plus one addition: tell the agent it's running as an in-session subagent
-(not the headless `claude -p` job the text describes) — same rules, same
-unattended judgment-call authority, just report back to you instead of
-writing `status.json`.
+for an `updatableWeeks` target.
 
-This automatically gets you the source-tracking behavior the user asked
-for: `buildGeneratePrompt` has the agent populate each paper's
-`sourceFiles` with every material file it read (see any existing
-`week-N.ts` for the pattern), and `buildUpdatePrompt` explicitly tells the
-agent to append the new material's filename(s) to the existing paper's
-`sourceFiles` array — so "add it to the list" happens as part of normal
-authoring, not a separate bookkeeping step.
+Dispatch one `general-purpose` Agent per target week. Pass the printed text
+as the Agent's task prompt verbatim, plus one addition: tell the agent it's
+running as an in-session subagent (not the headless `claude -p` job the
+text describes) — same rules, same unattended judgment-call authority, just
+report back to you instead of writing `status.json`.
 
-## 4. Verify after each week, and again at the end
+**Multiple targets (`all`):** process them **one at a time, never in
+parallel** — `newWeeks` first (they each add an import + `ALL_PAPERS` entry
+to the shared `exam/content.ts`, so two at once race), then the
+`updatableWeeks`. Wait for each agent to fully finish — including its own
+`bun test` pass — and run step 4 for that week before starting the next.
 
-After each agent reports done, independently confirm — don't just trust its
+This automatically gets the source-tracking behavior: `buildGeneratePrompt`
+has the agent populate each paper's `sourceFiles` with every material file
+it read (see any existing `week-N.ts` for the pattern), and
+`buildUpdatePrompt` tells the agent to append the new material's
+filename(s) — including any `.transcript.md` from step 2 — to the existing
+paper's `sourceFiles` array.
+
+## 4. Verify after each week
+
+After an agent reports done, independently confirm — don't just trust its
 summary:
 
 ```
@@ -96,11 +150,14 @@ bun test
 ```
 
 and spot-check the touched `week-N.ts`'s `correctIndex:` values are roughly
-even across 0–3 (known MCQ positional-bias risk, per CLAUDE.md).
+even across 0–3 (known MCQ positional-bias risk, per CLAUDE.md; fix with
+`bun scripts/shuffle-week-options.ts <file>` if skewed). Also run
+`bun scripts/check-mcq-lengths.ts <COURSE>` and fix every flagged question
+before considering that week done.
 
 ## 5. Final summary
 
-Once every pending week is processed, report to the user: which weeks were
-newly authored, which were updated (and with how many new questions / which
-new source files), and confirm the full `bun test` suite passes with no
+Report to the user, per week: whether it was newly authored or updated, how
+many questions were added / which new source files (including transcripts)
+were folded in, and confirm the full `bun test` suite passes with no
 failures.
