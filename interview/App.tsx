@@ -67,17 +67,36 @@ function PromptText({ text }: { text: string }) {
   );
 }
 
+function notifyOvertime(): void {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  new Notification("Time's up", { body: "You're now in overtime." });
+}
+
 function Countdown({ startedAt }: { startedAt: string | null }) {
   const [now, setNow] = useState(() => Date.now());
+  const alertedRef = useRef(false);
   useEffect(() => {
     if (!startedAt) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [startedAt]);
-  if (!startedAt) return null;
-  const elapsedSeconds = Math.floor((now - new Date(startedAt).getTime()) / 1000);
+  // Reset the one-time-alert flag whenever a new timer starts, so the other
+  // part's timer (or a restarted one) can alert independently.
+  useEffect(() => {
+    alertedRef.current = false;
+  }, [startedAt]);
+  const elapsedSeconds = startedAt ? Math.floor((now - new Date(startedAt).getTime()) / 1000) : 0;
   const remaining = PART_SECONDS - elapsedSeconds;
-  const overtime = remaining < 0;
+  const overtime = startedAt !== null && remaining < 0;
+  // Fires exactly once per timer instance, at the moment it first crosses
+  // into overtime — not on every re-render while overtime is true.
+  useEffect(() => {
+    if (overtime && !alertedRef.current) {
+      alertedRef.current = true;
+      notifyOvertime();
+    }
+  }, [overtime]);
+  if (!startedAt) return null;
   const displaySeconds = Math.abs(remaining);
   const mm = String(Math.floor(displaySeconds / 60)).padStart(2, "0");
   const ss = String(displaySeconds % 60).padStart(2, "0");
@@ -106,6 +125,9 @@ export default function InterviewApp() {
     if (s.leetcodeProblemId === null) setPart("design");
   };
   useEffect(() => {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
     refresh();
   }, []);
 
