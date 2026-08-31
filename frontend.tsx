@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { LADDER, isDue, localToday } from "./scheduling";
-import type { ProblemSummary, ProblemDetail } from "./db";
-import { highlightCode } from "./highlight";
-import TodoApp from "./TodoApp";
+import { LADDER, isDue, localToday } from "./shared/scheduling";
+import type { ProblemSummary, ProblemDetail } from "./leetcode/db";
+import { highlightCode } from "./leetcode/highlight";
+import TodoApp from "./todo/App";
 import HomeApp from "./HomeApp";
-import ExamApp from "./ExamApp";
+import ExamApp from "./exam/App";
+const InterviewApp = React.lazy(() => import("./interview/App"));
 import "./index.css";
 
 type View =
@@ -13,7 +14,7 @@ type View =
   | { name: "add" }
   | { name: "detail"; id: number };
 
-type ProblemFields = { title: string; url: string; solution: string; language: string };
+type ProblemFields = { title: string; url: string; solution: string; language: string; pattern: string; patternWhy: string };
 
 const LANGUAGE_OPTIONS = [
   "java",
@@ -392,6 +393,14 @@ function ProblemForm({
         Your solution
         <textarea value={v.solution} onChange={set("solution")} rows={14} spellCheck={false} placeholder="Paste the solution you want to re-derive later" />
       </label>
+      <label>
+        Pattern
+        <input value={v.pattern} onChange={set("pattern")} placeholder="Sliding Window, Two Pointers, Greedy, ..." />
+      </label>
+      <label>
+        Why this pattern
+        <textarea value={v.patternWhy} onChange={set("patternWhy")} rows={4} placeholder="Why this pattern fits this specific problem" />
+      </label>
       {error && <p className="form-error">{error}</p>}
       <div className="btn-row">
         <button type="submit" className="btn btn-primary">{submitLabel}</button>
@@ -401,7 +410,7 @@ function ProblemForm({
   );
 }
 
-function Detail({
+export function Detail({
   id,
   today,
   onBack,
@@ -429,7 +438,7 @@ function Detail({
   if (editing)
     return (
       <ProblemForm
-        initial={p}
+        initial={{ title: p.title, url: p.url, solution: p.solution, language: p.language, pattern: p.pattern, patternWhy: p.pattern_why }}
         submitLabel="Save changes"
         onCancel={() => setEditing(false)}
         onSubmit={async (v) => {
@@ -475,6 +484,14 @@ function Detail({
         <button className="solution-cover" onClick={() => setRevealed(true)}>
           Solution hidden — try solving it first, then reveal
         </button>
+      )}
+
+      {revealed && (p.pattern || p.pattern_why) && (
+        <section className="pattern-section">
+          <h3>Pattern</h3>
+          {p.pattern && <span className="lang-tag pattern-tag">{p.pattern}</span>}
+          {p.pattern_why && <p className="pattern-why">{p.pattern_why}</p>}
+        </section>
       )}
 
       <div className="btn-row">
@@ -532,28 +549,9 @@ function LeetCodeApp({
   const [completedToday, setCompletedToday] = useState(0);
 
   const refresh = async () => {
-    const [list, stats, current] = await Promise.all([
-      api.list(),
-      api.stats(),
-      leetcode150Api.current(),
-    ]);
+    const [list, stats] = await Promise.all([api.list(), api.stats()]);
     setCompletedToday(stats.completedToday);
-    if ("done" in current) {
-      setProblems(list);
-    } else {
-      setProblems([
-        {
-          id: -1,
-          title: `${current.number}. ${current.title}`,
-          url: current.url,
-          language: "—",
-          rung: 0,
-          next_review: current.dueSince,
-          created_at: current.dueSince,
-        },
-        ...list,
-      ]);
-    }
+    setProblems(list);
   };
   useEffect(() => { refresh(); }, []);
 
@@ -564,14 +562,7 @@ function LeetCodeApp({
     }
   }, [openProblemId]);
 
-  const open = (id: number) => {
-    if (id === -1) {
-      const pointer = problems.find((p) => p.id === -1);
-      if (pointer) openExternal(pointer.url);
-      return;
-    }
-    setView({ name: "detail", id });
-  };
+  const open = (id: number) => setView({ name: "detail", id });
 
   return (
     <>
@@ -607,7 +598,7 @@ function LeetCodeApp({
 
       {view.name === "add" && (
         <ProblemForm
-          initial={{ title: "", url: "", solution: "", language: "java" }}
+          initial={{ title: "", url: "", solution: "", language: "java", pattern: "", patternWhy: "" }}
           submitLabel="Add problem"
           onCancel={() => setView({ name: "board" })}
           onSubmit={async (v) => {
@@ -630,7 +621,7 @@ function LeetCodeApp({
   );
 }
 
-type Tab = "home" | "leetcode" | "todo" | "exam";
+type Tab = "home" | "leetcode" | "todo" | "exam" | "interview";
 
 type DeepLink =
   | { tab: "leetcode"; problemId: number }
@@ -700,6 +691,12 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
       >
         Modules
       </button>
+      <button
+        className={tab === "interview" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("interview")}
+      >
+        Interview
+      </button>
       <ThemeToggle />
     </nav>
   );
@@ -710,7 +707,7 @@ function App() {
   const [deepLink, setDeepLink] = useState<DeepLink | null>(null);
 
   const navigate = (item: {
-    source: "leetcode" | "todo" | "exam";
+    source: "leetcode" | "todo" | "exam" | "interview";
     linkId: number;
     course?: string;
     externalUrl?: string;
@@ -721,7 +718,7 @@ function App() {
     }
     if (item.source === "leetcode") setDeepLink({ tab: "leetcode", problemId: item.linkId });
     else if (item.source === "todo") setDeepLink({ tab: "todo", todoId: item.linkId });
-    else setDeepLink({ tab: "exam", course: item.course!, week: item.linkId });
+    else if (item.source === "exam") setDeepLink({ tab: "exam", course: item.course!, week: item.linkId });
     setTab(item.source);
   };
 
@@ -747,6 +744,11 @@ function App() {
           openWeek={deepLink?.tab === "exam" ? deepLink.week : null}
           onOpened={() => setDeepLink(null)}
         />
+      )}
+      {tab === "interview" && (
+        <Suspense fallback={<p className="board-empty">Loading…</p>}>
+          <InterviewApp />
+        </Suspense>
       )}
     </div>
   );

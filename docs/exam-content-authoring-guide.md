@@ -6,15 +6,19 @@ the Modules tab's Sync button, or found by hand).
 ## Process
 
 1. Read the week's real source material directly — PDFs, slides, docs. For
-   any video recording (lecture/tutorial capture), transcribe it first:
-   `bun scripts/transcribe-lecture.ts <path-to-video>` writes a
-   `<name>.transcript.md` next to it, which then reads like any other
-   material. Video is the one source that captures things the slides don't
-   — announcements, asides, stories, in-class quizzes/questions, verbal
-   emphasis on what actually matters — so treat the transcript as a
-   dedicated pass for exactly that, not just a re-read of the slide content
-   in prose form. Re-run `scripts/generate-exam-week.ts` after transcribing
-   so the new file is picked up as a material source.
+   any video recording (lecture/tutorial capture), it needs a
+   `<name>.transcript.md` transcript sitting next to it before it can be
+   used — the video file itself can't be opened directly. Clicking
+   Generate in the app now does this automatically (`transcribeWeekVideos`
+   in `exam-generate.ts` runs before the authoring step, skipping videos
+   that already have a transcript), so no manual step is needed there. If
+   you're authoring by hand outside the Generate button, transcribe first:
+   `bun scripts/transcribe-lecture.ts <path-to-video>` writes the
+   `<name>.transcript.md`, which then reads like any other material. Video
+   is the one source that captures things the slides don't — announcements,
+   asides, stories, in-class quizzes/questions, verbal emphasis on what
+   actually matters — so treat the transcript as a dedicated pass for
+   exactly that, not just a re-read of the slide content in prose form.
 2. Read that course's `exam-content/<course>/unit_outline.md` for the
    unit's stated learning outcomes.
 3. If a prior week's `exam-content/<course>/week-N.ts` exists, skim it for
@@ -106,3 +110,29 @@ Update `exam-content.ts`:
 
 Run `bun test` before considering the week done — it must pass with no
 failures.
+
+## Updating an already-authored week with new material
+
+When new material (most often a lecture/tutorial video) is added to a
+week's folder *after* that week was already authored, use the app's
+**Update** button (shown next to an already-authored week in the Modules
+tab or History) instead of re-running Generate — Generate assumes the week
+doesn't exist yet and would tell Claude to author it from scratch.
+
+Update reuses the same job pipeline (auto-transcribes any new video first,
+then runs headless `claude -p`), but with a different prompt
+(`buildUpdatePrompt` in `exam-generate.ts`) that:
+
+- Reads the existing `week-N.ts` first and only adds what the new material
+  covers that isn't already asked about — not a wholesale rewrite.
+- **Only ever appends new questions to the end of a paper's `questions`
+  array.** Never reorders, deletes, or renumbers an existing question —
+  `exam-db.ts` keys a student's graded answer history by each question's
+  array index, so moving one silently corrupts past scores.
+- Never touches `exam-content.ts` — the week's import/`ALL_PAPERS` entry is
+  already wired in from when it was first authored.
+
+If you're doing this by hand instead of via the button (e.g. no dev server
+running), follow the same rules manually: read the existing file first,
+append rather than rewrite, and never touch already-graded questions'
+positions.

@@ -1,10 +1,11 @@
 // HomeApp.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import type { DueItem, DueSource, HomeStats } from "./home-api";
+import AnnouncementsBoard from "./AnnouncementsBoard";
 import { SEMESTER_DEADLINES } from "./semester-deadlines";
-import { TIMELINE_URL } from "./timeline-link";
+import { TIMELINE_URL } from "./shared/timeline-link";
 import { ED_DIGEST_URL } from "./ed-digest-link";
-import { localToday } from "./scheduling";
+import { localToday } from "./shared/scheduling";
 
 const EMPTY_STATS: HomeStats = { dueToday: 0, overdue: 0, completedToday: 0 };
 
@@ -90,12 +91,14 @@ const SOURCE_LABEL: Record<DueSource, string> = {
   leetcode: "LeetCode",
   todo: "Todo",
   exam: "Modules",
+  interview: "Interview",
 };
 
 const SOURCE_COLOR: Record<DueSource, string> = {
   leetcode: "var(--cat-src-leetcode)",
   todo: "var(--cat-src-theory)",
   exam: "var(--cat-src-exam)",
+  interview: "var(--cat-src-interview)",
 };
 
 // Same two calendars leetcode-srs already overlays elsewhere: Adam's
@@ -258,6 +261,7 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
         </button>
       </div>
       <WeeklyContentReminder />
+      <AnnouncementsBoard />
       {openModal === "due" && (
         <HomeListModal
           title="Due today"

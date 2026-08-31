@@ -1,14 +1,15 @@
 // home-api.test.ts
 import { test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { openDb, createProblem, reviewProblem } from "./db";
-import { migrateTodo, createTodo, toggleTodo } from "./todo-db";
-import { migrateExam, gradeExamAnswer, submitExamPaper } from "./exam-db";
-import { buildExamSchedule, weekStartDate, weekDueDate, listExamCourses, SEMESTER_START } from "./exam-content";
-import { migrateLeetcode150 } from "./leetcode150-db";
-import { LEETCODE_150, leetcode150Url } from "./leetcode150-content";
+import { openDb, createProblem, reviewProblem } from "./leetcode/db";
+import { migrateTodo, createTodo, toggleTodo } from "./todo/db";
+import { migrateExam, gradeExamAnswer, submitExamPaper } from "./exam/db";
+import { buildExamSchedule, weekStartDate, weekDueDate, listExamCourses, SEMESTER_START } from "./exam/content";
+import { migrateLeetcode150 } from "./leetcode150/db";
+import { LEETCODE_150, leetcode150Url } from "./leetcode150/content";
 import { homeApiRoutes } from "./home-api";
-import { localToday, addDays } from "./scheduling";
+import { localToday, addDays } from "./shared/scheduling";
+import { migrateInterview, getOrCreateTodaySession, saveDesignAnswer, revealModelAnswer } from "./interview/db";
 
 const TODAY = localToday();
 // Each course's due date per week is fixed (SEMESTER_START is a literal),
@@ -38,6 +39,11 @@ const EXAM_ITEM_COUNTS = examWeekItemCounts();
 // of the existing tests below do, they all use "Two Sum" as their generic
 // mock problem, which is never the current pointer's title).
 const LEETCODE150_DAILY_DUE = 1;
+// A freshly migrated db always has exactly one incomplete daily interview
+// session due today (getOrCreateTodaySession creates one on first read, and
+// none of the existing tests below complete both of its parts unless they
+// say so explicitly).
+const INTERVIEW_DAILY_DUE = 1;
 let db: Database;
 let server: ReturnType<typeof Bun.serve>;
 let base: string;
@@ -47,6 +53,7 @@ beforeEach(() => {
   migrateTodo(db);
   migrateExam(db, TODAY);
   migrateLeetcode150(db);
+  migrateInterview(db);
   server = Bun.serve({ port: 0, routes: homeApiRoutes(db) });
   base = server.url.origin;
 });
@@ -72,6 +79,30 @@ test("GET /api/home/due includes a due LeetCode problem", async () => {
   expect(item.subtitle).toBe("java");
 });
 
+test("GET /api/home/due caps overdue LeetCode problems at 3, pushing the rest to a later day", async () => {
+  // Simulate a backlog that piled up over several unreviewed days —
+  // created on staggered days so none hit the creation-time cap, then
+  // forced onto the same stale overdue date via direct SQL so this
+  // exercises the read-time leveling gate specifically.
+  const ids: number[] = [];
+  for (let i = 0; i < 5; i++) {
+    ids.push(
+      createProblem(
+        db,
+        { title: `Overdue ${i}`, url: `https://leetcode.com/problems/overdue-${i}/`, solution: "code" },
+        addDays(TODAY, -(10 + i)),
+      ).id,
+    );
+  }
+  const stale = addDays(TODAY, -5);
+  const setStale = db.query(`UPDATE problems SET next_review = ? WHERE id = ?`);
+  for (const id of ids) setStale.run(stale, id);
+
+  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  const overdueTitles = items.filter((i) => i.source === "leetcode" && i.title.startsWith("Overdue"));
+  expect(overdueTitles.length).toBe(3);
+});
+
 test("GET /api/home/due excludes a todo that isn't due yet", async () => {
   createTodo(db, "Not due yet", addDays(TODAY, 20), null, TODAY);
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
@@ -86,6 +117,10 @@ test("GET /api/home/due includes this week's exam item", async () => {
   expect(info5995Item).toBeTruthy();
   expect(info5995Item.linkId).toBe(1);
   expect(info5995Item.title).toContain("Week 1");
+  // Alongside the paper-submission count, the title also reports a
+  // question-level total (e.g. "0/26 questions") so a student can gauge
+  // how much work is actually left, not just how many papers remain.
+  expect(info5995Item.title).toMatch(/\d+\/\d+ questions/);
 });
 
 test("GET /api/home/due gives every exam item a collision-free id", async () => {
@@ -119,10 +154,30 @@ test("GET /api/home/due sorts all sources together by due date ascending", async
   expect(items[0]!.source).toBe("todo");
 });
 
+test("GET /api/home/due includes today's interview session when incomplete", async () => {
+  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  expect(items.some((i) => i.source === "interview")).toBe(true);
+});
+
+test("GET /api/home/due excludes the interview session once both parts are completed", async () => {
+  const problem = createProblem(
+    db,
+    { title: "Two Sum", url: "https://leetcode.com/problems/two-sum/", solution: "x" },
+    addDays(TODAY, -1),
+  );
+  getOrCreateTodaySession(db, TODAY);
+  saveDesignAnswer(db, TODAY, "my approach", null);
+  revealModelAnswer(db, TODAY);
+  reviewProblem(db, problem.id, "pass", TODAY);
+
+  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  expect(items.some((i) => i.source === "interview")).toBe(false);
+});
+
 test("GET /api/home/stats starts with one exam item per course (besides the daily LeetCode150 pointer) when there are no todos", async () => {
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
   expect(stats).toEqual({
-    dueToday: EXAM_ITEM_COUNTS.dueToday + LEETCODE150_DAILY_DUE,
+    dueToday: EXAM_ITEM_COUNTS.dueToday + LEETCODE150_DAILY_DUE + INTERVIEW_DAILY_DUE,
     overdue: EXAM_ITEM_COUNTS.overdue,
     completedToday: 0,
   });
@@ -132,7 +187,7 @@ test("GET /api/home/stats counts due todos", async () => {
   for (let i = 0; i < 5; i++) createTodo(db, `Task ${i}`, TODAY, null, TODAY);
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
   expect(stats).toEqual({
-    dueToday: 5 + EXAM_ITEM_COUNTS.dueToday + LEETCODE150_DAILY_DUE,
+    dueToday: 5 + EXAM_ITEM_COUNTS.dueToday + LEETCODE150_DAILY_DUE + INTERVIEW_DAILY_DUE,
     overdue: EXAM_ITEM_COUNTS.overdue,
     completedToday: 0,
   });
@@ -148,7 +203,7 @@ test("GET /api/home/stats counts dueToday and overdue across all three sources",
   createTodo(db, "Overdue todo", addDays(TODAY, -3), null, addDays(TODAY, -3));
 
   const stats: any = await (await fetch(`${base}/api/home/stats`)).json();
-  expect(stats.dueToday).toBe(6 + EXAM_ITEM_COUNTS.dueToday + LEETCODE150_DAILY_DUE);
+  expect(stats.dueToday).toBe(6 + EXAM_ITEM_COUNTS.dueToday + LEETCODE150_DAILY_DUE + INTERVIEW_DAILY_DUE);
   expect(stats.overdue).toBe(1 + EXAM_ITEM_COUNTS.overdue);
 });
 

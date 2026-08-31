@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, basename, extname, dirname } from "node:path";
 
-const DEFAULT_MODEL = join(process.env.HOME ?? "", ".whisper-models", "ggml-base.en.bin");
+export const DEFAULT_MODEL = join(process.env.HOME ?? "", ".whisper-models", "ggml-base.en.bin");
 
 // Runs ffmpeg + whisper-cpp's whisper-cli as subprocesses rather than a JS
 // binding, since both are already installed via Homebrew and neither has a
