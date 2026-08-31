@@ -7,8 +7,10 @@ import {
   migrateInterview,
   getOrCreateTodaySession,
   getTodaySession,
-  startCodingTimer,
-  startDesignTimer,
+  startOrResumeCoding,
+  pauseCoding,
+  startOrResumeDesign,
+  pauseDesign,
   saveDesignAnswer,
   revealModelAnswer,
   saveRubricChecked,
@@ -70,15 +72,25 @@ test("marks completed_at once both parts are satisfied, and not before", () => {
   expect(getTodaySession(db, TODAY)!.completed_at).toBe(TODAY);
 });
 
-test("startCodingTimer/startDesignTimer set their started_at columns once, without overwriting on a second call", () => {
-  const afterFirst = startCodingTimer(db, TODAY);
-  expect(afterFirst.coding_started_at).not.toBeNull();
-  const firstTimestamp = afterFirst.coding_started_at;
-  const afterSecond = startCodingTimer(db, TODAY);
-  expect(afterSecond.coding_started_at).toBe(firstTimestamp);
+test("startOrResumeCoding/pauseCoding track elapsed seconds across a pause", () => {
+  const started = startOrResumeCoding(db, TODAY);
+  expect(started.coding_running_since).not.toBeNull();
+  expect(started.coding_elapsed_seconds).toBe(0);
 
-  const afterDesign = startDesignTimer(db, TODAY);
-  expect(afterDesign.design_started_at).not.toBeNull();
+  const paused = pauseCoding(db, TODAY);
+  expect(paused.coding_running_since).toBeNull();
+  expect(paused.coding_elapsed_seconds).toBeGreaterThanOrEqual(0);
+
+  // Pausing again while already paused must not change anything.
+  const pausedAgain = pauseCoding(db, TODAY);
+  expect(pausedAgain.coding_elapsed_seconds).toBe(paused.coding_elapsed_seconds);
+});
+
+test("startOrResumeDesign/pauseDesign track elapsed seconds independently of coding", () => {
+  const started = startOrResumeDesign(db, TODAY);
+  expect(started.design_running_since).not.toBeNull();
+  const paused = pauseDesign(db, TODAY);
+  expect(paused.design_running_since).toBeNull();
 });
 
 test("saveRubricChecked persists the checked array as JSON", () => {

@@ -38,11 +38,12 @@ test("GET /api/interview/today includes the due LeetCode problem", async () => {
   expect(view.leetcodeProblemId).toBe(problem.id);
 });
 
-test("POST /api/interview/today/start-coding sets codingStartedAt once", async () => {
-  const first: any = await (await fetch(`${base}/api/interview/today/start-coding?date=${TODAY}`, { method: "POST" })).json();
-  expect(first.codingStartedAt).not.toBeNull();
-  const second: any = await (await fetch(`${base}/api/interview/today/start-coding?date=${TODAY}`, { method: "POST" })).json();
-  expect(second.codingStartedAt).toBe(first.codingStartedAt);
+test("POST /api/interview/today/start-coding then pause-coding tracks elapsed time", async () => {
+  const started: any = await (await fetch(`${base}/api/interview/today/start-coding?date=${TODAY}`, { method: "POST" })).json();
+  expect(started.codingRunningSince).not.toBeNull();
+  const paused: any = await (await fetch(`${base}/api/interview/today/pause-coding?date=${TODAY}`, { method: "POST" })).json();
+  expect(paused.codingRunningSince).toBeNull();
+  expect(paused.codingElapsedSeconds).toBeGreaterThanOrEqual(0);
 });
 
 test("POST /api/interview/today/start-coding rejects a stale date", async () => {
@@ -50,9 +51,11 @@ test("POST /api/interview/today/start-coding rejects a stale date", async () => 
   expect(res.status).toBe(409);
 });
 
-test("POST /api/interview/today/start-design sets designStartedAt once", async () => {
-  const first: any = await (await fetch(`${base}/api/interview/today/start-design?date=${TODAY}`, { method: "POST" })).json();
-  expect(first.designStartedAt).not.toBeNull();
+test("POST /api/interview/today/start-design then pause-design tracks elapsed time", async () => {
+  const started: any = await (await fetch(`${base}/api/interview/today/start-design?date=${TODAY}`, { method: "POST" })).json();
+  expect(started.designRunningSince).not.toBeNull();
+  const paused: any = await (await fetch(`${base}/api/interview/today/pause-design?date=${TODAY}`, { method: "POST" })).json();
+  expect(paused.designRunningSince).toBeNull();
 });
 
 test("POST /api/interview/today/design-answer saves the answer and scene", async () => {

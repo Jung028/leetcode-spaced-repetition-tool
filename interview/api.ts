@@ -3,8 +3,10 @@ import { localToday } from "../shared/scheduling";
 import { allSystemDesignQuestions } from "./content";
 import {
   getOrCreateTodaySession,
-  startCodingTimer,
-  startDesignTimer,
+  startOrResumeCoding,
+  pauseCoding,
+  startOrResumeDesign,
+  pauseDesign,
   saveDesignAnswer,
   revealModelAnswer,
   saveRubricChecked,
@@ -15,8 +17,10 @@ const json = (data: unknown, status = 200) => Response.json(data, { status });
 
 export interface InterviewSessionView {
   date: string;
-  codingStartedAt: string | null;
-  designStartedAt: string | null;
+  codingElapsedSeconds: number;
+  codingRunningSince: string | null;
+  designElapsedSeconds: number;
+  designRunningSince: string | null;
   completedAt: string | null;
   leetcodeProblemId: number | null;
   sdQuestion: { id: string; company: string; prompt: string; modelAnswer: string; rubric: string[] };
@@ -39,8 +43,10 @@ function sessionView(row: InterviewSessionRow): InterviewSessionView {
   const question = allSystemDesignQuestions().find((q) => q.id === row.sd_question_id)!;
   return {
     date: row.date,
-    codingStartedAt: row.coding_started_at,
-    designStartedAt: row.design_started_at,
+    codingElapsedSeconds: row.coding_elapsed_seconds,
+    codingRunningSince: row.coding_running_since,
+    designElapsedSeconds: row.design_elapsed_seconds,
+    designRunningSince: row.design_running_since,
     completedAt: row.completed_at,
     leetcodeProblemId: row.leetcode_problem_id,
     sdQuestion: {
@@ -67,7 +73,15 @@ export function interviewApiRoutes(db: Database) {
         const today = localToday();
         const date = new URL(req.url).searchParams.get("date");
         if (date !== today) return json({ error: "stale-date", today }, 409);
-        return json(sessionView(startCodingTimer(db, today)));
+        return json(sessionView(startOrResumeCoding(db, today)));
+      },
+    },
+    "/api/interview/today/pause-coding": {
+      POST: (req: Request) => {
+        const today = localToday();
+        const date = new URL(req.url).searchParams.get("date");
+        if (date !== today) return json({ error: "stale-date", today }, 409);
+        return json(sessionView(pauseCoding(db, today)));
       },
     },
     "/api/interview/today/start-design": {
@@ -75,7 +89,15 @@ export function interviewApiRoutes(db: Database) {
         const today = localToday();
         const date = new URL(req.url).searchParams.get("date");
         if (date !== today) return json({ error: "stale-date", today }, 409);
-        return json(sessionView(startDesignTimer(db, today)));
+        return json(sessionView(startOrResumeDesign(db, today)));
+      },
+    },
+    "/api/interview/today/pause-design": {
+      POST: (req: Request) => {
+        const today = localToday();
+        const date = new URL(req.url).searchParams.get("date");
+        if (date !== today) return json({ error: "stale-date", today }, 409);
+        return json(sessionView(pauseDesign(db, today)));
       },
     },
     "/api/interview/today/design-answer": {

@@ -12,8 +12,10 @@ interface SdQuestionView {
 
 interface InterviewSessionView {
   date: string;
-  codingStartedAt: string | null;
-  designStartedAt: string | null;
+  codingElapsedSeconds: number;
+  codingRunningSince: string | null;
+  designElapsedSeconds: number;
+  designRunningSince: string | null;
   completedAt: string | null;
   leetcodeProblemId: number | null;
   sdQuestion: SdQuestionView;
@@ -37,6 +39,10 @@ const api = {
     fetch(`/api/interview/today/start-coding?date=${encodeURIComponent(date)}`, { method: "POST" }).then((r) => json<InterviewSessionView>(r)),
   startDesign: (date: string) =>
     fetch(`/api/interview/today/start-design?date=${encodeURIComponent(date)}`, { method: "POST" }).then((r) => json<InterviewSessionView>(r)),
+  pauseCoding: (date: string) =>
+    fetch(`/api/interview/today/pause-coding?date=${encodeURIComponent(date)}`, { method: "POST" }).then((r) => json<InterviewSessionView>(r)),
+  pauseDesign: (date: string) =>
+    fetch(`/api/interview/today/pause-design?date=${encodeURIComponent(date)}`, { method: "POST" }).then((r) => json<InterviewSessionView>(r)),
   saveDesignAnswer: (date: string, answer: string, scene: string | null) =>
     fetch("/api/interview/today/design-answer", {
       method: "POST",
@@ -78,39 +84,57 @@ function notifyOvertime(): void {
   new Notification("Time's up", { body: "You're now in overtime." });
 }
 
-function Countdown({ startedAt }: { startedAt: string | null }) {
+function TimerControls({
+  elapsedSeconds,
+  runningSince,
+  onStart,
+  onPause,
+}: {
+  elapsedSeconds: number;
+  runningSince: string | null;
+  onStart: () => void;
+  onPause: () => void;
+}) {
   const [now, setNow] = useState(() => Date.now());
   const alertedRef = useRef(false);
+
   useEffect(() => {
-    if (!startedAt) return;
+    if (!runningSince) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [startedAt]);
-  // Reset the one-time-alert flag whenever a new timer starts, so the other
-  // part's timer (or a restarted one) can alert independently.
-  useEffect(() => {
-    alertedRef.current = false;
-  }, [startedAt]);
-  const elapsedSeconds = startedAt ? Math.floor((now - new Date(startedAt).getTime()) / 1000) : 0;
-  const remaining = PART_SECONDS - elapsedSeconds;
-  const overtime = startedAt !== null && remaining < 0;
-  // Fires exactly once per timer instance, at the moment it first crosses
-  // into overtime — not on every re-render while overtime is true.
+  }, [runningSince]);
+
+  const liveSeconds = runningSince ? Math.floor((Date.now() - new Date(runningSince).getTime()) / 1000) : 0;
+  const totalElapsed = elapsedSeconds + liveSeconds;
+  const remaining = PART_SECONDS - totalElapsed;
+  const overtime = remaining < 0;
+
+  // Fires exactly once per mount, the moment total elapsed time first
+  // crosses into overtime — not on every re-render while overtime is true,
+  // and not re-armed by a pause/resume within the same mount.
   useEffect(() => {
     if (overtime && !alertedRef.current) {
       alertedRef.current = true;
       notifyOvertime();
     }
   }, [overtime]);
-  if (!startedAt) return null;
+
   const displaySeconds = Math.abs(remaining);
   const mm = String(Math.floor(displaySeconds / 60)).padStart(2, "0");
   const ss = String(displaySeconds % 60).padStart(2, "0");
+
   return (
-    <span className={overtime ? "interview-timer interview-timer-over" : "interview-timer"}>
-      {overtime ? "+" : ""}
-      {mm}:{ss}
-    </span>
+    <div className="interview-timer-controls">
+      <span className={overtime ? "interview-timer interview-timer-over" : "interview-timer"}>
+        {overtime ? "+" : ""}
+        {mm}:{ss}
+      </span>
+      {runningSince ? (
+        <button className="btn" onClick={onPause}>Pause</button>
+      ) : (
+        <button className="btn" onClick={onStart}>{totalElapsed > 0 ? "Resume" : "Start"}</button>
+      )}
+    </div>
   );
 }
 
@@ -149,17 +173,6 @@ export default function InterviewApp() {
     }
     refresh();
   }, []);
-
-  useEffect(() => {
-    if (!session) return;
-    if (part === "coding" && session.leetcodeProblemId !== null && !session.codingStartedAt) {
-      runOrRefresh(() => api.startCoding(session.date));
-    }
-    if (part === "design" && !session.designStartedAt) {
-      runOrRefresh(() => api.startDesign(session.date));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [part, session?.date]);
 
   const scheduleSave = (nextAnswer: string, nextScene: string | null) => {
     if (!session) return;
@@ -202,13 +215,30 @@ export default function InterviewApp() {
       <nav className="tabs interview-part-tabs" aria-label="Session parts">
         {session.leetcodeProblemId !== null && (
           <button className={part === "coding" ? "tab tab-active" : "tab"} onClick={() => setPart("coding")}>
-            Part 1 · Coding <Countdown startedAt={session.codingStartedAt} />
+            Part 1 · Coding
           </button>
         )}
         <button className={part === "design" ? "tab tab-active" : "tab"} onClick={() => setPart("design")}>
-          Part 2 · System Design <Countdown startedAt={session.designStartedAt} />
+          Part 2 · System Design
         </button>
       </nav>
+
+      {part === "coding" && session.leetcodeProblemId !== null && (
+        <TimerControls
+          elapsedSeconds={session.codingElapsedSeconds}
+          runningSince={session.codingRunningSince}
+          onStart={() => runOrRefresh(() => api.startCoding(session.date))}
+          onPause={() => runOrRefresh(() => api.pauseCoding(session.date))}
+        />
+      )}
+      {part === "design" && (
+        <TimerControls
+          elapsedSeconds={session.designElapsedSeconds}
+          runningSince={session.designRunningSince}
+          onStart={() => runOrRefresh(() => api.startDesign(session.date))}
+          onPause={() => runOrRefresh(() => api.pauseDesign(session.date))}
+        />
+      )}
 
       {part === "coding" && session.leetcodeProblemId !== null && (
         <Detail id={session.leetcodeProblemId} today={session.date} onBack={() => setPart("design")} onChanged={refresh} />

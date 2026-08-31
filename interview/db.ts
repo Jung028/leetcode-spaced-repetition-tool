@@ -9,6 +9,10 @@ export interface InterviewSessionRow {
   sd_question_id: string;
   coding_started_at: string | null;
   design_started_at: string | null;
+  coding_elapsed_seconds: number;
+  coding_running_since: string | null;
+  design_elapsed_seconds: number;
+  design_running_since: string | null;
   sd_answer: string;
   sd_excalidraw_scene: string | null;
   sd_rubric_checked: string;
@@ -34,6 +38,21 @@ export function migrateInterview(db: Database): void {
       question_id TEXT PRIMARY KEY
     );
   `);
+
+  const columns = db.query(`PRAGMA table_info(interview_sessions)`).all() as { name: string }[];
+  const has = (name: string) => columns.some((c) => c.name === name);
+  if (!has("coding_elapsed_seconds")) {
+    db.exec(`ALTER TABLE interview_sessions ADD COLUMN coding_elapsed_seconds INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!has("coding_running_since")) {
+    db.exec(`ALTER TABLE interview_sessions ADD COLUMN coding_running_since TEXT`);
+  }
+  if (!has("design_elapsed_seconds")) {
+    db.exec(`ALTER TABLE interview_sessions ADD COLUMN design_elapsed_seconds INTEGER NOT NULL DEFAULT 0`);
+  }
+  if (!has("design_running_since")) {
+    db.exec(`ALTER TABLE interview_sessions ADD COLUMN design_running_since TEXT`);
+  }
 }
 
 function isCodingPartDone(db: Database, row: InterviewSessionRow, today: string): boolean {
@@ -86,21 +105,39 @@ export function getOrCreateTodaySession(db: Database, today: string): InterviewS
   return getTodaySession(db, today)!;
 }
 
-export function startCodingTimer(db: Database, today: string): InterviewSessionRow {
+export function startOrResumeCoding(db: Database, today: string): InterviewSessionRow {
   getOrCreateTodaySession(db, today);
-  db.query(`UPDATE interview_sessions SET coding_started_at = ? WHERE date = ? AND coding_started_at IS NULL`).run(
+  db.query(`UPDATE interview_sessions SET coding_running_since = ? WHERE date = ? AND coding_running_since IS NULL`).run(
     new Date().toISOString(),
     today,
   );
   return getTodaySession(db, today)!;
 }
 
-export function startDesignTimer(db: Database, today: string): InterviewSessionRow {
+export function pauseCoding(db: Database, today: string): InterviewSessionRow {
+  const row = getOrCreateTodaySession(db, today);
+  if (row.coding_running_since !== null) {
+    const elapsed = row.coding_elapsed_seconds + Math.floor((Date.now() - new Date(row.coding_running_since).getTime()) / 1000);
+    db.query(`UPDATE interview_sessions SET coding_elapsed_seconds = ?, coding_running_since = NULL WHERE date = ?`).run(elapsed, today);
+  }
+  return getTodaySession(db, today)!;
+}
+
+export function startOrResumeDesign(db: Database, today: string): InterviewSessionRow {
   getOrCreateTodaySession(db, today);
-  db.query(`UPDATE interview_sessions SET design_started_at = ? WHERE date = ? AND design_started_at IS NULL`).run(
+  db.query(`UPDATE interview_sessions SET design_running_since = ? WHERE date = ? AND design_running_since IS NULL`).run(
     new Date().toISOString(),
     today,
   );
+  return getTodaySession(db, today)!;
+}
+
+export function pauseDesign(db: Database, today: string): InterviewSessionRow {
+  const row = getOrCreateTodaySession(db, today);
+  if (row.design_running_since !== null) {
+    const elapsed = row.design_elapsed_seconds + Math.floor((Date.now() - new Date(row.design_running_since).getTime()) / 1000);
+    db.query(`UPDATE interview_sessions SET design_elapsed_seconds = ?, design_running_since = NULL WHERE date = ?`).run(elapsed, today);
+  }
   return getTodaySession(db, today)!;
 }
 
