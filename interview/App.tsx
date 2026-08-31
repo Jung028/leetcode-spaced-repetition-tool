@@ -87,16 +87,20 @@ function notifyOvertime(): void {
 function TimerControls({
   elapsedSeconds,
   runningSince,
+  alertedRef,
   onStart,
   onPause,
 }: {
   elapsedSeconds: number;
   runningSince: string | null;
+  // Owned by the parent (InterviewApp), not this component, so switching
+  // tabs — which unmounts/remounts TimerControls — doesn't reset the flag
+  // and re-fire the alert for a part that's already in overtime.
+  alertedRef: { current: boolean };
   onStart: () => void;
   onPause: () => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
-  const alertedRef = useRef(false);
 
   useEffect(() => {
     if (!runningSince) return;
@@ -109,15 +113,15 @@ function TimerControls({
   const remaining = PART_SECONDS - totalElapsed;
   const overtime = remaining < 0;
 
-  // Fires exactly once per mount, the moment total elapsed time first
+  // Fires exactly once per session-part, the moment total elapsed time first
   // crosses into overtime — not on every re-render while overtime is true,
-  // and not re-armed by a pause/resume within the same mount.
+  // and not re-armed by a pause/resume or a tab switch away and back.
   useEffect(() => {
     if (overtime && !alertedRef.current) {
       alertedRef.current = true;
       notifyOvertime();
     }
-  }, [overtime]);
+  }, [overtime, alertedRef]);
 
   const displaySeconds = Math.abs(remaining);
   const mm = String(Math.floor(displaySeconds / 60)).padStart(2, "0");
@@ -146,6 +150,13 @@ export default function InterviewApp() {
   const [draft, setDraft] = useState("");
   const [scene, setScene] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const codingAlertedRef = useRef(false);
+  const designAlertedRef = useRef(false);
+
+  useEffect(() => {
+    codingAlertedRef.current = false;
+    designAlertedRef.current = false;
+  }, [session?.date]);
 
   const refresh = async () => {
     const s = await api.today();
@@ -227,6 +238,7 @@ export default function InterviewApp() {
         <TimerControls
           elapsedSeconds={session.codingElapsedSeconds}
           runningSince={session.codingRunningSince}
+          alertedRef={codingAlertedRef}
           onStart={() => runOrRefresh(() => api.startCoding(session.date))}
           onPause={() => runOrRefresh(() => api.pauseCoding(session.date))}
         />
@@ -235,6 +247,7 @@ export default function InterviewApp() {
         <TimerControls
           elapsedSeconds={session.designElapsedSeconds}
           runningSince={session.designRunningSince}
+          alertedRef={designAlertedRef}
           onStart={() => runOrRefresh(() => api.startDesign(session.date))}
           onPause={() => runOrRefresh(() => api.pauseDesign(session.date))}
         />
