@@ -6,6 +6,7 @@ import { highlightCode } from "./leetcode/highlight";
 import TodoApp from "./todo/App";
 import HomeApp from "./HomeApp";
 import ExamApp from "./exam/App";
+import InterviewApp from "./interview/App";
 import "./index.css";
 
 type View =
@@ -744,7 +745,7 @@ function App() {
           onOpened={() => setDeepLink(null)}
         />
       )}
-      {tab === "interview" && <p className="board-empty">Coming soon</p>}
+      {tab === "interview" && <InterviewApp />}
     </div>
   );
 }
