@@ -268,8 +268,11 @@ const LECTURE_PAPER: ExamPaperSeed = {
   paperNumber: 2,
   title: "Week 5 Lecture Practice Paper",
   topics:
-    "Lecture 5 (Performance): aspects of performance - load (arrival rate x work per request), job classes and describing load by relative amounts / per-type arrival rates, open vs closed systems (think time, unbounded vs bounded feedback loop, MPL as the closed-system independent variable), throughput vs response time (and response time vs runtime for staged answers), figure of merit and why averages/variance matter, speed-up and real-vs-ideal scalability (contention and queueing); measuring performance - measurement principles (always state units, KB=1024 vs assume 1000, weighted average with weight = number of occurrences), timer precision vs resolution, Java timing functions (currentTimeMillis OS-dependent resolution, nanoTime), Spring Boot Micrometer @Timed, recording data from multi-threaded services, gaining confidence with range intervals, performance counters, standard benchmarks (TPC-C/E OLTP, TPC-H/DS analytics, TPC = Transaction Processing Council), the client-server evaluation setup; performance principles - resources and their characteristics, response-time composition (processor + I/O + wait for shared resources), concurrency and resource overlap, saturation and the 80% rule-of-thumb, admission control and thrashing, queues, the effect of arrival-rate distribution/variability, bottlenecks and Amdahl's Law, read and write caching, middle-tier database caching and cache-miss costs, scale-out, scaling stateless logic vs stateful state stores (replication, partitioning), and optimising for work-done-per-watt at cloud scale; connection to Week 4's two-phase-commit distributed transaction as a 'heavy', lock-holding update. Assessment note from the lecture: Assignment 1 is an individual take-home covering Weeks 1-6, submitted as a single PDF via Canvas, not an in-class quiz.",
-  sourceFiles: ["lecture/COMP5348_W5.pdf"],
+    "Lecture 5 (Performance): aspects of performance - load (arrival rate x work per request), job classes and describing load by relative amounts / per-type arrival rates, open vs closed systems (think time, unbounded vs bounded feedback loop, MPL as the closed-system independent variable), throughput vs response time (and response time vs runtime for staged answers), figure of merit and why averages/variance matter, speed-up and real-vs-ideal scalability (contention and queueing); measuring performance - measurement principles (always state units, KB=1024 vs assume 1000, weighted average with weight = number of occurrences), timer precision vs resolution, Java timing functions (currentTimeMillis OS-dependent resolution, nanoTime), Spring Boot Micrometer @Timed, recording data from multi-threaded services, gaining confidence with range intervals, performance counters, standard benchmarks (TPC-C/E OLTP, TPC-H/DS analytics, TPC = Transaction Processing Council), the client-server evaluation setup; performance principles - resources and their characteristics, response-time composition (processor + I/O + wait for shared resources), concurrency and resource overlap, saturation and the 80% rule-of-thumb, admission control and thrashing, queues, the effect of arrival-rate distribution/variability, bottlenecks and Amdahl's Law, read and write caching, middle-tier database caching and cache-miss costs, scale-out, scaling stateless logic vs stateful state stores (replication, partitioning), and optimising for work-done-per-watt at cloud scale; connection to Week 4's two-phase-commit distributed transaction as a 'heavy', lock-holding update. Assessment note from the lecture: Assignment 1 is an individual take-home covering Weeks 1-6, submitted as a single PDF via Canvas, not an in-class quiz. Lecture-recording additions: performance as a quality attribute distinct from correctness (the '50,000 users, correct system, 30 s per request' example); 'fast under what load?' (banking balance-check vs mass simultaneous transfers; peak vs off-peak electricity pricing as a load example); job-class mix vs bare request rate; the figure of merit as context-dependent with no single universal metric; repeated measurement and looking at the distribution (a lone 150 ms reading perturbed by GC, a cold cache or disk contention); measurement interference (a global timing lock as a benchmark-only bottleneck; per-request disk logging that ends up benchmarking the logger); calendar / system-clock / performance-counter timer types and preferring a monotonic high-resolution timer; why doubling CPUs does not double throughput (non-parallelisable work, locks, memory, I/O, thermal) tied to Amdahl's Law; performance counters to localise the saturated resource (CPU 100% vs disk 20%); a worked bottleneck example (500 vs 2000 transactions/second, app server vs database); write caching by consolidating buffered updates; and the in-class recap quizzes on Week 3-4 coupling, 2PC abort-on-any-'no', and saga compensation in reverse order.",
+  sourceFiles: [
+    "lecture/COMP5348_W5.pdf",
+    "lecture/Week 05 - Enterprise-s1-low.transcript.md",
+  ],
   questions: [
     {
       type: "mcq",
@@ -668,6 +671,169 @@ const LECTURE_PAPER: ExamPaperSeed = {
         "The lecture says adding concurrent jobs can raise throughput (by overlapping CPU and I/O), yet also that beyond saturation more concurrent jobs degrade performance and can cause thrashing. Explain how both claims are true at once.",
       modelAnswer:
         "While the bottleneck resource still has spare capacity, a second job can use it during another job's wait on a different resource (1 job in 3 units, 2 jobs in 4). Once that resource is fully utilised there is no spare capacity to overlap into, so extra concurrent jobs only lengthen queues and add contention and scheduling overhead - the non-linear region that admission control exists to keep the system out of.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "The lecturer opens by imagining the Week 4 distributed-transaction design working correctly for 50,000 users, except that 'every request takes 30 seconds', and concludes 'we cannot say this is a successful enterprise system'. What point is this meant to establish?",
+      options: [
+        "That correctness and performance are really the same concern, so a system proven correct will always deliver acceptable response times once it is deployed at scale",
+        "That 30 seconds is the industry-standard upper bound for an enterprise request, and any design coming in under that figure can be signed off as successful",
+        "That performance is a separate quality attribute from correctness - a functionally correct system can still fail as an enterprise system if users wait too long for each response",
+        "That the 2PC protocol from Week 4 is the specific cause of the 30-second delay, and replacing it with a saga would by itself bring the response time down to an acceptable level",
+      ],
+      correctIndex: 2,
+      modelAnswer:
+        "The lecture introduces performance as another core attribute, distinct from the correctness of the distributed-transaction design: 'the system is correct, is running perfectly, but ... [it takes] every request 30 seconds ... we cannot say this is a successful enterprise system' because users 'will just wait for a quite long time to get [a] response'.",
+    },
+    {
+      type: "short",
+      prompt:
+        "The lecturer rejects the claim 'my application is fast', contrasting a banking system with one user checking their balance about once a minute against 50,000 users all transferring money at the same moment. Explain the point being made, and why it matters for how a performance result should be reported.",
+      modelAnswer:
+        "It is the same application in both cases, yet the two workloads produce 'totally different performance' - a light, infrequent read load makes almost anything look fast, while tens of thousands of concurrent update requests can overwhelm it. So 'fast' is meaningless on its own: 'you can be fast, but under what load?' A performance result must always be reported together with the workload it was measured under - the arrival rate and the job-class mix - or it cannot be compared or trusted.",
+    },
+    {
+      type: "truefalse",
+      prompt:
+        "In the lecture, the lecturer uses peak versus off-peak electricity pricing as an everyday example of a load effect: many customers drawing power at the same time degrades performance, so extra resources must be provisioned (and priced in) to cope with the peak.",
+      options: ["False", "True"],
+      correctIndex: 1,
+      modelAnswer:
+        "True. The lecture gives 'peak price ... [vs] normal price for electricity' as a load example: 'we have a lot of users using at the same time and the performance is affected, so we have to provide additional resources to solve this problem'. It is the same peak-provisioning problem as an open system that cannot turn arrivals away.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "The lecture says knowing a system 'receives 1000 requests per second' is not enough information, because '1000 balance enquiries and 1000 money transfers don't impose the same load'. Combining the lecture's job-class and resource ideas, what follows?",
+      options: [
+        "The request rate on its own fixes the load here, so 1000 balance enquiries per second and 1000 transfers per second will drive the CPU, the disk and the locks to essentially identical utilisation levels",
+        "Since the two workloads share a single arrival rate of 1000 requests per second, they must reach saturation at the same load and be held back by the very same bottleneck resource in each case",
+        "The transfer workload is really the lighter of the two, because a transfer only touches one pair of accounts whereas a balance enquiry must scan the entire account table end to end before it can reply",
+        "Load also needs the job-class mix, not just arrival rate: a transfer does read, write and locking work, so a transfer-heavy mix saturates CPU and locks sooner than an enquiry-heavy mix at the same rate",
+      ],
+      correctIndex: 3,
+      modelAnswer:
+        "The lecture: 'a thousand balance enquiries and a thousand money transfers don't impose the same load ... that's why we need to describe not just the request rate, but also the job classes, the mixture of job classes.' A transfer 'involves read, write, update, locking', so a transfer-heavy mix loads the CPU and lock manager far more than an enquiry-heavy mix at the same arrival rate, and will therefore saturate first.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "The lecturer stresses that 'which metric is the performance metric' has no universal answer - throughput, response time, work done per dollar and work done per joule are all candidates, and 'there's no unique figure of merit for any system, any conditions'. What is the practical consequence?",
+      options: [
+        "You should always report throughput, because it is the one figure of merit that is valid for every system regardless of the conditions it runs under",
+        "You must choose and state the figure of merit that matters for this system and context before measuring, since no single number captures performance for all systems",
+        "Response time and throughput can be used interchangeably, so measuring whichever one is easier to instrument is sufficient to characterise the system",
+        "Work done per joule has replaced the older metrics, so a modern performance study only needs to report energy efficiency and can drop throughput and response time",
+      ],
+      correctIndex: 1,
+      modelAnswer:
+        "The 'Figure of Merit' slide lists throughput, response time, work done per dollar and work done per joule as candidate 'measures of performance' and asks which one 'we use in our system'. The lecture's answer is that it depends on the system and context - so the figure of merit has to be chosen and stated up front, not assumed.",
+    },
+    {
+      type: "scenario",
+      prompt:
+        "Final-exam style: an operations dashboard for a payments service shows completed-transactions-per-second at an all-time high, and at the same time the support queue is filling with users reporting that individual payments are slow, with some far slower than others. Using the lecture's concepts (figure of merit, throughput vs response time, saturation, variance, admission control), explain what is most likely happening and what you would advise.",
+      modelAnswer:
+        "High throughput with poor, highly variable response time is the lecture's signature of a saturated system ('a saturated system may show good throughput but poor response time ... average response time might be OK but variance poor'). Throughput is the organisation-facing figure of merit, measured at the server; response time is what each client actually feels, measured at the client and including queueing and overhead - so a record throughput number can coexist with users waiting a long time. The service is past the knee of its performance curve: the bottleneck resource is fully utilised, queues are growing, and time spent in those queues stretches and spreads response times. Advice: pick the right figure of merit - maximum throughput subject to a bounded response time (e.g. a 95th/99th percentile), not raw throughput; back the offered concurrency off toward the knee; add admission control so excess requests are queued or rejected rather than driving the system deeper into saturation and thrashing; and use performance counters to find the actual bottleneck before adding capacity.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "On repeated measurement, the lecture says that if 'a request takes 150 milliseconds once, it doesn't mean its response time is 150 milliseconds', citing garbage collection, a cold cache, or 'another process [using] the same disk'. What does it recommend instead?",
+      options: [
+        "Take the single fastest run out of a handful of attempts, on the basis that the quickest run is the only one free of interference and so represents the request's true response time",
+        "Trust the very first measurement but report it at higher precision, writing 150 milliseconds as 0.150000 seconds so that the extra significant figures absorb the run-to-run noise",
+        "Throw away any run that differs from the first by more than the timer's stated resolution, then take a plain average of whatever small number of readings happen to remain",
+        "Run the measurement many times and look at the distribution of the results, reporting a range rather than one number, since a single run can be perturbed by GC, caching or disk contention",
+      ],
+      correctIndex: 3,
+      modelAnswer:
+        "The lecture: '150 milliseconds once ... doesn't mean [the] response time [is] 150 milliseconds. That's because ... garbage collection occurred, maybe the cache was cold, maybe another process used the same disk. So run the measurement repeatedly and look at [the] distribution ... we want a curve rather than a single number.' This pairs with the 'Gaining Confidence' slide's range intervals.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "Warning that 'the measurement itself can interfere with the system', the lecture gives two examples: making every thread 'take a global lock [just] to record its timing result', and writing 'a huge log entry to disk for every request'. What is the shared lesson?",
+      options: [
+        "Instrumentation can create a bottleneck that exists only under the benchmark: a timing lock serialises threads that would otherwise run in parallel, and per-request disk logging ends up benchmarking the logger",
+        "Global locks and per-request disk logging are both safe to leave switched on during a benchmark, as long as the results are afterwards corrected by subtracting a fixed per-request overhead constant",
+        "Timing code should always be given its own dedicated thread, and every log entry should be written out synchronously, so that no individual measurement can ever be lost while the experiment is running",
+        "The only genuine risk here is clock drift between separate cores, so pinning the whole benchmark to one single CPU core removes essentially all of the measurement interference that these two examples describe",
+      ],
+      correctIndex: 0,
+      modelAnswer:
+        "The 'Recording Data' theme: 'the measurement itself can interfere with the system'. A global lock taken only to record timings 'may create a bug [bottleneck] that exists only [in] our benchmark' by serialising threads; logging a large entry per request means you 'end up just benchmarking [the] logging system'. Hence per-thread perf tables merged at the end, deferred/buffered file writes, and 'don't measure your test harness'.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "The lecture distinguishes calendar/wall-clock time, the system clock, and internal performance counters/timers, and says that for measuring elapsed time you 'generally prefer a suitable monotonic, high-resolution performance timer'. Which statement is consistent with this?",
+      options: [
+        "The system clock is the best choice for elapsed-time measurement because it is the one used for interrupts and scheduling and therefore ticks at the finest resolution available",
+        "Wall-clock time-of-day can jump forwards or backwards when the clock is adjusted, so a monotonic counter is safer for elapsed time; performance counters add high resolution and low overhead",
+        "Calendar time and a monotonic performance counter are interchangeable for elapsed time, since both are guaranteed by the platform to advance in equal, fixed-size steps",
+        "A high-resolution timer is one whose reported unit is nanoseconds; as long as the unit is fine enough, whether the timer can run backwards makes no difference to an elapsed-time measurement",
+      ],
+      correctIndex: 1,
+      modelAnswer:
+        "The 'Timers' slide separates the system clock (interrupts/scheduling, ~10 ms), wall-clock 'Time of Day' based on the system clock, and 'internal performance counters/timers - high precision, low overhead ... for performance work'. Elapsed-time measurement wants a monotonic source (one that cannot jump when the time-of-day clock is corrected) with high resolution and low overhead - i.e. a performance counter, or Java's nanoTime rather than currentTimeMillis.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "The lecture says adding CPUs 'ideally' doubles throughput when you double the resource, 'but in practice that's not the real case' because of things that 'cannot be parallelised - the threads, the locks, the memory, the I/O, [and] if the chip is overheated'. Combining this with the bottleneck material, why does the real curve bend away from ideal?",
+      options: [
+        "Because response time is defined to increase whenever more CPUs are added, quite independently of the workload, so the throughput curve has to fall by the same proportion in order to compensate",
+        "Because every CPU that is added brings along its own cache and its own memory bandwidth, so measured throughput actually runs above the ideal line right up until thermal limits abruptly cap it",
+        "Because the non-parallelisable work (serialised by locks, memory and bus contention, I/O limits, thermal throttling) turns into the bottleneck, and by Amdahl's Law adding CPUs elsewhere cannot speed it up",
+        "Because doubling the number of CPUs also halves the clock speed of each individual one to stay inside the power budget, so the total compute capacity stays unchanged however many are added",
+      ],
+      correctIndex: 2,
+      modelAnswer:
+        "The 'Measuring scalability' slide: throughput rises 'less than proportional to [the] amount of resources' and response time 'in practice increases', with 'deviations from ideal -> resource contention and queueing'. The recording names the causes: work that 'cannot be parallelised', locks, memory, I/O, thermal throttling. That serialised fraction is the bottleneck, and the 'Bottlenecks' slide's Amdahl's Law point is that adding resource away from the bottleneck has 'no impact on performance'.",
+    },
+    {
+      type: "short",
+      prompt:
+        "The lecture says timing measurements tell you 'something is slow' but not why, and that performance counters can show, for instance, that the CPU is at 100% utilisation while the disk is at only 20%. Explain how end-to-end timing and per-resource performance counters are used together to fix a slow system.",
+      modelAnswer:
+        "Timing (response time / runtime, measured end-to-end at the client) establishes that there is a performance problem and quantifies how bad it is, but it does not say which resource is responsible. Performance counters - the OS/platform per-resource utilisation figures - localise it: the resource sitting at ~100% (the CPU in this example) is the one that has saturated, i.e. the bottleneck, while the disk at 20% has spare capacity. You then add capacity at that bottleneck resource, not elsewhere (Amdahl's Law: resource added away from the bottleneck has no effect), re-measure, and expect the bottleneck to move to the next resource.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "The lecture's worked bottleneck example: an application server that 'can handle 500 transactions per second' sits in front of a database that 'can handle 2000 transactions per second'. Which resource limits the system, and what does the lecture say to do about it?",
+      options: [
+        "The database, rated at 2000 transactions per second, sets the ceiling; the fix is to replicate that database so read traffic can be spread out across the copies",
+        "Neither one limits the system by itself; the effective ceiling is 2000 minus 500, i.e. 1500 per second, and it is raised by tuning the network link between the two tiers",
+        "The application server, at 500 per second, is the bottleneck; add one or two more CPUs (or app-server instances) there, since capacity added at the database would not help",
+        "Both limit the system equally, so resource has to be added to the application server and to the database together in the very same ratio before any improvement shows up",
+      ],
+      correctIndex: 2,
+      modelAnswer:
+        "The lecture: 'what first reaches [its] limit? Obviously the [application] server, because it can only handle 500 transactions ... so our performance will be affected mostly by the app server rather than [the] database - that's the bottleneck.' The remedy is to add resource at the bottleneck: 'if the CPU handles 500 ... we just include one or two more CPUs.' Adding database capacity (Amdahl's Law) would not move the system ceiling.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "Alongside read caching, the lecture describes write caching: 'instead of writing every small change all the way to the database, we might just buffer several updates and combine them together and then eventually send them through'. Which statement best captures write caching as the lecture presents it?",
+      options: [
+        "Updates are gathered in the cache and coalesced before being written on, which absorbs peaks and cuts write traffic for hot spots, but needs power-fail protection so buffered writes are not lost",
+        "Every update is written straight through to the database and is additionally copied into the cache, so that any later read of that same row is then guaranteed to come back as a cache hit",
+        "All writes are disabled while the cache is still warm and are only replayed once the hit rate has fallen, which keeps the database effectively read-only for as long as locality stays high",
+        "The cache computes a checksum of each update and forwards only that checksum to the database, which reconstructs the row from it, roughly halving the write bandwidth that is needed",
+      ],
+      correctIndex: 0,
+      modelAnswer:
+        "The recording: buffer and combine updates rather than 'writing every small change all the way to the database'. The 'Write caching' slide: caches 'consolidate writes/updates', 'update block/line in cache and leave there (don't flush)', 'can greatly reduce write traffic for hot spots and sequential writes', 'absorbs peaks', 'fast write latency if just going to cache', but 'may need power-fail backup to ensure writes are not lost'.",
+    },
+    {
+      type: "short",
+      prompt:
+        "The lecture opens with recap quiz questions on Weeks 3-4. State (a) what a two-phase-commit coordinator does the moment any resource manager votes 'no' in the prepare phase, (b) how a saga instead recovers from a failed sub-transaction, and (c) how the choice between the two relates to whether the system is closely (tightly) coupled or loosely coupled.",
+      modelAnswer:
+        "(a) 2PC: as soon as one resource manager votes no, the transaction manager tells every participant to abort / roll back - it does not retry the prepare request against the RM that refused ('they just let all of [the] participants ... abort'). No RM had committed yet, so aborting is clean. (b) Saga: the long-running transaction is split into sub-transactions, each with a compensating counter-transaction; when one sub-transaction fails, the already-completed sub-transactions are compensated in reverse order (C2 then C1). It is not a 2PC rollback and holds no global locks. (c) Closely / tightly coupled systems - mutual trust, fast and reliable networks - make a locking, all-or-nothing ACID protocol like 2PC practical; loosely coupled systems (independent parties, unreliable links, long durations) instead use a saga with compensation, trading strict isolation for availability. This is Week 4's 'tightly-coupled (ACID) vs loosely-coupled (long-running)' distinction, built on Week 3's coupling idea.",
     },
   ],
 };

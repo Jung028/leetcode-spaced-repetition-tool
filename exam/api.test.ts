@@ -336,3 +336,79 @@ test("GET /api/exam/:course/history with an unknown course returns 400", async (
   const res = await fetch(`${base}/api/exam/UNKNOWN123/history`);
   expect(res.status).toBe(400);
 });
+
+const patchWeek = (week: number, hidden: boolean) =>
+  fetch(`${base}/api/exam/courses/${COURSE}/${week}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ hidden }),
+  });
+
+test("PATCH /api/exam/:course/:week hides a week from /due and /history, then unhide restores it", async () => {
+  const before: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
+  expect(before.hiddenWeeks).toEqual([]);
+  const target = before.weeksDue[0].week; // earliest visible, unsubmitted week
+  expect(before.weeksDue.some((w: any) => w.week === target)).toBe(true);
+
+  const historyBefore: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
+  expect(historyBefore.weeks.some((w: any) => w.week === target)).toBe(true);
+
+  const patch = await patchWeek(target, true);
+  expect(patch.status).toBe(200);
+  expect((await patch.json()).hiddenWeeks).toEqual([target]);
+
+  const dueAfter: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
+  expect(dueAfter.weeksDue.some((w: any) => w.week === target)).toBe(false);
+  expect(dueAfter.hiddenWeeks).toEqual([target]);
+
+  const historyAfter: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
+  expect(historyAfter.weeks.some((w: any) => w.week === target)).toBe(false);
+
+  await patchWeek(target, false);
+  const restored: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
+  expect(restored.weeksDue.some((w: any) => w.week === target)).toBe(true);
+  expect(restored.hiddenWeeks).toEqual([]);
+});
+
+test("PATCH /api/exam/:course/:week does not touch the week's submitted papers or scores", async () => {
+  await submitWeek1Paper1(true);
+  await patchWeek(1, true);
+  await patchWeek(1, false);
+  const historyBody: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
+  const week1 = historyBody.weeks.find((w: any) => w.week === 1);
+  expect(week1.papers[0].submitted).toBe(true);
+});
+
+test("PATCH /api/exam/:course/:week rejects an unknown course with 400", async () => {
+  const res = await fetch(`${base}/api/exam/courses/UNKNOWN123/1`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ hidden: true }),
+  });
+  expect(res.status).toBe(400);
+});
+
+test("PATCH /api/exam/:course/:week rejects a week with neither content nor paper rows with 404", async () => {
+  const res = await patchWeek(9999, true);
+  expect(res.status).toBe(404);
+});
+
+test("PATCH /api/exam/:course/:week hides a week that exists only as paper rows (no authored week-N.ts)", async () => {
+  // A week the board still lists from exam_papers rows even though its
+  // static content was removed — e.g. TRACELY Week 2 in the real db. The
+  // hide flag is a visibility toggle over whatever the board shows, so it
+  // must accept such a week, not 404 on it.
+  db.query(`INSERT INTO exam_papers (course, week, paper_number) VALUES (?, 6, 1)`).run(COURSE);
+  const patch = await patchWeek(6, true);
+  expect(patch.status).toBe(200);
+  expect((await patch.json()).hiddenWeeks).toContain(6);
+});
+
+test("PATCH /api/exam/:course/:week requires a boolean hidden field", async () => {
+  const res = await fetch(`${base}/api/exam/courses/${COURSE}/1`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  expect(res.status).toBe(400);
+});

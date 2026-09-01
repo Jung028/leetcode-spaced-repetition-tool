@@ -3,7 +3,7 @@ import { test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { openDb, createProblem, reviewProblem } from "./leetcode/db";
 import { migrateTodo, createTodo, toggleTodo } from "./todo/db";
-import { migrateExam, gradeExamAnswer, submitExamPaper } from "./exam/db";
+import { migrateExam, gradeExamAnswer, submitExamPaper, hideExamWeek } from "./exam/db";
 import { buildExamSchedule, weekStartDate, weekDueDate, listExamCourses, SEMESTER_START } from "./exam/content";
 import { migrateLeetcode150 } from "./leetcode150/db";
 import { LEETCODE_150, leetcode150Url } from "./leetcode150/content";
@@ -139,6 +139,16 @@ test("GET /api/home/due drops the week item once every paper in it is submitted"
 
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   expect(items.some((i) => i.source === "exam" && i.course === "INFO5995" && i.linkId === 1)).toBe(false);
+});
+
+test("GET /api/home/due omits an exam week the user has hidden", async () => {
+  const before: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  expect(before.some((i) => i.source === "exam" && i.course === "INFO5995" && i.linkId === 1)).toBe(true);
+
+  hideExamWeek(db, "INFO5995", 1);
+
+  const after: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  expect(after.some((i) => i.source === "exam" && i.course === "INFO5995" && i.linkId === 1)).toBe(false);
 });
 
 test("GET /api/home/due sorts all sources together by due date ascending", async () => {

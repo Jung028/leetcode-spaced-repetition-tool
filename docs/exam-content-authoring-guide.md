@@ -19,6 +19,36 @@ the Modules tab's Sync button, or found by hand).
    asides, stories, in-class quizzes/questions, verbal emphasis on what
    actually matters — so treat the transcript as a dedicated pass for
    exactly that, not just a re-read of the slide content in prose form.
+
+   **Mine the transcript for every question the lecturer puts to the
+   class.** Do a deliberate line-by-line pass and pull out each one:
+   Mentimeter / "menti" poll questions, in-class quiz questions, "pause
+   here and think" prompts, "can anyone tell me / help me recall..."
+   questions, and rhetorical questions the lecturer then answers. For each
+   such question that isn't already covered, author a practice question
+   that mirrors what was asked — same topic and framing, rewritten as a
+   standalone question with a correct answer and close distractors, with
+   the `modelAnswer` drawn from how the lecturer answered it (cross-checked
+   against the slides). Lecturers routinely say the exam's MCQ/short
+   questions come straight from this material, so completeness of this pass
+   matters more than hitting a target question count — it is fine for it to
+   push a paper well past the usual 20-25. When doing this pass by hand or
+   via subagent, list each transcript question you turned into a practice
+   question (a short label each) in the summary so the coverage is
+   auditable.
+
+   **Capture the post-lecture teacher/student discussion.** Lecture
+   recordings usually keep rolling after the formal content ends, into an
+   informal back-and-forth where students ask follow-up questions, the
+   lecturer clarifies a point that confused people, corrects a common
+   misconception, or drops an exam hint ("this is the kind of thing we'd
+   ask", "don't worry about X for the exam"). Read the tail of the
+   transcript for this. Write a short **"Post-lecture Q&A" summary** — a
+   handful of bullet points, each a question a student raised and how the
+   lecturer answered it — into `exam-content/<course>/week-N-notes.md`
+   (same file as the important-points notes). Where an exchange there
+   clears up something genuinely confusable or flags exam relevance, turn
+   it into a practice question too, same as any other transcript question.
 2. Read that course's `exam-content/<course>/unit_outline.md` for the
    unit's stated learning outcomes.
 3. If a prior week's `exam-content/<course>/week-N.ts` exists, skim it for
@@ -105,6 +135,28 @@ the Modules tab's Sync button, or found by hand).
 Update `exam-content.ts`:
 1. Add an import: `import { WEEK_N_PAPERS as <COURSE>_WEEK_N_PAPERS } from "./exam-content/<course>/week-N";`
 2. Append `...<COURSE>_WEEK_N_PAPERS` to the `ALL_PAPERS` array.
+
+## Study companion files (per week)
+
+Alongside `exam-content/<course>/week-N.ts`, produce two Markdown study
+files in the same course folder. They exist so the student can sanity-check
+coverage without reading the `.ts`, and to keep the `.ts` itself lean.
+
+- **`week-N-notes.md`** — written *before* the questions. Two sections:
+  1. **Important points**, with slide-sourced content and video-only
+     content kept in separate lists (the video-only list is the
+     announcements, asides, in-class / Mentimeter questions and verbal
+     emphasis that never appear on a slide).
+  2. **Post-lecture Q&A** — bullet points from the informal
+     teacher/student discussion at the tail of the recording (see step 1).
+- **`week-N-slides.md`** — a slide-screenshot study companion. For each
+  question in `week-N.ts` (or at least each distinct topic), embed the
+  slide image it was drawn from and, under it, the question's `prompt` and
+  a one-line pointer to its `modelAnswer`. Export slide images from the
+  lecture PDF (e.g. `pdftoppm -png -r 110 <deck>.pdf <course>/wk-N/slide`)
+  into an `exam-content/<course>/week-N-slides/` folder and reference them
+  with relative paths. The point is that scrolling this one file surfaces
+  anything important on a slide that no question ended up covering.
 
 ## Verification
 

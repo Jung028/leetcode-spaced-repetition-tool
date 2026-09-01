@@ -12,6 +12,9 @@ import {
   retakeExamPaper,
   retakeWrongOnlyExamPaper,
   listExamAttemptHistory,
+  hideExamWeek,
+  unhideExamWeek,
+  listHiddenExamWeeks,
 } from "./db";
 import { buildExamSchedule } from "./content";
 import { addDays } from "../shared/scheduling";
@@ -27,10 +30,10 @@ beforeEach(() => {
 
 test("seeds every paper for the course, unsubmitted", () => {
   const rows = listExamPaperRows(db, COURSE);
-  expect(rows.length).toBe(5); // INFO5995 Week 1, Week 2, Week 3, Week 4 and Week 5's combined papers
+  expect(rows.length).toBe(6); // INFO5995 Week 1-4 papers plus Week 5's two papers (discussion + lecture)
   expect(rows.every((r) => r.submitted_at === null)).toBe(true);
-  expect(rows.map((r) => r.week).sort()).toEqual([1, 2, 3, 4, 5]);
-  expect(rows.map((r) => r.paper_number).sort()).toEqual([1, 1, 1, 1, 1]);
+  expect(rows.map((r) => r.week).sort()).toEqual([1, 2, 3, 4, 5, 5]);
+  expect(rows.map((r) => r.paper_number).sort()).toEqual([1, 1, 1, 1, 1, 2]);
 });
 
 test("migrateExam does not reseed or reset progress on a second call", () => {
@@ -101,7 +104,7 @@ test("two different courses' rows are independent — course scoping partitions 
   expect(listExamAnswers(db, COURSE, 1, 1)[0]!.your_answer).toBe("info draft");
   expect(getExamPaperRow(db, "OTHERCOURSE", 1, 1)!.course).toBe("OTHERCOURSE");
   expect(listExamPaperRows(db, "OTHERCOURSE").length).toBe(1);
-  expect(listExamPaperRows(db, COURSE).length).toBe(5); // unaffected by OTHERCOURSE's row — INFO5995's own Week 1 + Week 2 + Week 3 + Week 4 + Week 5 papers
+  expect(listExamPaperRows(db, COURSE).length).toBe(6); // unaffected by OTHERCOURSE's row — INFO5995's own Week 1-4 papers plus Week 5's two papers
 });
 
 test("migrateExam upgrades a pre-existing paper_day-keyed db, recovering (week, paperNumber) by content position", () => {
@@ -169,8 +172,8 @@ test("migrateExam upgrades a pre-existing paper_day-keyed db, recovering (week, 
   expect(tablesAfter.some((t) => t.name === "exam_review_log")).toBe(false);
 
   // The migrated Week 1 paper survives, and migrateExam's seedNewPapers step
-  // fresh-seeds INFO5995's Week 2, Week 3, Week 4 and Week 5 papers (not present in the legacy fixture).
-  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(5);
+  // fresh-seeds INFO5995's Week 2, Week 3, Week 4 and Week 5 (discussion + lecture) papers (not present in the legacy fixture).
+  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(6);
 
   // exam_state has no successor in the weekly-pacing schema. This is the
   // exact shape (course+paper_day, exam_state already present) the real
@@ -270,8 +273,8 @@ test("a migration failure rolls back cleanly, leaving the original paper_day-sha
   // The valid row (paper_day 1) migrated; the out-of-range row (999) was
   // dropped rather than crashing the whole migration or corrupting state.
   expect(getExamPaperRow(legacyDb, "INFO5995", 1, 1)).not.toBeNull();
-  // The migrated row plus INFO5995's Week 2, Week 3, Week 4 and Week 5 papers, fresh-seeded by seedNewPapers.
-  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(5);
+  // The migrated row plus INFO5995's Week 2, Week 3, Week 4 and Week 5 (discussion + lecture) papers, fresh-seeded by seedNewPapers.
+  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(6);
 });
 
 function submitPaper1AsWrongThenRight(db: Database, correctAllExceptFirst: boolean) {
@@ -344,4 +347,31 @@ test("retakeWrongOnlyExamPaper rejects a paper that was never submitted", () => 
   const result = retakeWrongOnlyExamPaper(db, COURSE, 1, 1);
   expect(result.ok).toBe(false);
   if (!result.ok) expect(result.reason).toBe("not_submitted");
+});
+
+test("hideExamWeek hides a week for one course only; unhideExamWeek restores it", () => {
+  expect(listHiddenExamWeeks(db, COURSE)).toEqual([]);
+
+  hideExamWeek(db, COURSE, 4);
+  expect(listHiddenExamWeeks(db, COURSE)).toEqual([4]);
+  expect(listHiddenExamWeeks(db, "COMP5348")).toEqual([]);
+
+  hideExamWeek(db, COURSE, 4); // idempotent — no duplicate row, no throw
+  expect(listHiddenExamWeeks(db, COURSE)).toEqual([4]);
+
+  unhideExamWeek(db, COURSE, 4);
+  expect(listHiddenExamWeeks(db, COURSE)).toEqual([]);
+});
+
+test("listHiddenExamWeeks returns weeks in ascending order", () => {
+  hideExamWeek(db, COURSE, 5);
+  hideExamWeek(db, COURSE, 2);
+  hideExamWeek(db, COURSE, 4);
+  expect(listHiddenExamWeeks(db, COURSE)).toEqual([2, 4, 5]);
+});
+
+test("migrateExam preserves hidden weeks on a second call", () => {
+  hideExamWeek(db, COURSE, 4);
+  migrateExam(db, TODAY);
+  expect(listHiddenExamWeeks(db, COURSE)).toEqual([4]);
 });

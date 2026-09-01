@@ -15,6 +15,9 @@ import {
   listAllCoursesWithOverrides,
   renameCourse,
   setCourseHidden,
+  hideExamWeek,
+  unhideExamWeek,
+  listHiddenExamWeeks,
   type ExamPaperRow,
   type ExamAttemptSummary,
 } from "./db";
@@ -42,6 +45,14 @@ function parseWeek(raw: string): number | null {
   const week = Number(raw);
   if (!Number.isInteger(week) || week < 1) return null;
   return week;
+}
+
+// A week "exists" for hide/unhide purposes if the board could ever show it:
+// either it has authored static content, or it still has exam_papers rows
+// (e.g. a week whose week-N.ts was removed but whose progress rows remain).
+function weekExistsForCourse(db: Database, course: string, week: number): boolean {
+  if (buildExamSchedule().some((p) => p.course === course && p.week === week)) return true;
+  return listExamPaperRows(db, course).some((r) => r.week === week);
 }
 
 function parsePaperNumber(raw: string, course: string, week: number): number | null {
@@ -154,6 +165,23 @@ export function examApiRoutes(
         return json(listAllCoursesWithOverrides(db).find((c) => c.code === course));
       },
     },
+    "/api/exam/courses/:course/:week": {
+      // Per-week reversible hide, one level down from the course-level hide
+      // on /api/exam/courses/:course. A hidden week keeps all its papers,
+      // answers, scores and attempt history — it just drops out of the
+      // board due-list, the History list and the Home due-list.
+      PATCH: async (req: Request & { params: { course: string; week: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const week = parseWeek(req.params.week);
+        if (week === null || !weekExistsForCourse(db, course, week)) return json({ error: "week not found" }, 404);
+        const body = (await req.json().catch(() => null)) as { hidden?: unknown } | null;
+        if (typeof body?.hidden !== "boolean") return json({ error: "hidden must be a boolean" }, 400);
+        if (body.hidden) hideExamWeek(db, course, week);
+        else unhideExamWeek(db, course, week);
+        return json({ hiddenWeeks: listHiddenExamWeeks(db, course) });
+      },
+    },
     "/api/exam/sync": {
       GET: () => json({ pending: findPendingWeeks() }),
     },
@@ -199,7 +227,11 @@ export function examApiRoutes(
         const course = req.params.course;
         if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
         const today = localToday();
-        const visibleRows = listExamPaperRows(db, course).filter((r) => weekStartDate(r.week) <= today);
+        const hiddenWeeks = listHiddenExamWeeks(db, course);
+        const hidden = new Set(hiddenWeeks);
+        const visibleRows = listExamPaperRows(db, course).filter(
+          (r) => weekStartDate(r.week) <= today && !hidden.has(r.week),
+        );
         const weeksDue: ExamWeekView[] = groupExamPapersByWeek(course, visibleRows, today).filter((w) =>
           w.papers.some((p) => !p.submitted),
         );
@@ -207,6 +239,7 @@ export function examApiRoutes(
         const overdueWeekCount = weeksDue.filter((w) => w.overdue).length;
         return json({
           weeksDue,
+          hiddenWeeks,
           stats: {
             dueCount: dueWeekCount,
             overdueCount: overdueWeekCount,
@@ -220,7 +253,10 @@ export function examApiRoutes(
         const course = req.params.course;
         if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
         const today = localToday();
-        const visibleRows = listExamPaperRows(db, course).filter((r) => weekStartDate(r.week) <= today);
+        const hidden = new Set(listHiddenExamWeeks(db, course));
+        const visibleRows = listExamPaperRows(db, course).filter(
+          (r) => weekStartDate(r.week) <= today && !hidden.has(r.week),
+        );
         const weeks: ExamHistoryWeek[] = groupExamPapersByWeek(course, visibleRows, today)
           .sort((a, b) => b.week - a.week)
           .map((w) => ({
