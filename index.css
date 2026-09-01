@@ -516,6 +516,17 @@ button.stat:hover {
   color: var(--accent);
 }
 
+.board-row-review-danger {
+  color: var(--red);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.board-row-review-danger:hover {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 15%, transparent);
+}
+
 .board-title {
   flex: 1;
   font-size: 1rem;

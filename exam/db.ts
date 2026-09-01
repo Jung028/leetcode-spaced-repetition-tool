@@ -54,6 +54,11 @@ export function migrateExam(db: Database, today: string): void {
       display_name TEXT,
       hidden INTEGER NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS exam_hidden_weeks (
+      course TEXT NOT NULL,
+      week INTEGER NOT NULL,
+      PRIMARY KEY (course, week)
+    );
   `);
 
   migrateLegacySingleCourseShape(db);
@@ -346,6 +351,29 @@ export function setCourseHidden(db: Database, course: string, hidden: boolean): 
     `INSERT INTO exam_course_overrides (course, display_name, hidden) VALUES (?, NULL, ?)
      ON CONFLICT (course) DO UPDATE SET hidden = excluded.hidden`,
   ).run(course, hidden ? 1 : 0);
+}
+
+// Per-course, per-week hide — a row's presence means "hidden". Reversible
+// and non-destructive: a hidden week keeps every paper, answer, score and
+// attempt-history row it had. Mirrors setCourseHidden one level down, so
+// the due-list / History / Home views can drop a single week the same way
+// they drop a whole module.
+export function hideExamWeek(db: Database, course: string, week: number): void {
+  db.query(
+    `INSERT INTO exam_hidden_weeks (course, week) VALUES (?, ?)
+     ON CONFLICT (course, week) DO NOTHING`,
+  ).run(course, week);
+}
+
+export function unhideExamWeek(db: Database, course: string, week: number): void {
+  db.query(`DELETE FROM exam_hidden_weeks WHERE course = ? AND week = ?`).run(course, week);
+}
+
+export function listHiddenExamWeeks(db: Database, course: string): number[] {
+  const rows = db
+    .query(`SELECT week FROM exam_hidden_weeks WHERE course = ? ORDER BY week`)
+    .all(course) as { week: number }[];
+  return rows.map((r) => r.week);
 }
 
 export function listExamPaperRows(db: Database, course: string): ExamPaperRow[] {

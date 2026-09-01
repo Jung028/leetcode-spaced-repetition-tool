@@ -88,7 +88,15 @@ const api = {
       body: JSON.stringify({ hidden }),
     }).then((r) => json<ExamCourseWithVisibility>(r)),
   due: (course: string) =>
-    fetch(`/api/exam/${course}/due`).then((r) => json<{ weeksDue: ExamWeekView[]; stats: Stats }>(r)),
+    fetch(`/api/exam/${course}/due`).then((r) =>
+      json<{ weeksDue: ExamWeekView[]; hiddenWeeks: number[]; stats: Stats }>(r),
+    ),
+  setWeekHidden: (course: string, week: number, hidden: boolean) =>
+    fetch(`/api/exam/courses/${course}/${week}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ hidden }),
+    }).then((r) => json<{ hiddenWeeks: number[] }>(r)),
   completedToday: (course: string) =>
     fetch(`/api/exam/${course}/completed-today`).then((r) => json<{ papers: ExamPaperView[] }>(r)),
   paper: (course: string, week: number, paperNumber: number) =>
@@ -491,6 +499,36 @@ function HiddenCoursesPanel({
               <span>{c.name}</span>
               <button className="btn" onClick={() => onUnhide(c.code)}>
                 Unhide
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function HiddenWeeksPanel({
+  weeks,
+  onRestore,
+}: {
+  weeks: number[];
+  onRestore: (week: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (weeks.length === 0) return null;
+  return (
+    <div className="hidden-courses" style={{ marginTop: "1rem" }}>
+      <button className="link-btn" onClick={() => setOpen((o) => !o)}>
+        {open ? "Hide" : "Show"} hidden weeks ({weeks.length})
+      </button>
+      {open && (
+        <ul className="hidden-courses-list">
+          {weeks.map((w) => (
+            <li key={w}>
+              <span>Week {w}</span>
+              <button className="btn" onClick={() => onRestore(w)}>
+                Restore
               </button>
             </li>
           ))}
@@ -978,6 +1016,8 @@ export default function ExamApp({
   const hiddenCourses = allCourses.filter((c) => c.hidden);
   const [course, setCourse] = useState<string | null>(null);
   const [weeksDue, setWeeksDue] = useState<ExamWeekView[]>([]);
+  const [hiddenWeeks, setHiddenWeeks] = useState<number[]>([]);
+  const [confirmingHideWeek, setConfirmingHideWeek] = useState<number | null>(null);
   const [stats, setStats] = useState<Stats>({ dueCount: 0, overdueCount: 0, completedToday: 0 });
   const [completedPapers, setCompletedPapers] = useState<ExamPaperView[] | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
@@ -1036,11 +1076,24 @@ export default function ExamApp({
     setError(null);
     return api
       .due(activeCourse)
-      .then(({ weeksDue, stats }) => {
+      .then(({ weeksDue, hiddenWeeks, stats }) => {
         setWeeksDue(weeksDue);
+        setHiddenWeeks(hiddenWeeks);
         setStats(stats);
       })
       .catch((err) => setError(errorMessage(err)));
+  };
+
+  const setWeekHidden = async (week: number, hidden: boolean) => {
+    if (!course) return;
+    setConfirmingHideWeek(null);
+    setError(null);
+    try {
+      await api.setWeekHidden(course, week, hidden);
+      await refresh(course);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
   };
 
   useEffect(() => {
@@ -1213,16 +1266,48 @@ export default function ExamApp({
                       : setView({ name: "week", week: w.week });
                   return (
                     <li key={w.week}>
-                      <button className="board-row board-row-main" onClick={goDirectly}>
-                        <span className="tag">{w.overdue ? "overdue" : "due"}</span>
-                        <span className="board-title">Week {w.week}</span>
-                        <span className="lang-tag">{submittedCount}/{w.papers.length} submitted · due {w.dueDate}</span>
-                      </button>
+                      <div className="board-row">
+                        <button className="board-row-main" onClick={goDirectly}>
+                          <span className="tag">{w.overdue ? "overdue" : "due"}</span>
+                          <span className="board-title">Week {w.week}</span>
+                          <span className="lang-tag">{submittedCount}/{w.papers.length} submitted · due {w.dueDate}</span>
+                        </button>
+                        {confirmingHideWeek === w.week ? (
+                          <>
+                            <button
+                              className="board-row-review board-row-review-danger"
+                              title={`Confirm hiding Week ${w.week}`}
+                              aria-label={`Confirm hiding Week ${w.week}`}
+                              onClick={() => setWeekHidden(w.week, true)}
+                            >
+                              Hide?
+                            </button>
+                            <button
+                              className="board-row-review"
+                              title="Cancel"
+                              aria-label="Cancel hide"
+                              onClick={() => setConfirmingHideWeek(null)}
+                            >
+                              ✕
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            className="board-row-review"
+                            title="Hide this week (reversible — papers and progress are kept)"
+                            aria-label={`Hide Week ${w.week}`}
+                            onClick={() => setConfirmingHideWeek(w.week)}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
                     </li>
                   );
                 })}
               </ul>
             )}
+            <HiddenWeeksPanel weeks={hiddenWeeks} onRestore={(w) => setWeekHidden(w, false)} />
           </section>
         </>
       )}

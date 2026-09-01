@@ -12,6 +12,9 @@ import {
   retakeExamPaper,
   retakeWrongOnlyExamPaper,
   listExamAttemptHistory,
+  hideExamWeek,
+  unhideExamWeek,
+  listHiddenExamWeeks,
 } from "./db";
 import { buildExamSchedule } from "./content";
 import { addDays } from "../shared/scheduling";
@@ -344,4 +347,31 @@ test("retakeWrongOnlyExamPaper rejects a paper that was never submitted", () => 
   const result = retakeWrongOnlyExamPaper(db, COURSE, 1, 1);
   expect(result.ok).toBe(false);
   if (!result.ok) expect(result.reason).toBe("not_submitted");
+});
+
+test("hideExamWeek hides a week for one course only; unhideExamWeek restores it", () => {
+  expect(listHiddenExamWeeks(db, COURSE)).toEqual([]);
+
+  hideExamWeek(db, COURSE, 4);
+  expect(listHiddenExamWeeks(db, COURSE)).toEqual([4]);
+  expect(listHiddenExamWeeks(db, "COMP5348")).toEqual([]);
+
+  hideExamWeek(db, COURSE, 4); // idempotent — no duplicate row, no throw
+  expect(listHiddenExamWeeks(db, COURSE)).toEqual([4]);
+
+  unhideExamWeek(db, COURSE, 4);
+  expect(listHiddenExamWeeks(db, COURSE)).toEqual([]);
+});
+
+test("listHiddenExamWeeks returns weeks in ascending order", () => {
+  hideExamWeek(db, COURSE, 5);
+  hideExamWeek(db, COURSE, 2);
+  hideExamWeek(db, COURSE, 4);
+  expect(listHiddenExamWeeks(db, COURSE)).toEqual([2, 4, 5]);
+});
+
+test("migrateExam preserves hidden weeks on a second call", () => {
+  hideExamWeek(db, COURSE, 4);
+  migrateExam(db, TODAY);
+  expect(listHiddenExamWeeks(db, COURSE)).toEqual([4]);
 });
