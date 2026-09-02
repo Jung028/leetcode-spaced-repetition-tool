@@ -1338,6 +1338,37 @@ a.btn {
   text-decoration: line-through;
 }
 
+/* A finished semester deadline — greyed and struck through while it lingers
+   its ~3-day grace period before the panel drops it. */
+.deadline-done {
+  opacity: 0.55;
+}
+
+.deadline-done .deadline-title {
+  text-decoration: line-through;
+}
+
+/* Two-line middle cell: assignment title, then a wrapping dim line with the
+   full unit name and a short "what is this" description. */
+.deadlines-panel .board-row-main {
+  align-items: flex-start;
+}
+
+.deadline-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.deadline-sub {
+  font-size: var(--text-xs);
+  line-height: 1.35;
+  color: var(--dim);
+  white-space: normal;
+}
+
 /* Exam tab */
 .exam-question {
   border-top: 1px solid var(--line);

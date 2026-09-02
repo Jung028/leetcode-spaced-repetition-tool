@@ -5,6 +5,8 @@ import { migrateTodo } from "./todo/db";
 import { todoApiRoutes } from "./todo/api";
 import { migrateAnnouncements } from "./announcement-db";
 import { announcementApiRoutes } from "./announcement-api";
+import { migrateDeadlines } from "./deadline-db";
+import { deadlineApiRoutes } from "./deadline-api";
 import { migrateExam } from "./exam/db";
 import { examApiRoutes } from "./exam/api";
 import { homeApiRoutes } from "./home-api";
@@ -25,6 +27,7 @@ db.exec(`
 `);
 migrateTodo(db);
 migrateAnnouncements(db);
+migrateDeadlines(db);
 migrateExam(db, localToday());
 migrateLeetcode150(db);
 migrateInterview(db);
@@ -44,6 +47,7 @@ const server = Bun.serve({
     ...apiRoutes(db),
     ...todoApiRoutes(db),
     ...announcementApiRoutes(db),
+    ...deadlineApiRoutes(db),
     ...examApiRoutes(db),
     ...homeApiRoutes(db),
     ...leetcode150ApiRoutes(db),
