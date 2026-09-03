@@ -34,7 +34,7 @@ migrateInterview(db);
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 
 const server = Bun.serve({
-  port: Number(process.env.PORT ?? 3000),
+  port: Number(process.env.PORT ?? 3005),
   routes: {
     "/": index,
     // Served over http (not file://) so Tampermonkey's browser extension can

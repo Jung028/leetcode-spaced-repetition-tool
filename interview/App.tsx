@@ -79,6 +79,82 @@ function PromptText({ text }: { text: string }) {
   );
 }
 
+// Renders the model answer's lightweight markdown: `#`..`###` headings, fenced
+// ``` blocks (kept as un-wrapped monospace so ASCII diagrams survive), `---`
+// rules, and `Draw:` / `[Image]` labels. Everything else is a pre-wrap paragraph.
+function ModelAnswerText({ text }: { text: string }) {
+  const lines = text.split("\n");
+  const blocks: React.ReactNode[] = [];
+  let para: string[] = [];
+  let key = 0;
+
+  const flushPara = () => {
+    if (para.length === 0) return;
+    blocks.push(
+      <p key={key++} style={{ whiteSpace: "pre-wrap" }}>
+        {para.join("\n")}
+      </p>,
+    );
+    para = [];
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith("```")) {
+      flushPara();
+      const code: string[] = [];
+      i++;
+      while (i < lines.length && !(lines[i] ?? "").trim().startsWith("```")) {
+        code.push(lines[i] ?? "");
+        i++;
+      }
+      blocks.push(
+        <pre key={key++} className="ma-code">
+          {code.join("\n")}
+        </pre>,
+      );
+      continue;
+    }
+
+    if (trimmed === "---") {
+      flushPara();
+      blocks.push(<hr key={key++} className="ma-rule" />);
+      continue;
+    }
+
+    const heading = /^(#{1,6})\s+(.*)$/.exec(trimmed);
+    if (heading) {
+      flushPara();
+      const level = (heading[1] ?? "").length;
+      const Tag = level <= 1 ? "h4" : level === 2 ? "h5" : "h6";
+      blocks.push(<Tag key={key++}>{heading[2] ?? ""}</Tag>);
+      continue;
+    }
+
+    if (trimmed === "Draw:" || trimmed === "[Draw:]" || trimmed.startsWith("[Image")) {
+      flushPara();
+      blocks.push(
+        <p key={key++} className="ma-draw-label">
+          {trimmed.replace(/[[\]:]/g, "")}
+        </p>,
+      );
+      continue;
+    }
+
+    if (trimmed === "") {
+      flushPara();
+      continue;
+    }
+
+    para.push(line);
+  }
+  flushPara();
+
+  return <>{blocks}</>;
+}
+
 function notifyOvertime(): void {
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
   new Notification("Time's up", { body: "You're now in overtime." });
@@ -149,6 +225,10 @@ export default function InterviewApp() {
   const [part, setPart] = useState<Part>("coding");
   const [draft, setDraft] = useState("");
   const [scene, setScene] = useState<string | null>(null);
+  // Post-reveal view controls: local only, so you can hide the answer again and
+  // keep practicing, or put it beside your own answer to compare.
+  const [answerVisible, setAnswerVisible] = useState(true);
+  const [splitView, setSplitView] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const codingAlertedRef = useRef(false);
   const designAlertedRef = useRef(false);
@@ -156,6 +236,8 @@ export default function InterviewApp() {
   useEffect(() => {
     codingAlertedRef.current = false;
     designAlertedRef.current = false;
+    setAnswerVisible(true);
+    setSplitView(false);
   }, [session?.date]);
 
   const refresh = async () => {
@@ -261,16 +343,48 @@ export default function InterviewApp() {
         <div className="exam-question">
           <h2>{session.sdQuestion.company}</h2>
           <PromptText text={session.sdQuestion.prompt} />
-          <textarea
-            className="theory-answer"
-            rows={8}
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value);
-              scheduleSave(e.target.value, scene);
-            }}
-            placeholder="Write your approach: requirements, high-level design, data model, trade-offs..."
-          />
+
+          {revealed && (
+            <div className="interview-answer-controls">
+              <button className="btn" onClick={() => setAnswerVisible((v) => !v)}>
+                {answerVisible ? "Hide answer" : "Show answer"}
+              </button>
+              <button className="btn" disabled={!answerVisible} onClick={() => setSplitView((v) => !v)}>
+                {splitView ? "Stacked view" : "Side by side"}
+              </button>
+            </div>
+          )}
+
+          <div className={revealed && answerVisible && splitView ? "interview-answer-split" : undefined}>
+            <textarea
+              className="theory-answer"
+              rows={8}
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                scheduleSave(e.target.value, scene);
+              }}
+              placeholder="Write your approach: requirements, high-level design, data model, trade-offs..."
+            />
+            {revealed && answerVisible && (
+              <div className="theory-model-answer">
+                <h3>Model answer</h3>
+                <ModelAnswerText text={session.sdQuestion.modelAnswer} />
+                <h3>Self-assessment</h3>
+                <ul className="interview-rubric">
+                  {session.sdQuestion.rubric.map((item, i) => (
+                    <li key={item}>
+                      <label>
+                        <input type="checkbox" checked={session.sdRubricChecked[i] ?? false} onChange={() => toggleRubric(i)} />
+                        {item}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
           <ExcalidrawCanvas
             initialScene={scene}
             onChange={(nextScene) => {
@@ -283,23 +397,6 @@ export default function InterviewApp() {
               <button className="btn" disabled={draft.trim().length === 0} onClick={reveal}>
                 Reveal model answer
               </button>
-            </div>
-          )}
-          {revealed && (
-            <div className="theory-model-answer">
-              <h3>Model answer</h3>
-              <PromptText text={session.sdQuestion.modelAnswer} />
-              <h3>Self-assessment</h3>
-              <ul className="interview-rubric">
-                {session.sdQuestion.rubric.map((item, i) => (
-                  <li key={item}>
-                    <label>
-                      <input type="checkbox" checked={session.sdRubricChecked[i] ?? false} onChange={() => toggleRubric(i)} />
-                      {item}
-                    </label>
-                  </li>
-                ))}
-              </ul>
             </div>
           )}
         </div>
