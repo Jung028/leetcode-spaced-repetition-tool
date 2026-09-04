@@ -4,10 +4,13 @@ const DISCUSSION_PAPER: ExamPaperSeed = {
   course: "INFO5995",
   week: 5,
   paperNumber: 1,
-  title: "Week 5 Discussion Prep",
+  title: "Week 5 Tutorial: Crypto Basics 2",
   topics:
-    "Pre-lecture Ed Discussion prompt: what encryption alone does and does not protect against — confidentiality vs integrity/authenticity, ciphertext malleability, bit-flipping attacks, replay attacks, message forgery without key knowledge, why authenticated encryption (MACs/AEAD) exists",
-  sourceFiles: ["Ed Discussion — Week 5 pre-lecture prompt"],
+    "Pre-lecture Ed Discussion prompt: what encryption alone does and does not protect against — confidentiality vs integrity/authenticity, ciphertext malleability, bit-flipping attacks, replay attacks, message forgery without key knowledge, why authenticated encryption (MACs/AEAD) exists. Week 05 Crypto Basics 2 tutorial (Ed Lessons): the opening challenge that encryption alone leaves out integrity and freshness; the bit-flipping exercise on C = M XOR K where the attacker XORs the ciphertext with delta = '1' XOR '9' = 0x08 to turn a decrypted '1' into '9' with no knowledge of the key, plus the pay=100 -> pay=900 extension; cryptographically secure hash function properties (determinism, fixed-length output, pre-image, second pre-image, collision resistance), the pigeonhole/birthday reason collisions must exist yet stay infeasible to find, MD5 (2004 collisions, 2008 rogue CA) and SHA-1 (2017 SHAttered, two PDFs one hash) being broken, Dual_EC_DRBG and the open SHA-3 competition as the argument for public scrutiny over secret design; the three orderings — MAC-then-Encrypt (tampering only caught after decryption, so the system may act on a malicious plaintext), Encrypt-then-MAC (best practice: MAC over the ciphertext, verified before any decryption) and Encrypt-and-MAC (MAC on the plaintext, not bound to the ciphertext); the wrap-up triad that confidentiality hides data, integrity detects unauthorised change and freshness rejects old messages, and secure systems usually need all three",
+  sourceFiles: [
+    "Ed Discussion — Week 5 pre-lecture prompt",
+    "Ed Lessons — Week 05 Crypto Basics 2 tutorial (slides 790735/790736/807392/781132/781134/781135/790954)",
+  ],
   questions: [
     {
       type: "scenario",
@@ -15,6 +18,203 @@ const DISCUSSION_PAPER: ExamPaperSeed = {
         "Suppose Eve cannot decrypt your encrypted message and does not know the key. Can she still attack you? Could she: change the encrypted message? Copy it and send it again later? Somehow make Bob accept something Alice did not intend? If the answer is yes, what security property are we missing?",
       modelAnswer:
         "Yes to all three, and encryption alone doesn't stop any of them — encryption only buys confidentiality (Eve can't read the plaintext), it says nothing about integrity or authenticity. (1) Changing the message: many ciphers are malleable — an attacker who knows or guesses the plaintext's structure can flip bits in the ciphertext and cause a predictable, controlled change in the decrypted plaintext (e.g. in a stream cipher or CBC mode without a MAC) without ever knowing the key or the actual content. Bob's system would decrypt it into something different from what Alice sent and have no way to tell it had been tampered with. (2) Replay: Eve doesn't need to read or modify the ciphertext at all to replay it — she just captures a legitimate encrypted message (say, 'transfer $100 to Bob') and resends the exact same bytes later; if there's no sequence number, timestamp, or nonce being checked, Bob's system decrypts it successfully (it's a perfectly valid, correctly-encrypted message) and processes the transfer a second time. (3) Forgery: without a way to verify who actually produced the ciphertext, Eve could craft or replay bytes that decrypt into something Bob accepts as coming from Alice, even though Alice never sent that content. What's missing is integrity and authenticity (data-origin authentication) — the guarantee that a message hasn't been altered in transit and genuinely came from who it claims to. Encryption alone doesn't provide either. The standard fix is to add a Message Authentication Code (MAC/HMAC) computed over the ciphertext with a shared secret, or to use an Authenticated Encryption (AEAD) mode like AES-GCM that bundles confidentiality and integrity/authenticity together — plus a nonce or sequence number specifically to catch replays, since a MAC alone doesn't stop a byte-for-byte replay of a previously-valid message.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "Alice encrypts a message to Bob with a stream cipher (C = M XOR K) and Eve, who does not know K, flips a single bit of the ciphertext in transit. What does Bob get, and which property is missing?",
+      options: [
+        "Bob decrypts a plaintext with exactly that one bit flipped and has no built-in way to notice the change; integrity is the missing property",
+        "Bob's decryption fails with an error because altering any ciphertext bit desynchronises the keystream; confidentiality is the missing property",
+        "Bob detects the change automatically because stream ciphers append a checksum over the plaintext; no security property is missing here",
+        "Bob decrypts the original message unchanged because a single flipped bit is repaired by the cipher's error handling; freshness is missing",
+      ],
+      correctIndex: 0,
+      modelAnswer:
+        "With C = M XOR K, decrypting the altered ciphertext gives (C XOR delta) XOR K = M XOR delta, so flipping ciphertext bit i flips plaintext bit i and nothing else — Bob sees a changed message with 'No warning'. Plain encryption provides confidentiality, not integrity: it does not detect tampering. Catching this needs a separate integrity mechanism (a MAC or an AEAD mode).",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "In the bit-flipping exercise, '1' is 00110001 and '9' is 00111001. Which single change to the ciphertext turns a decrypted '1' into a decrypted '9'?",
+      options: [
+        "XOR the ciphertext byte that holds the encrypted '1' with 0x08, which is the value of '1' XOR '9'",
+        "XOR every ciphertext byte with 0x08 so that the entire keystream is shifted along by one bit position",
+        "Overwrite the ciphertext byte that holds the encrypted '1' with 0x39, which is the ASCII code for '9'",
+        "XOR the ciphertext byte that holds the encrypted '1' with 0x39, which is the ASCII code for '9'",
+      ],
+      correctIndex: 0,
+      modelAnswer:
+        "'1' (00110001) and '9' (00111001) differ only in bit 3, so '1' XOR '9' = 00001000 = 0x08. Because (C XOR delta) XOR K = M XOR delta, XORing that one ciphertext byte with 0x08 flips exactly bit 3 of the decrypted byte, turning '1' into '9' without touching K. Overwriting with, or XORing by, 0x39 would need knowledge of the keystream byte and would change the wrong bits.",
+    },
+    {
+      type: "truefalse",
+      prompt:
+        "True or False: In the tutorial's bit-flipping attack on C = M XOR K, the attacker must first recover or guess the secret key K before they can change the decrypted character from '1' to '9'.",
+      options: ["True", "False"],
+      correctIndex: 1,
+      modelAnswer:
+        "False. The exercise's own question — 'Did you ever need to know the key K?' — makes the point that you do not. XOR is its own inverse, so (C XOR delta) XOR K = (M XOR K XOR delta) XOR K = M XOR delta; the key cancels and the attacker controls the plaintext change directly. What the attacker does need is to know where the target byte sits and what value is there.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "The extension asks how to change an encrypted 'pay=100' into 'pay=900' using the same idea. What does the attacker actually do?",
+      options: [
+        "Decrypt the ciphertext, edit the digit, and re-encrypt it using a keystream captured from an earlier intercepted message",
+        "XOR the whole ciphertext with the ASCII bytes of the string 'pay=900' so the encrypted field is overwritten in place",
+        "Truncate the ciphertext right after 'pay=' and append a freshly encrypted '900' block lifted from a different message",
+        "XOR the ciphertext byte at the position of the first digit with '1' XOR '9' (0x08), leaving every other ciphertext byte untouched",
+      ],
+      correctIndex: 3,
+      modelAnswer:
+        "'pay=100' and 'pay=900' differ only in the first digit ('1' vs '9'). Applying the same trick, the attacker XORs just the ciphertext byte at that digit's position with '1' XOR '9' = 0x08, and decryption then yields 'pay=900'. No key, no decryption, and no other byte changes — a controlled, targeted modification, which is exactly what the missing integrity check fails to catch.",
+    },
+    {
+      type: "truefalse",
+      prompt:
+        "True or False: To make a bit-flipping attack land the targeted plaintext bytes on a specific chosen value, the attacker needs to know (or correctly guess) what the original plaintext at that position was.",
+      options: ["True", "False"],
+      correctIndex: 0,
+      modelAnswer:
+        "True. The attack applies a known XOR difference: new = old XOR delta. To land on a specific target the attacker sets delta = old XOR target, which requires knowing the original bytes. With no knowledge of the original, flipping bits only causes an uncontrolled change, not a chosen result.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "A payment system encrypts and MACs each 'transfer $100 to Bob' message. Eve copies one such message off the wire and re-sends the identical bytes a day later. What happens?",
+      options: [
+        "The MAC check fails because every tag embeds a wall-clock timestamp, so the replayed message is rejected on arrival",
+        "Decryption fails because the session key has been rotated since the message was first sent, so nothing is processed",
+        "The message verifies and decrypts correctly, so the transfer runs a second time unless freshness is checked separately",
+        "The message is quarantined because encrypting the same plaintext twice always yields a detectable duplicate ciphertext",
+      ],
+      correctIndex: 2,
+      modelAnswer:
+        "A replay needs neither reading nor modifying the message. The bytes are a genuine, correctly-encrypted, correctly-MAC'd message, so every check passes and the transfer is processed again. A MAC gives integrity and authenticity, not freshness — stopping replay needs a nonce, timestamp, or sequence number that the receiver actually verifies.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "In the tutorial's terms, which guarantee is a system missing when it cannot reject an old but perfectly valid encrypted-and-authenticated message that is simply sent again later?",
+      options: [
+        "Confidentiality — the property that keeps the message contents unreadable to anyone who intercepts them",
+        "Integrity — the property that lets the receiver detect any alteration made to the message in transit",
+        "Authenticity — the property that ties the message to the identity of the party that produced it",
+        "Freshness — the property that lets the receiver reject a message it has already seen and accepted before",
+      ],
+      correctIndex: 3,
+      modelAnswer:
+        "The wrap-up states: 'A replay attack succeeds when a system cannot check freshness' and 'Freshness helps reject old messages.' The replayed bytes are unchanged (integrity holds), genuinely from the original sender (authenticity holds) and still unreadable to third parties (confidentiality holds) — the only missing guarantee is freshness.",
+    },
+    {
+      type: "truefalse",
+      prompt:
+        "True or False: Attaching a MAC to every message provides integrity, sender authenticity, and replay protection all at the same time.",
+      options: ["True", "False"],
+      correctIndex: 1,
+      modelAnswer:
+        "False. A MAC gives integrity and sender authenticity between the parties that share the key, but a byte-for-byte replay of a previously valid message still verifies. Replay protection is a separate mechanism — a nonce, timestamp, or sequence number.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "Which property of a cryptographically secure hash function prevents an attacker from working out the original input when they have only its hash value?",
+      options: [
+        "Determinism — hashing the same input always produces the very same digest every time",
+        "Pre-image resistance — given a digest, finding any input that hashes to it is computationally infeasible",
+        "Fixed-length output — every input, short or long, is mapped to a digest of one fixed size",
+        "Collision resistance — finding two distinct inputs that share the same digest is computationally infeasible",
+      ],
+      correctIndex: 1,
+      modelAnswer:
+        "This is the slide's own quiz question. Pre-image resistance is the one-way property: given h, it is infeasible to find any x with hash(x) = h, which is what protects a stored password hash. Determinism and fixed-length output are structural; collision resistance is about finding any colliding pair, not reversing one specific digest.",
+    },
+    {
+      type: "truefalse",
+      prompt:
+        "True or False: A hash collision means there is at least one pair of distinct inputs with the same digest, but it does not imply that finding such a pair is trivial or guaranteed for any given pair of inputs.",
+      options: ["True", "False"],
+      correctIndex: 0,
+      modelAnswer:
+        "True — the slide's second quiz question. By the pigeonhole principle, infinitely many inputs map into a finite digest space, so collisions must exist; collision resistance is the separate, practical claim that finding one is computationally infeasible.",
+    },
+    {
+      type: "short",
+      prompt:
+        "Explain the difference between second pre-image resistance and collision resistance, and why collisions tend to be found first in practice (as with MD5 and SHA-1).",
+      modelAnswer:
+        "Second pre-image resistance: given a specific input x and its hash h, it is hard to find a different input y with hash(y) = h. Collision resistance: it is hard to find any two distinct inputs with the same hash, and here the attacker gets to choose both inputs. That extra freedom makes collisions easier to find — roughly 2^(n/2) work for an n-bit hash (the birthday bound) versus about 2^n for a second pre-image — which is why MD5 (2004) and SHA-1 (2017 'SHAttered', two different PDFs with the same digest) fell to collision attacks first.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "The tutorial's optional reading covers MD5 and SHA-1. What did the 2017 'SHAttered' result demonstrate, and what is the practical response?",
+      options: [
+        "That SHA-1 digests could be reversed to recover the original input files; the response is to salt every SHA-1 hash before storing it",
+        "That MD5 and SHA-1 emit different-length digests, breaking interoperability; the response is to pad both outputs to 256 bits",
+        "The first practical SHA-1 collision — two different PDF files with an identical SHA-1 hash; the response is to move to SHA-256 or SHA-3",
+        "That SHA-1 leaks the length of its input through timing side channels; the response is to run it inside a constant-time wrapper",
+      ],
+      correctIndex: 2,
+      modelAnswer:
+        "Researchers from Google and CWI Amsterdam produced two distinct PDFs with an identical SHA-1 digest — the first practical collision against SHA-1 (MD5 had fallen similarly in 2004, enabling a rogue certificate authority in 2008). Because collision resistance is what these breaks removed, systems that depend on it — signatures, certificates, integrity checks — must move to SHA-256 (today's default) or SHA-3.",
+    },
+    {
+      type: "short",
+      prompt:
+        "Why does the tutorial mention the NSA-influenced Dual_EC_DRBG generator and the open, multi-year international SHA-3 competition together? What principle is it illustrating?",
+      modelAnswer:
+        "Dual_EC_DRBG, standardised with NSA input, was later shown to admit a possible backdoor for anyone knowing secret parameters, which badly damaged trust in secretly-designed standards. SHA-3 was chosen the opposite way — an open international competition with years of public cryptanalysis before the winner was picked. The principle: cryptographic strength should rest on transparent design and extensive public scrutiny, not on secrecy or trust in a single agency. (The text is careful to add that most researchers think SHA-1's weaknesses were found gradually as cryptanalysis improved, not deliberately planted.)",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "The tutorial compares three orderings of encryption and MAC. What does Encrypt-then-MAC (the recommended one) do, and why is it preferred?",
+      options: [
+        "MAC the plaintext, then encrypt the plaintext and its tag together; preferred because the tag then stays hidden inside the ciphertext",
+        "Encrypt the plaintext, then MAC the ciphertext, and send ciphertext plus tag; preferred because the receiver verifies the MAC before decrypting anything",
+        "Encrypt the plaintext and MAC the plaintext as two independent steps; preferred because the two operations can then run in parallel",
+        "Hash the plaintext, encrypt that hash, then MAC the result; preferred because this ordering additionally provides non-repudiation",
+      ],
+      correctIndex: 1,
+      modelAnswer:
+        "Encrypt-then-MAC: ciphertext = Encrypt(key_enc, message), tag = MAC(key_mac, ciphertext), transmit ciphertext||tag. The receiver checks the tag over the ciphertext first and only decrypts if it verifies, so a tampered or forged payload is rejected before decryption runs. Option 0 describes MAC-then-Encrypt and option 2 describes Encrypt-and-MAC, both of which the tutorial rates as weaker.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "According to the tutorial, what is the concrete risk with MAC-then-Encrypt?",
+      options: [
+        "The MAC tag travels in the clear alongside the ciphertext, so an eavesdropper learns whether two messages are identical",
+        "Tampering is only detected after the ciphertext has been decrypted, so the system may already have acted on a malicious plaintext",
+        "The encryption key and the MAC key are required to be identical, which effectively halves the usable key length",
+        "The receiver has to decrypt the message twice — once to obtain the tag and once for the plaintext — doubling the cost",
+      ],
+      correctIndex: 1,
+      modelAnswer:
+        "In MAC-then-Encrypt the tag sits inside the ciphertext, so the receiver must decrypt before it can check integrity. The tutorial notes this means 'tampering is detected only after decryption, which may trigger unwanted actions (e.g. initiating a money transfer).' Encrypt-then-MAC avoids this by verifying first.",
+    },
+    {
+      type: "scenario",
+      prompt:
+        "Alice sends ciphertext 0xdeadbeef together with a MAC computed over that ciphertext. In transit, Adele flips one bit so the ciphertext arrives as 0xdeadbeee. Walk through what Bob's Encrypt-then-MAC receiver does, and contrast it with what would happen under MAC-then-Encrypt.",
+      modelAnswer:
+        "Under Encrypt-then-MAC, Bob first recomputes the MAC over the received ciphertext (0xdeadbeee) with the shared MAC key and compares it to Alice's tag. Because the ciphertext changed, the recomputed tag does not match, so Bob rejects the message and never decrypts it — the malicious payload is stopped before it can affect anything. Under MAC-then-Encrypt the tag is encrypted together with the plaintext, so Bob would have to decrypt 0xdeadbeee first, parse or act on whatever plaintext came out, and only then check the tag — by which point a side effect such as a triggered transfer may already have happened. This is the tutorial's core argument for verifying integrity before decryption.",
+    },
+    {
+      type: "short",
+      prompt:
+        "The 'explain it simply' wrap-up names three guarantees. State what each of confidentiality, integrity, and freshness does, and give the one-line reason secure systems usually need all three.",
+      modelAnswer:
+        "Confidentiality hides the data so an interceptor cannot read it. Integrity lets the receiver detect any unauthorised change to the message in transit. Freshness lets the receiver reject a message it has seen before (a replay of an old but otherwise valid message). They are independent guarantees: encryption alone gives only confidentiality, a MAC adds integrity and authenticity but not freshness, and a nonce or sequence number adds freshness — so a system that must resist reading, tampering, and replay has to combine all three.",
+    },
+    {
+      type: "short",
+      prompt:
+        "A file is sent with its SHA-256 hash appended so the receiver can 'check integrity'. Explain why this does not stop an active attacker, and what a keyed approach uses instead.",
+      modelAnswer:
+        "A plain hash is unkeyed and deterministic, so anyone can compute it. An active attacker who can modify the file in transit simply replaces both the file and its appended hash with a matching pair; the receiver recomputes the hash, it matches, and the tampering goes unnoticed. A plain hash only catches accidental corruption, not deliberate modification by someone who controls the channel. The fix is a keyed tag — a MAC/HMAC computed with a secret the attacker does not have — or a digital signature, so the receiver is checking something only the legitimate sender could have produced.",
     },
   ],
 };

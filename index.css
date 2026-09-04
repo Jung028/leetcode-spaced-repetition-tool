@@ -1248,6 +1248,120 @@ a.btn {
   word-break: break-all;
 }
 
+/* Model-answer view controls + side-by-side layout */
+.interview-answer-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.interview-answer-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+/* Side by side: both columns are a short fixed height and scroll their own
+   overflow, so a long model answer no longer stretches the page and buries
+   the self-assessment. */
+.interview-answer-split .theory-answer {
+  margin-bottom: 0;
+  height: 60vh;
+  min-height: 320px;
+  resize: none;
+}
+
+.interview-answer-split .theory-model-answer {
+  margin: 0;
+  height: 60vh;
+  min-height: 320px;
+  overflow-y: auto;
+}
+
+/* Stacked view: cap the model answer's height as well, so it scrolls in
+   place rather than pushing the self-assessment far down the page. */
+.interview-model-answer {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .interview-answer-split {
+    grid-template-columns: 1fr;
+  }
+
+  .interview-answer-split .theory-answer,
+  .interview-answer-split .theory-model-answer {
+    height: 50vh;
+    min-height: 280px;
+  }
+
+  .interview-model-answer {
+    max-height: 50vh;
+  }
+}
+
+/* Model-answer markdown rendering */
+.theory-model-answer h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text);
+  margin: 1.2rem 0 0.5rem;
+}
+
+.theory-model-answer h5 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text);
+  margin: 1rem 0 0.4rem;
+}
+
+.theory-model-answer h6 {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--dim);
+  margin: 0.8rem 0 0.35rem;
+}
+
+.theory-model-answer h4:first-child,
+.theory-model-answer h5:first-child {
+  margin-top: 0;
+}
+
+.theory-model-answer .ma-rule {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 1rem 0;
+}
+
+.theory-model-answer .ma-draw-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+  margin: 0.6rem 0 0.3rem;
+}
+
+.theory-model-answer .ma-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8em;
+  line-height: 1.45;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.7rem 0.9rem;
+  margin: 0.5rem 0;
+  white-space: pre;
+  overflow-x: auto;
+}
+
 /* Responsive + motion */
 @media (max-width: 640px) {
   .stats {

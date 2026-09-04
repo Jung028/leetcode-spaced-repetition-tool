@@ -84,6 +84,26 @@ export function getOrCreateTodaySession(db: Database, today: string): InterviewS
   const existing = getTodaySession(db, today);
   if (existing) return existing;
 
+  // Don't roll to a new question every day. If the most recent session was
+  // never completed, carry it forward to today unchanged — same coding
+  // problem, same system-design question, same in-progress answer, scene and
+  // rubric — so the question only changes once you've actually finished an
+  // interview. Any timer left running is stopped so it doesn't accrue time
+  // across the days the session sat untouched.
+  const latest = db
+    .query(`SELECT * FROM interview_sessions ORDER BY date DESC LIMIT 1`)
+    .get() as InterviewSessionRow | null;
+  if (latest && latest.completed_at === null && latest.date < today) {
+    db.query(
+      `UPDATE interview_sessions
+         SET date = ?,
+             coding_running_since = NULL,
+             design_running_since = NULL
+       WHERE date = ?`,
+    ).run(today, latest.date);
+    return getTodaySession(db, today)!;
+  }
+
   const nextProblem = listProblems(db).find((p) => isDue(p.next_review, today));
   const seenRows = db.query(`SELECT question_id FROM interview_sd_seen`).all() as { question_id: string }[];
   const seen = new Set(seenRows.map((r) => r.question_id));
