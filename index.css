@@ -1262,17 +1262,43 @@ a.btn {
   align-items: start;
 }
 
+/* Side by side: both columns are a short fixed height and scroll their own
+   overflow, so a long model answer no longer stretches the page and buries
+   the self-assessment. */
 .interview-answer-split .theory-answer {
   margin-bottom: 0;
+  height: 60vh;
+  min-height: 320px;
+  resize: none;
 }
 
 .interview-answer-split .theory-model-answer {
   margin: 0;
+  height: 60vh;
+  min-height: 320px;
+  overflow-y: auto;
+}
+
+/* Stacked view: cap the model answer's height as well, so it scrolls in
+   place rather than pushing the self-assessment far down the page. */
+.interview-model-answer {
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 @media (max-width: 900px) {
   .interview-answer-split {
     grid-template-columns: 1fr;
+  }
+
+  .interview-answer-split .theory-answer,
+  .interview-answer-split .theory-model-answer {
+    height: 50vh;
+    min-height: 280px;
+  }
+
+  .interview-model-answer {
+    max-height: 50vh;
   }
 }
 

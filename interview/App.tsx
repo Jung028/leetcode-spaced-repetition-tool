@@ -367,7 +367,7 @@ export default function InterviewApp() {
               placeholder="Write your approach: requirements, high-level design, data model, trade-offs..."
             />
             {revealed && answerVisible && (
-              <div className="theory-model-answer">
+              <div className="theory-model-answer interview-model-answer">
                 <h3>Model answer</h3>
                 <ModelAnswerText text={session.sdQuestion.modelAnswer} />
                 <h3>Self-assessment</h3>

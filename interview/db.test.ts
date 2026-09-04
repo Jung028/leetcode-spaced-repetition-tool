@@ -47,8 +47,36 @@ test("leetcode_problem_id is null when no problem is due", () => {
   expect(session.leetcode_problem_id).toBeNull();
 });
 
-test("picks a system design question not already in interview_sd_seen", () => {
+test("carries an unfinished session forward to the next day, keeping the same question", () => {
   const today = getOrCreateTodaySession(db, TODAY);
+  const nextDay = getOrCreateTodaySession(db, addDays(TODAY, 1));
+  expect(nextDay.sd_question_id).toBe(today.sd_question_id);
+  expect(nextDay.date).toBe(addDays(TODAY, 1));
+  // The row is moved forward, not duplicated.
+  const count = db.query(`SELECT COUNT(*) AS n FROM interview_sessions`).get() as { n: number };
+  expect(count.n).toBe(1);
+});
+
+test("stops a running timer when carrying an unfinished session forward", () => {
+  startOrResumeCoding(db, TODAY);
+  startOrResumeDesign(db, TODAY);
+  const nextDay = getOrCreateTodaySession(db, addDays(TODAY, 1));
+  expect(nextDay.coding_running_since).toBeNull();
+  expect(nextDay.design_running_since).toBeNull();
+});
+
+test("rolls to a system design question not already in interview_sd_seen once the session is completed", () => {
+  const problem = createProblem(
+    db,
+    { title: "Two Sum", url: "https://leetcode.com/problems/two-sum/", solution: "x" },
+    addDays(TODAY, -1),
+  );
+  const today = getOrCreateTodaySession(db, TODAY);
+  saveDesignAnswer(db, TODAY, "my approach", null);
+  revealModelAnswer(db, TODAY);
+  reviewProblem(db, problem.id, "pass", TODAY);
+  expect(getTodaySession(db, TODAY)!.completed_at).toBe(TODAY);
+
   const tomorrow = getOrCreateTodaySession(db, addDays(TODAY, 1));
   expect(tomorrow.sd_question_id).not.toBe(today.sd_question_id);
 });
