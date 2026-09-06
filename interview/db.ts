@@ -80,20 +80,36 @@ export function getTodaySession(db: Database, today: string): InterviewSessionRo
   return recomputeCompletion(db, row, today);
 }
 
+// Picks a LeetCode problem (if one is due) and a system-design question the
+// user hasn't seen yet (reusing the first one once every seeded question has
+// been assigned at least once — with only a handful of seed companies this
+// repeats sooner than it will once the full ~20-30 company roster, see spec
+// "Scope for the implementation plan", is authored).
+function pickFreshAssignment(db: Database, today: string): { problemId: number | null; questionId: string } {
+  const nextProblem = listProblems(db).find((p) => isDue(p.next_review, today));
+  const seenRows = db.query(`SELECT question_id FROM interview_sd_seen`).all() as { question_id: string }[];
+  const seen = new Set(seenRows.map((r) => r.question_id));
+  const allQuestions = allSystemDesignQuestions();
+  if (allQuestions.length === 0) throw new Error("no system design questions are seeded");
+  const question = allQuestions.find((q) => !seen.has(q.id)) ?? allQuestions[0]!;
+  return { problemId: nextProblem?.id ?? null, questionId: question.id };
+}
+
 export function getOrCreateTodaySession(db: Database, today: string): InterviewSessionRow {
   const existing = getTodaySession(db, today);
   if (existing) return existing;
 
-  // Don't roll to a new question every day. If the most recent session was
-  // never completed, carry it forward to today unchanged — same coding
-  // problem, same system-design question, same in-progress answer, scene and
-  // rubric — so the question only changes once you've actually finished an
-  // interview. Any timer left running is stopped so it doesn't accrue time
-  // across the days the session sat untouched.
+  // Never roll to a new question just because the date changed — not even
+  // once both parts look complete. The question only changes when the user
+  // explicitly clicks "Next question" (see advanceToNextQuestion). If a
+  // session already exists from an earlier day, carry it forward to today
+  // unchanged — same coding problem, same system-design question, same
+  // in-progress answer, scene and rubric. Any timer left running is stopped
+  // so it doesn't accrue time across the days the session sat untouched.
   const latest = db
     .query(`SELECT * FROM interview_sessions ORDER BY date DESC LIMIT 1`)
     .get() as InterviewSessionRow | null;
-  if (latest && latest.completed_at === null && latest.date < today) {
+  if (latest && latest.date < today) {
     db.query(
       `UPDATE interview_sessions
          SET date = ?,
@@ -104,23 +120,44 @@ export function getOrCreateTodaySession(db: Database, today: string): InterviewS
     return getTodaySession(db, today)!;
   }
 
-  const nextProblem = listProblems(db).find((p) => isDue(p.next_review, today));
-  const seenRows = db.query(`SELECT question_id FROM interview_sd_seen`).all() as { question_id: string }[];
-  const seen = new Set(seenRows.map((r) => r.question_id));
-  const allQuestions = allSystemDesignQuestions();
-  if (allQuestions.length === 0) throw new Error("no system design questions are seeded");
-  // Once every seeded question has been assigned at least once, reuse the
-  // first one rather than throwing — with only a handful of seed companies
-  // this repeats sooner than it will once the full ~20-30 company roster
-  // (see spec, "Scope for the implementation plan") is authored.
-  const question = allQuestions.find((q) => !seen.has(q.id)) ?? allQuestions[0]!;
-
+  const { problemId, questionId } = pickFreshAssignment(db, today);
   db.query(`INSERT INTO interview_sessions (date, leetcode_problem_id, sd_question_id) VALUES (?, ?, ?)`).run(
     today,
-    nextProblem?.id ?? null,
-    question.id,
+    problemId,
+    questionId,
   );
-  db.query(`INSERT OR IGNORE INTO interview_sd_seen (question_id) VALUES (?)`).run(question.id);
+  db.query(`INSERT OR IGNORE INTO interview_sd_seen (question_id) VALUES (?)`).run(questionId);
+
+  return getTodaySession(db, today)!;
+}
+
+// Explicitly requested by the user (a "Next question" click) — the only way
+// today's coding problem and system-design question are ever replaced.
+// Resets every part of today's session so it starts fresh, same as a brand
+// new day would, but on demand rather than on a timer or auto-detected
+// completion.
+export function advanceToNextQuestion(db: Database, today: string): InterviewSessionRow {
+  getOrCreateTodaySession(db, today);
+
+  const { problemId, questionId } = pickFreshAssignment(db, today);
+  db.query(
+    `UPDATE interview_sessions
+       SET leetcode_problem_id = ?,
+           sd_question_id = ?,
+           coding_started_at = NULL,
+           design_started_at = NULL,
+           coding_elapsed_seconds = 0,
+           coding_running_since = NULL,
+           design_elapsed_seconds = 0,
+           design_running_since = NULL,
+           sd_answer = '',
+           sd_excalidraw_scene = NULL,
+           sd_rubric_checked = '[]',
+           sd_revealed_at = NULL,
+           completed_at = NULL
+     WHERE date = ?`,
+  ).run(problemId, questionId, today);
+  db.query(`INSERT OR IGNORE INTO interview_sd_seen (question_id) VALUES (?)`).run(questionId);
 
   return getTodaySession(db, today)!;
 }

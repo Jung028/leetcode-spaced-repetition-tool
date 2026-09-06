@@ -11,6 +11,22 @@ export const AMAZON: CompanySystemDesignSeed = {
       modelAnswer:
         "Clarify the limit shape first: is it a fixed quota per fixed window (e.g. 1000 requests/minute), or a smoother rate (e.g. a token bucket allowing bursts up to a cap)? Sliding-window/token-bucket algorithms are usually preferred over fixed windows because a fixed window lets a client burst 2x its limit right across a window boundary (all its quota at the end of one window, then all its quota again at the start of the next).\n\nArchitecture: gateway servers are stateless and horizontally scaled, so the rate-limit counters can't live in any single gateway instance's memory — they need a shared, low-latency store. Use a centralized in-memory store (e.g. Redis) holding one counter (or token-bucket state) per API key, updated via an atomic increment-and-check operation (Redis's INCR plus TTL, or a Lua script for the token-bucket variant) so concurrent requests from the same key across different gateway hosts don't race past each other.\n\nData model is intentionally tiny: a key like `ratelimit:{apiKey}:{windowStart}` mapping to a count, with a TTL equal to the window length so old windows self-expire without a cleanup job. For the token-bucket variant, store `{tokens, lastRefillTimestamp}` per key and compute the refill amount lazily on each check rather than running a background refill process per key.\n\nScaling and single-point-of-failure concerns: a single Redis instance is both a latency risk (every request now round-trips to it) and an availability risk. Shard the store by API key hash across multiple Redis nodes so no one node is a hotspot, and run each shard as a small replicated cluster so a node failure doesn't wipe out rate-limit state for the keys it owned. For availability, the key trade-off is fail-open vs. fail-closed when the rate-limit store is unreachable: fail-open (let requests through) protects availability at the cost of temporarily losing throttling, which is usually the right default for a gateway, since an outage in the rate limiter should not take down the whole API — losing precision briefly is far cheaper than an outage.",
       rubric: RUBRIC,
+      diagram: `flowchart LR
+  Client["Client request + API key"]
+  LB["Load balancer"]
+  GW["API gateway host - stateless fleet"]
+  Store["Rate-limit store - Redis, atomic INCR / Lua token bucket"]
+  ShardA["Shard A - replicated"]
+  ShardB["Shard B - replicated"]
+  Upstream["Upstream service"]
+
+  Client --> LB --> GW
+  GW -->|"atomic check-and-increment per key"| Store
+  Store -->|"hash of apiKey"| ShardA
+  Store -->|"hash of apiKey"| ShardB
+  GW -->|"under limit: forward"| Upstream
+  GW -->|"over limit: 429"| Client
+  Store -.->|"unreachable: fail open"| GW`,
     },
     {
       prompt:
@@ -18,6 +34,25 @@ export const AMAZON: CompanySystemDesignSeed = {
       modelAnswer:
         "The central risk this design has to solve is overselling: two customers both see \"1 left in stock\" and both complete checkout. Naive read-then-write inventory checks (read the count, check it's > 0, decrement) race under concurrency. The fix is to make the decrement itself the check: an atomic conditional update like `UPDATE inventory SET quantity = quantity - 1 WHERE product_id = ? AND quantity > 0`, checking the affected-row count to know whether the reservation actually succeeded. This pushes the correctness guarantee into the database's atomicity rather than the application's read-then-write logic.\n\nOrder flow: checkout is a multi-step process — reserve inventory, charge payment, confirm the order, hand off to fulfillment — and these steps can each fail independently (payment declines after inventory is reserved, fulfillment is temporarily unavailable, etc.), so model it as an explicit state machine per order (e.g. `pending_payment -> paid -> reserved -> fulfilling -> shipped`, with a `cancelled`/`failed` branch from any state) rather than a single synchronous transaction spanning services that don't share a database. If payment fails after inventory was reserved, a compensating action releases the reservation (increment the quantity back) rather than trying to roll back a distributed transaction.\n\nData model: an `inventory` table keyed by (product_id, warehouse/fulfillment-center) since large catalogs are stocked across many locations, not one global count; an `orders` table holding the order's current state and a foreign key to its line items; and a `reservations` table linking an order to the specific inventory rows it holds, with a short expiry (e.g. 15 minutes) so an abandoned checkout releases its hold automatically via a background sweep rather than tying up stock indefinitely.\n\nScaling: shard inventory by product ID so hot products (flash-sale items) don't bottleneck the whole inventory service, and consider a short-lived per-product semaphore or queue in front of extremely hot items so thousands of simultaneous requests for the same nearly-sold-out product don't all hammer the same database row at once — trading a small amount of added latency for those specific items for much lower contention. The overall trade-off is strict consistency on the inventory count (never oversell, occasionally reject a checkout that a slightly-stale read would have allowed) over eventual consistency, which is the right choice here because the cost of overselling (a broken promise to a paying customer) is much higher than the cost of an occasional false \"out of stock.\"",
       rubric: RUBRIC,
+      diagram: `flowchart TD
+  Checkout["Checkout request"]
+  Reserve["Atomic conditional decrement - WHERE quantity greater than 0"]
+  InvDB[("inventory - keyed by product_id + fulfillment center, sharded by product")]
+  ResDB[("reservations - order to inventory rows, ~15 min expiry")]
+  Pay["Payment service"]
+  OrderSM["Order state machine - pending_payment to paid to reserved to fulfilling to shipped"]
+  Fulfil["Fulfillment"]
+  Sweep["Background sweep - release expired holds"]
+
+  Checkout --> Reserve
+  Reserve --> InvDB
+  Reserve -->|"row held"| ResDB
+  Reserve -->|"1 row affected: success"| Pay
+  Reserve -->|"0 rows: out of stock"| Checkout
+  Pay -->|"paid"| OrderSM
+  Pay -->|"declined: compensate"| ResDB
+  OrderSM --> Fulfil
+  Sweep --> ResDB`,
     },
   ],
 };

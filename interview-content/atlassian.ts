@@ -296,6 +296,21 @@ The key design decision is that we don't need global consistency. We need a cons
 
 That gives us low-latency collaboration, conflict resolution, durability, and horizontal scalability."`,
       rubric: RUBRIC,
+      diagram: `flowchart TD
+  Clients["Clients"]
+  LB["Load balancer"]
+  Collab["Collaboration servers - OT engine, sharded by document ID"]
+  Redis["Redis - presence + connection metadata"]
+  Kafka["Kafka - append-only operation log"]
+  DB[("Database - periodic document snapshots")]
+
+  Clients <-->|"WebSocket"| LB
+  LB --> Collab
+  Collab -->|"transform op, assign next version, broadcast"| Clients
+  Collab --> Redis
+  Collab -->|"durably append op"| Kafka
+  Kafka --> DB
+  DB -.->|"load snapshot + replay later ops"| Collab`,
     },
     {
       prompt:
@@ -485,6 +500,22 @@ The key design decision is separating the system of record from the search path 
 
 That gives us flexible per-project schemas, fast filtered search, strong consistency where it matters, and horizontal scalability by project."`,
       rubric: RUBRIC,
+      diagram: `flowchart TD
+  Clients["Clients"]
+  API["API servers"]
+  RDB[("Relational store - source of truth, sharded by project_id; core fields as columns, custom fields as key-value")]
+  Stream["Change stream - async"]
+  Index["Full-text search engine - one flattened doc per issue, tagged with permission groups"]
+
+  Clients -->|"HTTPS"| API
+  API -->|"write first"| RDB
+  API -->|"publish change"| Stream
+  Stream -->|"consumer updates index"| Index
+  Clients -->|"board / issue read"| API
+  API -->|"read"| RDB
+  Clients -->|"filtered + full-text search"| API
+  API -->|"query"| Index
+  RDB -.->|"rebuild if index lost"| Index`,
     },
   ],
 };

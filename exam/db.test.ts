@@ -15,6 +15,9 @@ import {
   hideExamWeek,
   unhideExamWeek,
   listHiddenExamWeeks,
+  hideExamPaper,
+  unhideExamPaper,
+  listHiddenExamPapers,
 } from "./db";
 import { buildExamSchedule } from "./content";
 import { addDays } from "../shared/scheduling";
@@ -374,4 +377,43 @@ test("migrateExam preserves hidden weeks on a second call", () => {
   hideExamWeek(db, COURSE, 4);
   migrateExam(db, TODAY);
   expect(listHiddenExamWeeks(db, COURSE)).toEqual([4]);
+});
+
+test("hideExamPaper hides one (week, paper) for one course only; unhideExamPaper restores it", () => {
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([]);
+
+  hideExamPaper(db, COURSE, 5, 1);
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([{ week: 5, paperNumber: 1 }]);
+  expect(listHiddenExamPapers(db, "COMP5348")).toEqual([]);
+
+  hideExamPaper(db, COURSE, 5, 1); // idempotent
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([{ week: 5, paperNumber: 1 }]);
+
+  unhideExamPaper(db, COURSE, 5, 1);
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([]);
+});
+
+test("hideExamPaper is independent per paper within the same week", () => {
+  hideExamPaper(db, COURSE, 5, 1);
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([{ week: 5, paperNumber: 1 }]);
+  // Paper 2 of the same week is untouched.
+  unhideExamPaper(db, COURSE, 5, 2);
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([{ week: 5, paperNumber: 1 }]);
+});
+
+test("listHiddenExamPapers returns rows ordered by week then paper", () => {
+  hideExamPaper(db, COURSE, 5, 2);
+  hideExamPaper(db, COURSE, 2, 1);
+  hideExamPaper(db, COURSE, 5, 1);
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([
+    { week: 2, paperNumber: 1 },
+    { week: 5, paperNumber: 1 },
+    { week: 5, paperNumber: 2 },
+  ]);
+});
+
+test("migrateExam preserves hidden papers on a second call", () => {
+  hideExamPaper(db, COURSE, 5, 1);
+  migrateExam(db, TODAY);
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([{ week: 5, paperNumber: 1 }]);
 });

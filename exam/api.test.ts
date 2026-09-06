@@ -412,3 +412,81 @@ test("PATCH /api/exam/:course/:week requires a boolean hidden field", async () =
   });
   expect(res.status).toBe(400);
 });
+
+const patchPaper = (week: number, paperNumber: number, hidden: boolean) =>
+  fetch(`${base}/api/exam/courses/${COURSE}/${week}/${paperNumber}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ hidden }),
+  });
+
+test("PATCH /api/exam/:course/:week/:paperNumber hides one paper but leaves the week's other papers due", async () => {
+  // INFO5995 Week 5 has two papers (1 = tutorial, 2 = lecture). Hiding the
+  // tutorial paper must keep Week 5 on the board with the lecture paper.
+  const before: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
+  expect(before.hiddenPapers).toEqual([]);
+  const week5Before = before.weeksDue.find((w: any) => w.week === 5);
+  expect(week5Before.papers.map((p: any) => p.paperNumber).sort()).toEqual([1, 2]);
+
+  const patch = await patchPaper(5, 1, true);
+  expect(patch.status).toBe(200);
+  expect((await patch.json()).hiddenPapers).toEqual([{ week: 5, paperNumber: 1, title: week5Before.papers.find((p: any) => p.paperNumber === 1).title }]);
+
+  const after: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
+  const week5After = after.weeksDue.find((w: any) => w.week === 5);
+  expect(week5After).toBeDefined();
+  expect(week5After.papers.map((p: any) => p.paperNumber)).toEqual([2]);
+  expect(after.hiddenPapers).toEqual([{ week: 5, paperNumber: 1, title: week5Before.papers.find((p: any) => p.paperNumber === 1).title }]);
+
+  const history: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
+  expect(history.weeks.find((w: any) => w.week === 5).papers.map((p: any) => p.paperNumber)).toEqual([2]);
+});
+
+test("PATCH /api/exam/:course/:week/:paperNumber unhide restores the paper", async () => {
+  await patchPaper(5, 1, true);
+  const patch = await patchPaper(5, 1, false);
+  expect(patch.status).toBe(200);
+  expect((await patch.json()).hiddenPapers).toEqual([]);
+
+  const after: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
+  expect(after.weeksDue.find((w: any) => w.week === 5).papers.map((p: any) => p.paperNumber).sort()).toEqual([1, 2]);
+});
+
+test("PATCH /api/exam/:course/:week/:paperNumber hiding a week's last unsubmitted paper drops the week from /due", async () => {
+  await patchPaper(5, 1, true);
+  await patchPaper(5, 2, true);
+  const after: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
+  expect(after.weeksDue.some((w: any) => w.week === 5)).toBe(false);
+  expect(after.hiddenPapers.map((p: any) => p.paperNumber).sort()).toEqual([1, 2]);
+});
+
+test("PATCH /api/exam/:course/:week/:paperNumber does not touch a hidden paper's submitted answers or score", async () => {
+  await submitWeek1Paper1(true);
+  await patchPaper(1, 1, true);
+  await patchPaper(1, 1, false);
+  const history: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
+  expect(history.weeks.find((w: any) => w.week === 1).papers[0].submitted).toBe(true);
+});
+
+test("PATCH /api/exam/:course/:week/:paperNumber rejects an unknown course with 400", async () => {
+  const res = await fetch(`${base}/api/exam/courses/UNKNOWN123/5/1`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ hidden: true }),
+  });
+  expect(res.status).toBe(400);
+});
+
+test("PATCH /api/exam/:course/:week/:paperNumber 404s a paper with neither content nor a row", async () => {
+  const res = await patchPaper(5, 9, true);
+  expect(res.status).toBe(404);
+});
+
+test("PATCH /api/exam/:course/:week/:paperNumber requires a boolean hidden field", async () => {
+  const res = await fetch(`${base}/api/exam/courses/${COURSE}/5/1`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  expect(res.status).toBe(400);
+});

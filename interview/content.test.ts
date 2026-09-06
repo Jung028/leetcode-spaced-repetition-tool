@@ -14,6 +14,13 @@ test("every question has a non-empty prompt, modelAnswer, and rubric", () => {
   }
 });
 
+test("every question ships a Mermaid reference-architecture diagram", () => {
+  for (const q of allSystemDesignQuestions()) {
+    expect(typeof q.diagram).toBe("string");
+    expect((q.diagram ?? "").trim()).toMatch(/^(flowchart|graph|sequenceDiagram)\b/);
+  }
+});
+
 test("every question id is unique", () => {
   const ids = allSystemDesignQuestions().map((q) => q.id);
   expect(new Set(ids).size).toBe(ids.length);

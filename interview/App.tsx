@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Detail } from "../frontend";
 import { ExcalidrawCanvas } from "./ExcalidrawCanvas";
+import { MermaidDiagram } from "../exam/MermaidDiagram";
 
 interface SdQuestionView {
   id: string;
@@ -8,6 +9,7 @@ interface SdQuestionView {
   prompt: string;
   modelAnswer: string;
   rubric: string[];
+  diagram: string | null;
 }
 
 interface InterviewSessionView {
@@ -57,6 +59,8 @@ const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ date, checked }),
     }).then((r) => json<InterviewSessionView>(r)),
+  next: (date: string) =>
+    fetch(`/api/interview/today/next?date=${encodeURIComponent(date)}`, { method: "POST" }).then((r) => json<InterviewSessionView>(r)),
 };
 
 const PART_SECONDS = 45 * 60;
@@ -281,6 +285,11 @@ export default function InterviewApp() {
     await runOrRefresh(() => api.reveal(session.date));
   };
 
+  const nextQuestion = async () => {
+    if (!session) return;
+    await runOrRefresh(() => api.next(session.date));
+  };
+
   const toggleRubric = async (index: number) => {
     if (!session) return;
     // sdRubricChecked starts as `[]` from the server until the first save, so spreading it
@@ -303,6 +312,9 @@ export default function InterviewApp() {
         <span className="wordmark">Daily Interview Practice</span>
         <span className="masthead-date">{session.date}</span>
         {session.completedAt && <span className="cat-tag">Completed</span>}
+        <button className="btn" onClick={nextQuestion}>
+          Next question →
+        </button>
       </header>
 
       <nav className="tabs interview-part-tabs" aria-label="Session parts">
@@ -370,6 +382,15 @@ export default function InterviewApp() {
               <div className="theory-model-answer interview-model-answer">
                 <h3>Model answer</h3>
                 <ModelAnswerText text={session.sdQuestion.modelAnswer} />
+                {session.sdQuestion.diagram && (
+                  <>
+                    <h3>Reference architecture</h3>
+                    <p className="interview-diagram-hint">
+                      Study the shape, then redo it from memory on the canvas below.
+                    </p>
+                    <MermaidDiagram chart={session.sdQuestion.diagram} />
+                  </>
+                )}
                 <h3>Self-assessment</h3>
                 <ul className="interview-rubric">
                   {session.sdQuestion.rubric.map((item, i) => (

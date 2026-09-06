@@ -18,6 +18,9 @@ import {
   hideExamWeek,
   unhideExamWeek,
   listHiddenExamWeeks,
+  hideExamPaper,
+  unhideExamPaper,
+  listHiddenExamPapers,
   type ExamPaperRow,
   type ExamAttemptSummary,
 } from "./db";
@@ -53,6 +56,26 @@ function parseWeek(raw: string): number | null {
 function weekExistsForCourse(db: Database, course: string, week: number): boolean {
   if (buildExamSchedule().some((p) => p.course === course && p.week === week)) return true;
   return listExamPaperRows(db, course).some((r) => r.week === week);
+}
+
+// Like weekExistsForCourse, but for a single paper: authored static
+// content or a lingering exam_papers row both count.
+function paperExistsForCourse(db: Database, course: string, week: number, paperNumber: number): boolean {
+  if (buildExamSchedule().some((p) => p.course === course && p.week === week && p.paperNumber === paperNumber)) {
+    return true;
+  }
+  return listExamPaperRows(db, course).some((r) => r.week === week && r.paper_number === paperNumber);
+}
+
+// Resolves hidden (week, paperNumber) pairs to display rows for the
+// restore panel, looking each title up from the static schedule.
+function hiddenPapersWithTitles(db: Database, course: string): { week: number; paperNumber: number; title: string }[] {
+  return listHiddenExamPapers(db, course).map(({ week, paperNumber }) => {
+    const content = buildExamSchedule().find(
+      (p) => p.course === course && p.week === week && p.paperNumber === paperNumber,
+    );
+    return { week, paperNumber, title: content?.title ?? `Week ${week} Paper ${paperNumber}` };
+  });
 }
 
 function parsePaperNumber(raw: string, course: string, week: number): number | null {
@@ -182,6 +205,31 @@ export function examApiRoutes(
         return json({ hiddenWeeks: listHiddenExamWeeks(db, course) });
       },
     },
+    "/api/exam/courses/:course/:week/:paperNumber": {
+      // Per-paper reversible hide, one level down again from the per-week
+      // hide above. A hidden paper keeps its answers, score and attempt
+      // history — it just drops out of its week on the board, the History
+      // list and the Home due-list. If it was the week's last unsubmitted
+      // paper, the week itself drops out too, exactly as when that paper is
+      // submitted.
+      PATCH: async (req: Request & { params: { course: string; week: string; paperNumber: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const week = parseWeek(req.params.week);
+        const paperNumber = Number(req.params.paperNumber);
+        if (week === null || !Number.isInteger(paperNumber) || paperNumber < 1) {
+          return json({ error: "invalid week or paper" }, 400);
+        }
+        if (!paperExistsForCourse(db, course, week, paperNumber)) {
+          return json({ error: "paper not found" }, 404);
+        }
+        const body = (await req.json().catch(() => null)) as { hidden?: unknown } | null;
+        if (typeof body?.hidden !== "boolean") return json({ error: "hidden must be a boolean" }, 400);
+        if (body.hidden) hideExamPaper(db, course, week, paperNumber);
+        else unhideExamPaper(db, course, week, paperNumber);
+        return json({ hiddenPapers: hiddenPapersWithTitles(db, course) });
+      },
+    },
     "/api/exam/sync": {
       GET: () => json({ pending: findPendingWeeks() }),
     },
@@ -229,8 +277,14 @@ export function examApiRoutes(
         const today = localToday();
         const hiddenWeeks = listHiddenExamWeeks(db, course);
         const hidden = new Set(hiddenWeeks);
+        const hiddenPaperKeys = new Set(
+          listHiddenExamPapers(db, course).map((p) => `${p.week}:${p.paperNumber}`),
+        );
         const visibleRows = listExamPaperRows(db, course).filter(
-          (r) => weekStartDate(r.week) <= today && !hidden.has(r.week),
+          (r) =>
+            weekStartDate(r.week) <= today &&
+            !hidden.has(r.week) &&
+            !hiddenPaperKeys.has(`${r.week}:${r.paper_number}`),
         );
         const weeksDue: ExamWeekView[] = groupExamPapersByWeek(course, visibleRows, today).filter((w) =>
           w.papers.some((p) => !p.submitted),
@@ -240,6 +294,7 @@ export function examApiRoutes(
         return json({
           weeksDue,
           hiddenWeeks,
+          hiddenPapers: hiddenPapersWithTitles(db, course),
           stats: {
             dueCount: dueWeekCount,
             overdueCount: overdueWeekCount,
@@ -254,8 +309,14 @@ export function examApiRoutes(
         if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
         const today = localToday();
         const hidden = new Set(listHiddenExamWeeks(db, course));
+        const hiddenPaperKeys = new Set(
+          listHiddenExamPapers(db, course).map((p) => `${p.week}:${p.paperNumber}`),
+        );
         const visibleRows = listExamPaperRows(db, course).filter(
-          (r) => weekStartDate(r.week) <= today && !hidden.has(r.week),
+          (r) =>
+            weekStartDate(r.week) <= today &&
+            !hidden.has(r.week) &&
+            !hiddenPaperKeys.has(`${r.week}:${r.paper_number}`),
         );
         const weeks: ExamHistoryWeek[] = groupExamPapersByWeek(course, visibleRows, today)
           .sort((a, b) => b.week - a.week)

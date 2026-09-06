@@ -10,6 +10,7 @@ import {
   saveDesignAnswer,
   revealModelAnswer,
   saveRubricChecked,
+  advanceToNextQuestion,
   type InterviewSessionRow,
 } from "./db";
 
@@ -23,7 +24,7 @@ export interface InterviewSessionView {
   designRunningSince: string | null;
   completedAt: string | null;
   leetcodeProblemId: number | null;
-  sdQuestion: { id: string; company: string; prompt: string; modelAnswer: string; rubric: string[] };
+  sdQuestion: { id: string; company: string; prompt: string; modelAnswer: string; rubric: string[]; diagram: string | null };
   sdAnswer: string;
   sdExcalidrawScene: string | null;
   sdRubricChecked: boolean[];
@@ -55,6 +56,7 @@ function sessionView(row: InterviewSessionRow): InterviewSessionView {
       prompt: question.prompt,
       modelAnswer: question.modelAnswer,
       rubric: question.rubric,
+      diagram: question.diagram ?? null,
     },
     sdAnswer: row.sd_answer,
     sdExcalidrawScene: row.sd_excalidraw_scene,
@@ -127,6 +129,14 @@ export function interviewApiRoutes(db: Database) {
           return json({ error: "checked must be an array of booleans" }, 400);
         }
         return json(sessionView(saveRubricChecked(db, today, body.checked as boolean[])));
+      },
+    },
+    "/api/interview/today/next": {
+      POST: (req: Request) => {
+        const today = localToday();
+        const date = new URL(req.url).searchParams.get("date");
+        if (date !== today) return json({ error: "stale-date", today }, 409);
+        return json(sessionView(advanceToNextQuestion(db, today)));
       },
     },
   };

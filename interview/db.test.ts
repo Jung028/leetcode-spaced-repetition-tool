@@ -14,6 +14,7 @@ import {
   saveDesignAnswer,
   revealModelAnswer,
   saveRubricChecked,
+  advanceToNextQuestion,
 } from "./db";
 
 const TODAY = localToday();
@@ -65,7 +66,7 @@ test("stops a running timer when carrying an unfinished session forward", () => 
   expect(nextDay.design_running_since).toBeNull();
 });
 
-test("rolls to a system design question not already in interview_sd_seen once the session is completed", () => {
+test("keeps the same question across a date rollover even once the session looks completed", () => {
   const problem = createProblem(
     db,
     { title: "Two Sum", url: "https://leetcode.com/problems/two-sum/", solution: "x" },
@@ -77,8 +78,44 @@ test("rolls to a system design question not already in interview_sd_seen once th
   reviewProblem(db, problem.id, "pass", TODAY);
   expect(getTodaySession(db, TODAY)!.completed_at).toBe(TODAY);
 
+  // completed_at is a display-only marker — it must never make the date
+  // rollover swap in a new question on its own. Only an explicit
+  // advanceToNextQuestion() call (a user's "Next question" click) may do that.
   const tomorrow = getOrCreateTodaySession(db, addDays(TODAY, 1));
-  expect(tomorrow.sd_question_id).not.toBe(today.sd_question_id);
+  expect(tomorrow.sd_question_id).toBe(today.sd_question_id);
+});
+
+test("advanceToNextQuestion replaces today's question and resets its progress on request", () => {
+  const problem = createProblem(
+    db,
+    { title: "Two Sum", url: "https://leetcode.com/problems/two-sum/", solution: "x" },
+    addDays(TODAY, -1),
+  );
+  const before = getOrCreateTodaySession(db, TODAY);
+  saveDesignAnswer(db, TODAY, "my approach", "scene-data");
+  revealModelAnswer(db, TODAY);
+  startOrResumeCoding(db, TODAY);
+  reviewProblem(db, problem.id, "pass", TODAY);
+  expect(getTodaySession(db, TODAY)!.completed_at).toBe(TODAY);
+
+  const after = advanceToNextQuestion(db, TODAY);
+  expect(after.date).toBe(TODAY);
+  expect(after.sd_question_id).not.toBe(before.sd_question_id);
+  expect(after.sd_answer).toBe("");
+  expect(after.sd_excalidraw_scene).toBeNull();
+  expect(after.sd_revealed_at).toBeNull();
+  expect(after.coding_running_since).toBeNull();
+  expect(after.coding_elapsed_seconds).toBe(0);
+  expect(after.completed_at).toBeNull();
+  // Still exactly one row for today — advancing replaces in place.
+  const count = db.query(`SELECT COUNT(*) AS n FROM interview_sessions`).get() as { n: number };
+  expect(count.n).toBe(1);
+});
+
+test("advanceToNextQuestion on a fresh day still only creates one row", () => {
+  advanceToNextQuestion(db, TODAY);
+  const count = db.query(`SELECT COUNT(*) AS n FROM interview_sessions`).get() as { n: number };
+  expect(count.n).toBe(1);
 });
 
 test("marks completed_at once both parts are satisfied, and not before", () => {

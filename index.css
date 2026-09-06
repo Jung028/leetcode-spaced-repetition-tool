@@ -1362,6 +1362,12 @@ a.btn {
   overflow-x: auto;
 }
 
+.interview-diagram-hint {
+  font-size: 0.78rem;
+  color: var(--dim);
+  margin: 0.2rem 0 0.4rem;
+}
+
 /* Responsive + motion */
 @media (max-width: 640px) {
   .stats {

@@ -8,6 +8,7 @@ import {
   listExamPapersSubmittedToday,
   listVisibleCourses,
   listHiddenExamWeeks,
+  listHiddenExamPapers,
 } from "./exam/db";
 import { buildExamSchedule, COURSES, weekStartDate, groupExamPapersByWeek } from "./exam/content";
 import { getOrCreateTodaySession } from "./interview/db";
@@ -95,8 +96,14 @@ function examDue(db: Database, today: string): DueItem[] {
   const items: DueItem[] = [];
   for (const { code, name } of listVisibleCourses(db)) {
     const hidden = new Set(listHiddenExamWeeks(db, code));
+    const hiddenPaperKeys = new Set(
+      listHiddenExamPapers(db, code).map((p) => `${p.week}:${p.paperNumber}`),
+    );
     const visibleRows = listExamPaperRows(db, code).filter(
-      (r) => weekStartDate(r.week) <= today && !hidden.has(r.week),
+      (r) =>
+        weekStartDate(r.week) <= today &&
+        !hidden.has(r.week) &&
+        !hiddenPaperKeys.has(`${r.week}:${r.paper_number}`),
     );
     const weeks = groupExamPapersByWeek(code, visibleRows, today).filter((w) => w.papers.some((p) => !p.submitted));
     for (const week of weeks) {

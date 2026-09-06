@@ -24,6 +24,8 @@ test("GET /api/interview/today creates and returns today's session", async () =>
   const view: any = await (await fetch(`${base}/api/interview/today`)).json();
   expect(view.date).toBe(TODAY);
   expect(view.sdQuestion.id).toBe(allSystemDesignQuestions()[0]!.id);
+  expect(view.sdQuestion.diagram).toBe(allSystemDesignQuestions()[0]!.diagram);
+  expect(view.sdQuestion.diagram).toContain("flowchart");
   expect(view.leetcodeProblemId).toBeNull();
   expect(view.completedAt).toBeNull();
 });
@@ -110,5 +112,27 @@ test("POST /api/interview/today/rubric rejects a stale date", async () => {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ date: addDays(TODAY, -1), checked: [] }),
   });
+  expect(res.status).toBe(409);
+});
+
+test("POST /api/interview/today/next replaces the question and resets today's progress", async () => {
+  const before: any = await (await fetch(`${base}/api/interview/today`)).json();
+  await fetch(`${base}/api/interview/today/design-answer`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ date: TODAY, answer: "my approach", scene: null }),
+  });
+  await fetch(`${base}/api/interview/today/reveal?date=${TODAY}`, { method: "POST" });
+
+  const after: any = await (await fetch(`${base}/api/interview/today/next?date=${TODAY}`, { method: "POST" })).json();
+  expect(after.date).toBe(TODAY);
+  expect(after.sdQuestion.id).not.toBe(before.sdQuestion.id);
+  expect(after.sdAnswer).toBe("");
+  expect(after.sdRevealedAt).toBeNull();
+  expect(after.completedAt).toBeNull();
+});
+
+test("POST /api/interview/today/next rejects a stale date", async () => {
+  const res = await fetch(`${base}/api/interview/today/next?date=${addDays(TODAY, -1)}`, { method: "POST" });
   expect(res.status).toBe(409);
 });
