@@ -10,6 +10,7 @@ import { LEETCODE_150, leetcode150Url } from "./leetcode150/content";
 import { homeApiRoutes } from "./home-api";
 import { localToday, addDays } from "./shared/scheduling";
 import { migrateInterview, getOrCreateTodaySession, saveDesignAnswer, revealModelAnswer } from "./interview/db";
+import { migrateModuleItems, createModuleItem, toggleModuleItem } from "./module-items-db";
 
 const TODAY = localToday();
 // Each course's due date per week is fixed (SEMESTER_START is a literal),
@@ -54,6 +55,7 @@ beforeEach(() => {
   migrateExam(db, TODAY);
   migrateLeetcode150(db);
   migrateInterview(db);
+  migrateModuleItems(db);
   server = Bun.serve({ port: 0, routes: homeApiRoutes(db) });
   base = server.url.origin;
 });
@@ -346,4 +348,29 @@ test("solving the LeetCode150 daily pointer via a captured review (pass) does no
   const completedItems: any[] = await (await fetch(`${base}/api/home/completed-today`)).json();
   const leetcodeItems = completedItems.filter((i) => i.source === "leetcode");
   expect(leetcodeItems.length).toBe(1);
+});
+
+test("module items due within the window appear in /api/home/due", async () => {
+  createModuleItem(
+    db,
+    { course: "COMP5348", kind: "assignment", title: "Assignment 1", due_at: localToday() },
+    localToday(),
+  );
+  const res = await fetch(`${base}/api/home/due`);
+  const items: any[] = await res.json();
+  const mine = items.find((i: { source: string }) => i.source === "module-item");
+  expect(mine).toBeTruthy();
+  expect(mine.title).toContain("Assignment 1");
+  expect(mine.course).toBe("COMP5348");
+});
+
+test("completed module items are excluded from /api/home/due", async () => {
+  const item = createModuleItem(
+    db,
+    { course: "COMP5348", kind: "assignment", title: "Done one", due_at: localToday() },
+    localToday(),
+  );
+  toggleModuleItem(db, item.id, localToday());
+  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  expect(items.some((i: { title: string }) => i.title.includes("Done one"))).toBe(false);
 });
