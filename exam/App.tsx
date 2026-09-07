@@ -4,6 +4,7 @@ import type { ExamWeekView } from "./content";
 import type { JobStatus } from "./generate";
 import { TIMELINE_URL, TIMELINE_ANCHORS } from "../shared/timeline-link";
 import { MermaidDiagram } from "./MermaidDiagram";
+import ModulePlanner from "../ModulePlanner";
 
 const EXCALIDRAW_URL = "https://excalidraw.com";
 
@@ -1004,10 +1005,12 @@ function HistoryView({
 export default function ExamApp({
   openCourse,
   openWeek,
+  openItemId,
   onOpened,
 }: {
   openCourse?: string | null;
   openWeek?: number | null;
+  openItemId?: number | null;
   onOpened?: () => void;
 } = {}) {
   const [view, setView] = useState<View>({ name: "board" });
@@ -1247,6 +1250,7 @@ export default function ExamApp({
 
       {view.name === "board" && (
         <>
+          <ModulePlanner openItemId={openItemId ?? null} onOpened={onOpened} />
           <section className="board" aria-label="Weeks due">
             <div className="section-head">
               <h2>This week's papers</h2>

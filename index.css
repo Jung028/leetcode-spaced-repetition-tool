@@ -1641,3 +1641,41 @@ a.btn {
   gap: var(--space-3);
   margin-bottom: var(--space-4);
 }
+
+/* ---- Module planner ---- */
+.mp-board .rule-note { margin-top: 0; }
+.mp-course { border-top: 1px solid var(--line); padding: 0.5rem 0; }
+.mp-course-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.mp-course-toggle {
+  background: none; border: 0; color: var(--text); font: inherit; font-weight: 600;
+  cursor: pointer; display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0;
+}
+.mp-course-code { color: var(--dim); font-weight: 400; font-size: 0.85em; }
+.mp-course-count { color: var(--dim); font-weight: 400; }
+.mp-row { padding: 0.5rem 0; border-top: 1px dashed var(--line); }
+.mp-row:first-child { border-top: 0; }
+.mp-row-done .mp-title { text-decoration: line-through; color: var(--dim); }
+.mp-row-main { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.mp-title { font-weight: 600; flex: 1 1 12rem; }
+.mp-due { color: var(--dim); font-variant-numeric: tabular-nums; }
+.mp-kind { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.1rem 0.4rem; border-radius: 0.35rem; border: 1px solid var(--line); }
+.mp-kind-viva { border-color: #c0392b; color: #c0392b; }
+.mp-kind-presentation { border-color: #b8860b; color: #b8860b; }
+.mp-kind-assignment { border-color: #2e6da4; color: #2e6da4; }
+.mp-kind-other { color: var(--dim); }
+.mp-sync { font-size: 0.75em; }
+.mp-sync-ok { color: var(--dim); }
+.mp-sync-pending { color: #b8860b; }
+.mp-sync-error { color: #c0392b; cursor: help; }
+.mp-actions { display: flex; align-items: center; gap: 0.35rem; }
+.mp-confirm { color: #c0392b; font-size: 0.85em; }
+.mp-desc { margin: 0.35rem 0 0 1.6rem; color: var(--dim); white-space: pre-wrap; }
+.mp-link-chips { margin: 0.35rem 0 0 1.6rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.mp-chip { font-size: 0.8em; padding: 0.1rem 0.45rem; border: 1px solid var(--line); border-radius: 0.35rem; text-decoration: none; }
+.mp-form { margin: 0.5rem 0 0.75rem; }
+.mp-form-row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+.mp-links { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.mp-links-head { font-size: 0.85em; color: var(--dim); }
+.mp-link-row { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.mp-flash { animation: mp-flash 1.6s ease-out; }
+@keyframes mp-flash { from { background: rgba(184, 134, 11, 0.25); } to { background: transparent; } }
