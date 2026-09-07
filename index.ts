@@ -7,6 +7,9 @@ import { migrateAnnouncements } from "./announcement-db";
 import { announcementApiRoutes } from "./announcement-api";
 import { migrateDeadlines } from "./deadline-db";
 import { deadlineApiRoutes } from "./deadline-api";
+import { migrateModuleItems } from "./module-items-db";
+import { moduleItemsApiRoutes } from "./module-items-api";
+import { reconcile as reconcileModuleCalendar } from "./gcal/sync";
 import { migrateExam } from "./exam/db";
 import { examApiRoutes } from "./exam/api";
 import { homeApiRoutes } from "./home-api";
@@ -31,6 +34,7 @@ migrateDeadlines(db);
 migrateExam(db, localToday());
 migrateLeetcode150(db);
 migrateInterview(db);
+migrateModuleItems(db);
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 
 const server = Bun.serve({
@@ -52,6 +56,7 @@ const server = Bun.serve({
     ...homeApiRoutes(db),
     ...leetcode150ApiRoutes(db),
     ...interviewApiRoutes(db),
+    ...moduleItemsApiRoutes(db),
   },
   development: {
     hmr: true,
@@ -60,3 +65,8 @@ const server = Bun.serve({
 });
 
 console.log(`leetcode-srs running at ${server.url}`);
+
+// Catch-up sync for any module item changed while the server was down.
+reconcileModuleCalendar(db)
+  .then((r) => console.log(`[module-planner] calendar reconcile:`, r))
+  .catch((e) => console.error(`[module-planner] calendar reconcile failed:`, e));
