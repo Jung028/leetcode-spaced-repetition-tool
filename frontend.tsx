@@ -5,6 +5,7 @@ import type { ProblemSummary, ProblemDetail } from "./leetcode/db";
 import { highlightCode } from "./leetcode/highlight";
 import TodoApp from "./todo/App";
 import HomeApp from "./HomeApp";
+import type { DueItem } from "./home-api";
 import ExamApp from "./exam/App";
 const InterviewApp = React.lazy(() => import("./interview/App"));
 import "./index.css";
@@ -626,7 +627,8 @@ type Tab = "home" | "leetcode" | "todo" | "exam" | "interview";
 type DeepLink =
   | { tab: "leetcode"; problemId: number }
   | { tab: "todo"; todoId: number }
-  | { tab: "exam"; course: string; week: number };
+  | { tab: "exam"; course: string; week: number }
+  | { tab: "exam"; moduleItemId: number };
 
 function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -706,12 +708,7 @@ function App() {
   const [tab, setTab] = useState<Tab>("home");
   const [deepLink, setDeepLink] = useState<DeepLink | null>(null);
 
-  const navigate = (item: {
-    source: "leetcode" | "todo" | "exam" | "interview";
-    linkId: number;
-    course?: string;
-    externalUrl?: string;
-  }) => {
+  const navigate = (item: DueItem) => {
     if (item.source === "leetcode" && item.externalUrl) {
       openExternal(item.externalUrl);
       return;
@@ -719,7 +716,9 @@ function App() {
     if (item.source === "leetcode") setDeepLink({ tab: "leetcode", problemId: item.linkId });
     else if (item.source === "todo") setDeepLink({ tab: "todo", todoId: item.linkId });
     else if (item.source === "exam") setDeepLink({ tab: "exam", course: item.course!, week: item.linkId });
-    setTab(item.source);
+    else if (item.source === "module-item") setDeepLink({ tab: "exam", moduleItemId: item.linkId });
+    // Module planner items live inside the Modules (exam) tab.
+    setTab(item.source === "module-item" ? "exam" : item.source);
   };
 
   return (
@@ -740,8 +739,9 @@ function App() {
       )}
       {tab === "exam" && (
         <ExamApp
-          openCourse={deepLink?.tab === "exam" ? deepLink.course : null}
-          openWeek={deepLink?.tab === "exam" ? deepLink.week : null}
+          openCourse={deepLink?.tab === "exam" && "course" in deepLink ? deepLink.course : null}
+          openWeek={deepLink?.tab === "exam" && "week" in deepLink ? deepLink.week : null}
+          openItemId={deepLink?.tab === "exam" && "moduleItemId" in deepLink ? deepLink.moduleItemId : null}
           onOpened={() => setDeepLink(null)}
         />
       )}

@@ -169,6 +169,7 @@ const SOURCE_LABEL: Record<DueSource, string> = {
   todo: "Todo",
   exam: "Modules",
   interview: "Interview",
+  "module-item": "Deadline",
 };
 
 const SOURCE_COLOR: Record<DueSource, string> = {
@@ -176,6 +177,7 @@ const SOURCE_COLOR: Record<DueSource, string> = {
   todo: "var(--cat-src-theory)",
   exam: "var(--cat-src-exam)",
   interview: "var(--cat-src-interview)",
+  "module-item": "var(--cat-src-goals)",
 };
 
 // Same two calendars leetcode-srs already overlays elsewhere: Adam's
