@@ -42,6 +42,26 @@ test("mcq/truefalse questions all have options and a valid correctIndex", () => 
   }
 });
 
+test("multi questions have options and a valid correctIndices set (2+, unique, in range, sorted)", () => {
+  for (const paper of buildExamSchedule()) {
+    for (const q of paper.questions) {
+      if (q.type !== "multi") continue;
+      expect(q.options && q.options.length).toBeGreaterThan(0);
+      const idx = q.correctIndices!;
+      expect(Array.isArray(idx)).toBe(true);
+      expect(idx.length).toBeGreaterThanOrEqual(2);
+      expect(new Set(idx).size).toBe(idx.length); // no duplicates
+      expect(idx.length).toBeLessThan(q.options!.length); // at least one distractor
+      for (const i of idx) {
+        expect(i).toBeGreaterThanOrEqual(0);
+        expect(i).toBeLessThan(q.options!.length);
+      }
+      expect([...idx].sort((a, b) => a - b)).toEqual(idx); // sorted ascending
+      expect(q.correctIndex).toBeUndefined(); // multi uses correctIndices, not correctIndex
+    }
+  }
+});
+
 test("every question has a non-empty prompt and modelAnswer", () => {
   for (const paper of buildExamSchedule()) {
     for (const q of paper.questions) {

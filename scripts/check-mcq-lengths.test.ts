@@ -71,6 +71,42 @@ test("does not flag options of roughly similar length", () => {
   expect(tells).toHaveLength(0);
 });
 
+test("flags a multi question whose every correct option is much longer than every distractor", () => {
+  const tells = findLengthTells([
+    paperWith([
+      {
+        type: "multi",
+        prompt: "Select all that apply.",
+        options: [
+          "This correct option carries real specific detailed substance worth reading",
+          "This other correct option is also written with full specific plausible detail",
+          "Wrong A",
+          "Wrong B",
+        ],
+        correctIndices: [0, 1],
+        modelAnswer: "Because they are.",
+      },
+    ]),
+  ]);
+  expect(tells).toHaveLength(1);
+  expect(tells[0]!.kind).toBe("long");
+});
+
+test("does not flag a multi question with balanced option lengths", () => {
+  const tells = findLengthTells([
+    paperWith([
+      {
+        type: "multi",
+        prompt: "Select all that apply.",
+        options: ["Correct mechanism one", "Correct mechanism two", "A plausible wrong one", "Another wrong one"],
+        correctIndices: [0, 1],
+        modelAnswer: "Because they are.",
+      },
+    ]),
+  ]);
+  expect(tells).toHaveLength(0);
+});
+
 test("ignores non-mcq questions", () => {
   const tells = findLengthTells([
     paperWith([

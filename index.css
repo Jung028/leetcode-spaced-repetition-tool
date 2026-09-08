@@ -1542,6 +1542,12 @@ a.btn {
   white-space: pre-wrap;
 }
 
+.exam-multi-hint {
+  margin: 0.25rem 0 0.5rem;
+  font-size: var(--text-sm);
+  color: var(--dim);
+}
+
 .exam-prompt-image {
   max-width: 100%;
   display: block;
