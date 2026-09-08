@@ -43,20 +43,37 @@ export function findLengthTells(papers: ExamPaperSeed[]): LengthTell[] {
 }
 
 function checkQuestion(q: ExamQuestionSeed): { kind: "long" | "short"; correctLength: number; otherLengths: number[] } | null {
-  if (q.type !== "mcq" || !q.options || q.correctIndex === undefined) return null;
+  if (!q.options) return null;
+
+  // Which option indices grade as correct: one for mcq, a set for multi.
+  let correctIdx: number[];
+  if (q.type === "mcq" && q.correctIndex !== undefined) {
+    correctIdx = [q.correctIndex];
+  } else if (q.type === "multi" && q.correctIndices && q.correctIndices.length > 0) {
+    correctIdx = q.correctIndices;
+  } else {
+    return null;
+  }
+
+  const correctSet = new Set(correctIdx);
   const lengths = q.options.map((o) => o.length);
-  const correctLength = lengths[q.correctIndex]!;
-  const others = lengths.filter((_, i) => i !== q.correctIndex);
-  if (others.length === 0) return null;
+  const correctLengths = lengths.filter((_, i) => correctSet.has(i));
+  const others = lengths.filter((_, i) => !correctSet.has(i));
+  if (others.length === 0 || correctLengths.length === 0) return null;
 
   const maxOther = Math.max(...others);
   const minOther = Math.min(...others);
+  // For multi, "the correct option" is a set: a tell means every correct
+  // option is the length outlier (all longer, or all shorter) — measured
+  // at the correct side that's closest to the distractors.
+  const correctNearLong = Math.min(...correctLengths); // weakest "long" case
+  const correctNearShort = Math.max(...correctLengths); // weakest "short" case
 
-  if (correctLength === Math.max(...lengths) && correctLength > maxOther * RELATIVE_MARGIN && correctLength - maxOther > ABSOLUTE_MARGIN) {
-    return { kind: "long", correctLength, otherLengths: others };
+  if (correctNearLong > maxOther && correctNearLong > maxOther * RELATIVE_MARGIN && correctNearLong - maxOther > ABSOLUTE_MARGIN) {
+    return { kind: "long", correctLength: correctNearLong, otherLengths: others };
   }
-  if (correctLength === Math.min(...lengths) && minOther > correctLength * RELATIVE_MARGIN && minOther - correctLength > ABSOLUTE_MARGIN) {
-    return { kind: "short", correctLength, otherLengths: others };
+  if (correctNearShort < minOther && minOther > correctNearShort * RELATIVE_MARGIN && minOther - correctNearShort > ABSOLUTE_MARGIN) {
+    return { kind: "short", correctLength: correctNearShort, otherLengths: others };
   }
   return null;
 }

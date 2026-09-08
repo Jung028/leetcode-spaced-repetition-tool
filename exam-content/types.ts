@@ -1,14 +1,20 @@
-export type ExamQuestionType = "mcq" | "truefalse" | "short" | "scenario";
+export type ExamQuestionType = "mcq" | "truefalse" | "short" | "scenario" | "multi";
 
 export interface ExamQuestionSeed {
   type: ExamQuestionType;
   prompt: string;
-  // mcq/truefalse only — truefalse conventionally uses options ["True", "False"].
+  // mcq/truefalse/multi — the choices. truefalse conventionally uses
+  // options ["True", "False"].
   options?: string[];
   // mcq/truefalse only — index into options that grades as correct.
   correctIndex?: number;
-  // short/scenario: the revealed model answer. mcq/truefalse: the revealed
-  // explanation shown alongside the correct/incorrect highlighting.
+  // multi only — the set of option indices that together form the correct
+  // answer (select-all-that-apply). Grades right only when the student
+  // ticks exactly this set: every one of these and none of the others.
+  // Convention: sorted ascending, at least two entries.
+  correctIndices?: number[];
+  // short/scenario: the revealed model answer. mcq/truefalse/multi: the
+  // revealed explanation shown alongside the correct/incorrect highlighting.
   modelAnswer: string;
   // Optional image (data URI or URL) shown with the prompt — for a question
   // that asks the student to work from a real document page (e.g. a report
