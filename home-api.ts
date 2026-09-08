@@ -15,9 +15,10 @@ import { allSystemDesignQuestions } from "./interview/content";
 import { getCurrentLeetcode150, leetcode150CompletedCredit } from "./leetcode150/db";
 import type { CurrentLeetcode150 } from "./leetcode150/db";
 import { leetcode150Url } from "./leetcode150/content";
+import { listModuleItems } from "./module-items-db";
 import { isDue, localToday, overdueDays } from "./shared/scheduling";
 
-export type DueSource = "leetcode" | "todo" | "exam" | "interview";
+export type DueSource = "leetcode" | "todo" | "exam" | "interview" | "module-item";
 
 export interface DueItem {
   source: DueSource;
@@ -116,6 +117,24 @@ function examDue(db: Database, today: string): DueItem[] {
     }
   }
   return items;
+}
+
+// Module planner items (assignments / presentations / vivas). `due_at` is a
+// datetime; compare on the date part so an item due later today still counts
+// as due today. Not-completed only.
+function moduleItemDue(db: Database, today: string): DueItem[] {
+  return listModuleItems(db)
+    .filter((m) => !m.completed && isDue(m.due_at.slice(0, 10), today))
+    .map((m) => ({
+      source: "module-item" as const,
+      id: m.id,
+      title: `${m.course} — ${m.title}`,
+      subtitle: `${m.kind} · due ${m.due_at.replace("T", " ")}`,
+      dueDate: m.due_at.slice(0, 10),
+      overdueDays: overdueDays(m.due_at.slice(0, 10), today),
+      linkId: m.id,
+      course: m.course,
+    }));
 }
 
 function interviewDue(db: Database, today: string): DueItem[] {
@@ -239,6 +258,7 @@ function homeStats(db: Database, today: string): HomeStats {
     ...todoDue(db, today),
     ...examDue(db, today),
     ...interviewDue(db, today),
+    ...moduleItemDue(db, today),
   ];
   const examSubmittedToday = listVisibleCourses(db).reduce(
     (sum, { code }) => sum + countExamPapersSubmittedToday(db, code, today),
@@ -248,6 +268,8 @@ function homeStats(db: Database, today: string): HomeStats {
   return {
     dueToday: items.filter((i) => i.overdueDays === 0).length,
     overdue: items.filter((i) => i.overdueDays > 0).length,
+    // Module planner items have no per-day completion timestamp — a completed
+    // item simply drops off the due list; it is not counted in "completed today".
     completedToday:
       countReviewsToday(db, today) +
       countTodosCompletedToday(db, today) +
@@ -268,6 +290,7 @@ export function homeApiRoutes(db: Database) {
           ...todoDue(db, today),
           ...examDue(db, today),
           ...interviewDue(db, today),
+          ...moduleItemDue(db, today),
         ];
         items.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
         return Response.json(items);
