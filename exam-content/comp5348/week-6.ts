@@ -264,6 +264,51 @@ const TUTORIAL_PAPER: ExamPaperSeed = {
       modelAnswer:
         "1. Message-Oriented Middleware lets applications communicate by exchanging messages instead of calling each other directly. 2. The producer sends and moves on; the consumer processes later — neither needs the other running at that moment. 3. Here the queue is just a PostgreSQL table: sending is an INSERT, receiving takes and removes the oldest row. 4. PostgreSQL plays two separate roles — the queue table carries messages in transit, the business table stores the saved trade data. 5. The data travels as JSON: Java object -> serialize -> queue -> deserialize -> Java object -> database.",
     },
+    {
+      type: "multi",
+      prompt:
+        "Select every statement that correctly describes the 'decoupling in time' the tutorial demonstrates in Part 6 by stopping only the consumer.",
+      options: [
+        "The producer keeps sending its 10-second price message and carries on normally the whole time the consumer is stopped, with no error raised on the producer side",
+        "The messages pile up as rows in the queue table while the consumer is down, and when it restarts it works through the entire backlog in a few seconds with nothing lost",
+        "The producer and consumer can be started in either order, and the consumer can be stopped and restarted freely, because neither application ever calls the other directly",
+        "The producer notices that the consumer has stopped and automatically throttles its send loop down to one message a minute, applying back-pressure to itself through the queue",
+        "Once a message has been safely written to the queue table the messaging infrastructure guarantees that the consumer's saveTradeData call for that row will eventually succeed",
+      ],
+      correctIndices: [0, 1, 2],
+      modelAnswer:
+        "Decoupling in time: the producer sends and moves on, the queue holds messages until the consumer collects them, so a stopped consumer becomes a delay rather than an immediate failure. Start order does not matter and a consumer restart just resumes from where the queue stands. The queue applies no back-pressure to the producer, and it only guarantees the message survives — not that the processing succeeds.",
+    },
+    {
+      type: "multi",
+      prompt:
+        "In Question 2 of the tutorial you fill in the producer's business logic. Select every statement that matches the required implementation.",
+      options: [
+        "The Gold, Silver and Platinum prices are generated with Math.random() and then wrapped in three separate TradeDataDTO objects",
+        "All three DTOs are stamped with one shared LocalDateTime.now(), because they are a single snapshot of the market taken at the same instant",
+        "The three DTOs are placed in a list and serialised together with mapper.writeValueAsString(List.of(...)) as one JSON array payload",
+        "Each metal is sent as its own separate message so that a slow consumer can process the Gold price without having to wait for Silver and Platinum",
+        "After each send the producer blocks until the consumer returns an acknowledgement message on a second response queue before it builds the next snapshot",
+      ],
+      correctIndices: [0, 1, 2],
+      modelAnswer:
+        "Math.random() prices, one shared LocalDateTime.now() for all three (one market snapshot => one message), and mapper.writeValueAsString(List.of(gold, silver, platinum)) to serialise them into a single JSON array. Sending the three together means the consumer always gets a consistent set; three separate messages could interleave. The producer never waits for an acknowledgement — non-blocking send is the whole point.",
+    },
+    {
+      type: "multi",
+      prompt:
+        "Select every statement that is true about what the consumer needs in order to deserialize the trade-data message correctly (Question 2).",
+      options: [
+        "It must use new TypeReference<List<TradeDataDTO>>(){} rather than List.class, or type erasure leaves it with LinkedHashMap objects and a ClassCastException",
+        "The ObjectMapper must have JavaTimeModule registered, otherwise the LocalDateTime field throws InvalidDefinitionException when it is read back",
+        "The TradeDataDTO class must expose an empty no-argument constructor, which Jackson requires in order to build each object from the JSON",
+        "The parsing must be wrapped in try/catch, because by the time handle() runs the message has already been removed from the queue by the DELETE ... RETURNING",
+        "The consumer must hold and apply the decryption key for the payload, because each message is written into the queue table in an encrypted form Jackson cannot read directly",
+      ],
+      correctIndices: [0, 1, 2, 3],
+      modelAnswer:
+        "TypeReference (not List.class) because type erasure otherwise yields List<LinkedHashMap> and a ClassCastException; JavaTimeModule on the ObjectMapper or LocalDateTime deserialization throws; an empty constructor on the DTO for Jackson; and try/catch around the parse because DELETE ... RETURNING already took the message off the queue, so an unhandled exception would lose it and could disrupt the consumer's loop. The payload is plain JSON, not encrypted.",
+    },
   ],
 };
 
@@ -536,6 +581,51 @@ const LECTURE_PAPER: ExamPaperSeed = {
       correctIndex: 0,
       modelAnswer:
         "The lecturer frames Week 6 as reinforcing fundamentals — why we need asynchronous messaging, the models, and the design trade-offs — and defers specific/advanced technologies (RabbitMQ, IoT, database services) to the following lecture. The tutorial notes add the related point that RabbitMQ is closer to the traditional message-queue model while Kafka is built around persistent event streams.",
+    },
+    {
+      type: "multi",
+      prompt:
+        "Select every consequence of synchronous (RPC-style) request/response that the lecture uses to motivate a move to messaging.",
+      options: [
+        "The caller blocks and can do no other work until the reply for its request has come back from the destination",
+        "If the destination service is unavailable when the call is made, the caller's whole application becomes unavailable too",
+        "Caller and callee are tightly coupled and both have to be alive at the same moment for the interaction to happen at all",
+        "Even after adding service replication and load balancing, recovery on the client side is still left as the client's own problem",
+        "Each request is automatically written to a persistent disk log, so no request is lost even if a processing node fails partway through",
+      ],
+      correctIndices: [0, 1, 2, 3],
+      modelAnswer:
+        "Synchronous interaction: the caller blocks until the reply; if the destination is down the caller's application is unavailable too; caller and callee are tightly coupled (the phone-call analogy — both must be on the line). Enhancing the synchronous model with transactional interaction, replication and load balancing helps availability but leaves client-side recovery as the client's problem — which is why the lecture then changes the interaction model to messaging. Persistent logging of requests is a property of message queues, not RPC.",
+    },
+    {
+      type: "multi",
+      prompt:
+        "Select every statement that matches how the lecture presents the messaging-topology models (point-to-point, centralised, and clustered).",
+      options: [
+        "In point-to-point there is no message server and the participants stay autonomous, but the sender still has to know the destination queue",
+        "A centralised message server simplifies management but is a single point of failure that tightly couples every client to it",
+        "Distributing one logical server across a cluster restores availability and scalability, but messages handled by different instances may be delivered out of order",
+        "Point-to-point messaging requires a central broker in the middle to relay every message between the sending queue and the receiving queue",
+        "A clustered message server removes the out-of-order risk entirely, because every instance in the cluster reads from one single shared queue",
+      ],
+      correctIndices: [0, 1, 2],
+      modelAnswer:
+        "Point-to-point: no message server, participants autonomous, but the sender must know the destination queue. Centralised: one server holds many queues, simple to manage but a single point of failure with tight coupling. Cluster: one logical MOM server spread across instances for availability and scalability, with the danger that messages allocated to different instances arrive out of order. Every model is an availability/performance/ordering trade-off.",
+    },
+    {
+      type: "multi",
+      prompt:
+        "Select every capability a message broker adds on top of a plain message queue, as the lecture describes them for Enterprise Application Integration.",
+      options: [
+        "Message transformation between different source and target formats, supported by mapping tools and a format repository",
+        "Content-based intelligent routing that decides a message's destination from the contents of the message itself",
+        "A rules engine with a scripting language and built-in functions providing a programming environment for processing logic",
+        "Adapters that sit between the broker and the end systems as an abstraction layer, in thin or thick and centralised or distributed forms",
+        "Removal of the underlying MOM layer, since a broker replaces the message queue outright rather than being built on top of one",
+      ],
+      correctIndices: [0, 1, 2, 3],
+      modelAnswer:
+        "A broker adds logic at the messaging-infrastructure level for EAI: format transformation (mapping tools, a format repository), content-based intelligent routing, a rules engine (scripting language, built-in functions, a programming environment), and adapters to end systems. It is drawn as hub-and-spoke and is usually built ON TOP OF a MOM layer, not a replacement for it.",
     },
   ],
 };
