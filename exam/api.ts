@@ -76,6 +76,7 @@ export interface ExamQuestionView {
   prompt: string;
   options: string[] | null;
   correctIndex: number | null;
+  correctIndices: number[] | null;
   modelAnswer: string;
   promptImage: string | null;
   promptDiagram: string | null;
@@ -116,6 +117,7 @@ function paperView(db: Database, course: string, row: ExamPaperRow): ExamPaperVi
       prompt: q.prompt,
       options: q.options ?? null,
       correctIndex: q.correctIndex ?? null,
+      correctIndices: q.correctIndices ?? null,
       modelAnswer: q.modelAnswer,
       promptImage: q.promptImage ?? null,
       promptDiagram: q.promptDiagram ?? null,

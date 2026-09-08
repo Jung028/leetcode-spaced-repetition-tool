@@ -5,6 +5,7 @@ import type { JobStatus } from "./generate";
 import { TIMELINE_URL, TIMELINE_ANCHORS } from "../shared/timeline-link";
 import { MermaidDiagram } from "./MermaidDiagram";
 import ModulePlanner from "../ModulePlanner";
+import { isMultiCorrect } from "./grading";
 
 const EXCALIDRAW_URL = "https://excalidraw.com";
 
@@ -603,6 +604,110 @@ function McqQuestion({
   );
 }
 
+// Select-all-that-apply. The student ticks any number of options and hits
+// "Check answer"; it grades right only when the ticked set is exactly
+// question.correctIndices (all of them, none extra) — same all-or-nothing
+// rule as every other question type here. The chosen indices are saved as
+// a JSON array string in the same `yourAnswer` slot mcq uses.
+function MultiQuestion({
+  question,
+  course,
+  week,
+  paperNumber,
+  onGraded,
+  onError,
+}: {
+  question: ExamQuestionView;
+  course: string;
+  week: number;
+  paperNumber: number;
+  onGraded: (updated: ExamPaperView) => void;
+  onError: (message: string | null) => void;
+}) {
+  const graded = question.correct !== null;
+  const correctSet = new Set(question.correctIndices ?? []);
+  const savedPicks = (() => {
+    try {
+      const parsed = JSON.parse(question.yourAnswer || "[]");
+      return Array.isArray(parsed) ? (parsed as number[]) : [];
+    } catch {
+      return [];
+    }
+  })();
+  const [picks, setPicks] = useState<Set<number>>(new Set(savedPicks));
+
+  const toggle = (i: number) => {
+    if (graded) return;
+    setPicks((prev) => {
+      const next = new Set(prev);
+      next.has(i) ? next.delete(i) : next.add(i);
+      return next;
+    });
+  };
+
+  const check = async () => {
+    if (graded) return;
+    onError(null);
+    const chosen = [...picks].sort((a, b) => a - b);
+    const correct = isMultiCorrect(chosen, question.correctIndices ?? []);
+    try {
+      const updated = await api.grade(
+        course,
+        week,
+        paperNumber,
+        question.index,
+        correct,
+        JSON.stringify(chosen),
+      );
+      onGraded(updated);
+    } catch (err) {
+      onError(errorMessage(err));
+    }
+  };
+
+  return (
+    <div className="exam-question">
+      <PromptText text={question.prompt} className="exam-prompt" />
+      {question.promptImage && <img className="exam-prompt-image" src={question.promptImage} alt="Question reference" />}
+      {question.promptDiagram && <MermaidDiagram chart={question.promptDiagram} />}
+      <p className="exam-multi-hint">Select all that apply.</p>
+      <div className="exam-options">
+        {question.options!.map((opt, i) => {
+          const isChosen = graded ? savedPicks.includes(i) : picks.has(i);
+          const cls = !graded
+            ? "exam-option"
+            : correctSet.has(i)
+              ? "exam-option exam-option-correct"
+              : isChosen
+                ? "exam-option exam-option-wrong"
+                : "exam-option";
+          return (
+            <label key={i} className={cls}>
+              <input
+                type="checkbox"
+                checked={isChosen}
+                disabled={graded}
+                onChange={() => toggle(i)}
+              />
+              {opt}
+            </label>
+          );
+        })}
+      </div>
+      {!graded && (
+        <div className="btn-row">
+          <button className="btn btn-primary" disabled={picks.size === 0} onClick={check}>
+            Check answer
+          </button>
+        </div>
+      )}
+      {graded && <PromptText text={question.modelAnswer} className="exam-explanation" />}
+      {graded && question.answerDiagram && <MermaidDiagram chart={question.answerDiagram} />}
+      {graded && question.requiresDrawing && <DrawingLink />}
+    </div>
+  );
+}
+
 function ShortOrScenarioQuestion({
   question,
   course,
@@ -766,6 +871,16 @@ function PaperView({
               onGraded={setCurrent}
               onError={onError}
             />
+          ) : q.type === "multi" ? (
+            <MultiQuestion
+              key={`${q.index}-${q.correct}`}
+              question={q}
+              course={course}
+              week={paper.week}
+              paperNumber={paper.paperNumber}
+              onGraded={setCurrent}
+              onError={onError}
+            />
           ) : (
             <ShortOrScenarioQuestion
               key={`${q.index}-${q.correct}`}
@@ -785,6 +900,16 @@ function PaperView({
           </div>
           {question.type === "mcq" || question.type === "truefalse" ? (
             <McqQuestion
+              key={`${question.index}-${question.correct}`}
+              question={question}
+              course={course}
+              week={paper.week}
+              paperNumber={paper.paperNumber}
+              onGraded={setCurrent}
+              onError={onError}
+            />
+          ) : question.type === "multi" ? (
+            <MultiQuestion
               key={`${question.index}-${question.correct}`}
               question={question}
               course={course}
@@ -825,7 +950,7 @@ function PaperView({
           </div>
           {index === current.questions.length - 1 && !allGraded && (
             <p className="board-empty">
-              Grade every question — multiple choice grades itself on selection; reveal and mark short/scenario answers — before submitting.
+              Grade every question — multiple choice grades itself on selection, select-all grades on "Check answer"; reveal and mark short/scenario answers — before submitting.
             </p>
           )}
         </>

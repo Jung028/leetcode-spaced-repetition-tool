@@ -398,10 +398,10 @@ test("PATCH /api/exam/:course/:week hides a week that exists only as paper rows 
   // static content was removed — e.g. TRACELY Week 2 in the real db. The
   // hide flag is a visibility toggle over whatever the board shows, so it
   // must accept such a week, not 404 on it.
-  db.query(`INSERT INTO exam_papers (course, week, paper_number) VALUES (?, 6, 1)`).run(COURSE);
-  const patch = await patchWeek(6, true);
+  db.query(`INSERT INTO exam_papers (course, week, paper_number) VALUES (?, 13, 1)`).run(COURSE);
+  const patch = await patchWeek(13, true);
   expect(patch.status).toBe(200);
-  expect((await patch.json()).hiddenWeeks).toContain(6);
+  expect((await patch.json()).hiddenWeeks).toContain(13);
 });
 
 test("PATCH /api/exam/:course/:week requires a boolean hidden field", async () => {
