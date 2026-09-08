@@ -44,7 +44,7 @@ test("buildDeadlineViews attaches the full course name and, when on file, a desc
     "2026-09-02",
   )[0]!;
   expect(known.courseName).toBe("Enterprise Scale Software Architecture");
-  expect(known.note).toBe("Paper-based exercises on Weeks 1–6 material.");
+  expect(known.note).toBe("Individual paper-based exercises (3 questions) on Weeks 1–6 material; submit a PDF via Canvas.");
 
   const unknown = buildDeadlineViews(
     [DL({ course: "XYZ9999", title: "Mystery task", dueDate: "2026-09-20" })],

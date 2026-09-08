@@ -54,33 +54,58 @@ export function courseNameFor(course: string): string {
 export const DEADLINE_NOTES: Record<string, string> = {
   "INFO5995|Early feedback quiz": "Auto-graded quiz on Weeks 1–3 content; opens Week 3, due Week 4.",
   "INFO6007|Early Semester Feedback Task": "Individual open-book MCQ / true-false quiz on Weeks 1–3, on Canvas.",
-  "INFO5995|Project 1": "Set up AI tools and use them to find vulnerabilities in Android apps (group task).",
-  "COMP5348|Assignment 1": "Paper-based exercises on Weeks 1–6 material.",
+  "INFO5990|Early Semester Feedback Task": "Individual auto-graded MCQ quiz on Weeks 1–3 content, due Week 4.",
+  "INFO5995|Project 1": "Set up AI tools and use them to find vulnerabilities in Android apps (group task); live presentation in the Week 7 tutorial.",
+  "COMP5348|Assignment 1": "Individual paper-based exercises (3 questions) on Weeks 1–6 material; submit a PDF via Canvas.",
+  "INFO5990|Interactive Oral (Viva)": "Secured oral exam, no notes, covering Weeks 1–6 (rubric says 1–7). Hurdle task — held in your Week 8 tutorial; confirm the exact slot on Canvas.",
   "INFO5995|Project 2": "Part A: AI-assisted Android vuln finding; Part B: open competition on real-world apps.",
-  "COMP5348|Assignment 2": "Paper-based tasks on Weeks 7–10 material, plus reflection on lab experiences.",
-  "COMP5348|Group project": "Group build integrating subsystems via communication technologies; includes the Week 13 presentation.",
-  "INFO5990|Team Report": "Group report (teams of 4–5) analysing an organisation's IT-enabled business proposal.",
-  "INFO6007|Group project": "Incremental group project on how IT projects are planned, executed and controlled (teams of 4–5).",
+  "COMP5348|Assignment 2": "Individual paper-based tasks on Weeks 7–10 material, plus reflection on lab experiences. (Brief not yet on Canvas — date from the assessment overview.)",
+  "COMP5348|Group project — code & report": "Part A: submit the integrated subsystem source code + architecture report via Canvas (Week 11).",
+  "COMP5348|Group presentation & live challenge": "Part B: group presentation of the submitted design plus an unseen live challenge, in the Week 12–13 tutorials.",
+  "INFO5990|Team Report": "Group report (teams of 4–5) analysing an organisation's IT-enabled business proposal; progressive weekly templates, one submission end of Week 12.",
+  "INFO6007|Group project": "Incremental Project Management Plan (teams of 4–5); single submission end of Week 13. Weekly stand-ups in tutorials (Weeks 6–12) are marked separately.",
 };
 
 export function noteFor(d: Pick<SemesterDeadline, "course" | "title">): string {
   return DEADLINE_NOTES[deadlineId(d)] ?? "";
 }
 
+// Kept in date order. Dates verified against each unit's assignment brief /
+// assessment overview (the briefs under ~/Desktop/USYD/Semester 2 …) where one
+// exists; week-only tasks are dated to that teaching week using the same
+// calendar as the exam board (Week 1 Mon = 2026-08-03, one-week mid-semester
+// break after Week 8). Final exams are deliberately omitted until the formal
+// exam timetable is published — they live in the full semester timeline.
 export const SEMESTER_DEADLINES: SemesterDeadline[] = [
+  // --- Week 4 (24–30 Aug): the three early-feedback quizzes ---
   { course: "INFO5995", title: "Early feedback quiz", weight: "5%", dueDate: "2026-08-30", source: "manual" },
   { course: "INFO6007", title: "Early Semester Feedback Task", weight: "5%", dueDate: "2026-08-30", source: "manual" },
+  { course: "INFO5990", title: "Early Semester Feedback Task", weight: "5%", dueDate: "2026-08-30", source: "manual" },
+  // --- Week 6 (7–13 Sep) ---
+  // INFO5995 unit schedule: "Project 1 due (Sunday 11:55pm)" in Week 6.
   { course: "INFO5995", title: "Project 1", weight: "20%", dueDate: "2026-09-13", source: "manual" },
-  // Schedule + assessment overview both say "Week 7" (ends Sun 20 Sep);
-  // confirm against Canvas in case its submission date runs a week later.
+  // --- Week 7 (14–20 Sep) ---
+  // Assessment 1 brief: "Submission Due: Week 7, Sunday 11:55 pm (Sydney time)".
   { course: "COMP5348", title: "Assignment 1", weight: "10%", dueDate: "2026-09-20", source: "manual" },
-  { course: "INFO5995", title: "Project 2", weight: "25%", dueDate: "2026-10-25", source: "manual" },
+  // --- Week 8 (21–27 Sep) ---
+  // INFO5990 assessment overview: Viva held Week 8, hurdle task. Exact
+  // day/slot not published — dated to the start of the teaching week.
+  { course: "INFO5990", title: "Interactive Oral (Viva)", weight: "10%", dueDate: "2026-09-21", source: "manual" },
+  // --- Week 11 (19–25 Oct) ---
+  // COMP5348 Assignment 2: assessment overview says Week 11; no brief on
+  // Canvas yet, so this date is provisional.
   { course: "COMP5348", title: "Assignment 2", weight: "10%", dueDate: "2026-10-25", source: "manual" },
-  // Week 12 per the assessment overview (Week 13 is the Group Presentation).
-  // Weight folds in the presentation (10% project + 10% presentation).
-  { course: "COMP5348", title: "Group project", weight: "20%", dueDate: "2026-11-01", source: "manual" },
-  // INFO5990 Team Report / Group Assignment — "submission in Week 12", no day
-  // given, so dated to the Sunday of W12.
+  // COMP5348 Group Project brief: "Code and Report Due: Week 11, Sunday 23:55".
+  { course: "COMP5348", title: "Group project — code & report", weight: "10%", dueDate: "2026-10-25", source: "manual" },
+  // INFO5995 unit schedule: "Project 2 due (Sunday 11:55pm)" in Week 11.
+  { course: "INFO5995", title: "Project 2", weight: "25%", dueDate: "2026-10-25", source: "manual" },
+  // --- Week 12 (26 Oct – 1 Nov) ---
+  // INFO5990 assignment overview: "Deadline: End of Week 12."
   { course: "INFO5990", title: "Team Report", weight: "35%", dueDate: "2026-11-01", source: "manual" },
+  // --- Week 13 (2–8 Nov) ---
+  // COMP5348 Group Project brief: presentation in the Week 12–13 tutorials;
+  // Canvas announcement gives Sun 8 Nov as the hard date.
+  { course: "COMP5348", title: "Group presentation & live challenge", weight: "10%", dueDate: "2026-11-08", source: "manual" },
+  // INFO6007 assessment overview: Group project "due 08 Nov 2026 23:59".
   { course: "INFO6007", title: "Group project", weight: "25%", dueDate: "2026-11-08", source: "manual" },
 ];
