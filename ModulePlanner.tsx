@@ -25,6 +25,7 @@ interface ItemDraft {
   kind: ModuleItemKind;
   title: string;
   description: string;
+  weight: string; // e.g. "20%" or ""
   dueDate: string; // 'YYYY-MM-DD'
   dueTime: string; // 'HH:MM' or ''
   links: ModuleItemLink[];
@@ -56,6 +57,7 @@ function toPayload(d: ItemDraft) {
     kind: d.kind,
     title: d.title.trim(),
     description: d.description,
+    weight: d.weight.trim() || undefined,
     due_at: d.dueTime ? `${d.dueDate}T${d.dueTime}` : d.dueDate,
     links: d.links.filter((l) => l.url.trim().length > 0).map((l) => ({ label: l.label.trim(), url: l.url.trim() })),
   };
@@ -68,6 +70,7 @@ function draftFrom(item: ModuleItem): ItemDraft {
     kind: item.kind,
     title: item.title,
     description: item.description,
+    weight: item.weight ?? "",
     dueDate: dueDate!,
     dueTime: dueTime === "23:59" ? "" : dueTime ?? "",
     links: item.links.length ? item.links : [],
@@ -75,7 +78,7 @@ function draftFrom(item: ModuleItem): ItemDraft {
 }
 
 function emptyDraft(course: string): ItemDraft {
-  return { course, kind: "assignment", title: "", description: "", dueDate: "", dueTime: "", links: [] };
+  return { course, kind: "assignment", title: "", description: "", weight: "", dueDate: "", dueTime: "", links: [] };
 }
 
 const KIND_LABEL: Record<ModuleItemKind, string> = {
@@ -112,26 +115,41 @@ function dueClass(item: ModuleItem): string {
   return "";
 }
 
+// Centred modal shell over a dimmed backdrop. Esc, backdrop-click and the ×
+// button all close it.
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="mp-modal-backdrop" onClick={onClose}>
+      <div className="mp-modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+        <div className="mp-modal-head">
+          <h3>{title}</h3>
+          <button type="button" className="btn mp-modal-x" aria-label="Close" onClick={onClose}>×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function PlannerRow({
   item,
   moduleName,
   showModuleTag,
-  confirmingDelete,
   onEdit,
   onToggle,
-  onAskDelete,
-  onCancelDelete,
-  onConfirmDelete,
 }: {
   item: ModuleItem;
   moduleName: string;
   showModuleTag: boolean;
-  confirmingDelete: boolean;
   onEdit: () => void;
   onToggle: () => void;
-  onAskDelete: () => void;
-  onCancelDelete: () => void;
-  onConfirmDelete: () => void;
 }) {
   return (
     <li
@@ -152,15 +170,6 @@ function PlannerRow({
         <span className="mp-due">{item.due_at.replace("T", " ")}</span>
         <span className="mp-actions">
           <button type="button" className="btn" onClick={onEdit}>Edit</button>
-          {confirmingDelete ? (
-            <>
-              <span className="mp-confirm">Delete?</span>
-              <button type="button" className="btn btn-danger" onClick={onConfirmDelete}>Yes</button>
-              <button type="button" className="btn" onClick={onCancelDelete}>No</button>
-            </>
-          ) : (
-            <button type="button" className="btn btn-danger" onClick={onAskDelete}>Delete</button>
-          )}
         </span>
       </div>
       {item.description && <p className="mp-desc">{item.description}</p>}
@@ -172,6 +181,43 @@ function PlannerRow({
         </div>
       )}
     </li>
+  );
+}
+
+// The row's Edit action opens this: the item form plus a Delete control,
+// together in one modal. Nothing edit/delete-related shows on the row itself.
+function EditItemModal({
+  item,
+  confirmingDelete,
+  onClose,
+  onSave,
+  onAskDelete,
+  onCancelDelete,
+  onConfirmDelete,
+}: {
+  item: ModuleItem;
+  confirmingDelete: boolean;
+  onClose: () => void;
+  onSave: (d: ItemDraft) => Promise<void>;
+  onAskDelete: () => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: () => void;
+}) {
+  return (
+    <Modal title={`Edit — ${item.title}`} onClose={onClose}>
+      <ItemForm initial={draftFrom(item)} submitLabel="Save changes" onCancel={onClose} onSubmit={onSave} />
+      <div className="mp-modal-danger">
+        {confirmingDelete ? (
+          <>
+            <span className="mp-confirm">Delete this item?</span>
+            <button type="button" className="btn btn-danger" onClick={onConfirmDelete}>Yes, delete</button>
+            <button type="button" className="btn" onClick={onCancelDelete}>Cancel</button>
+          </>
+        ) : (
+          <button type="button" className="btn btn-danger" onClick={onAskDelete}>Delete item</button>
+        )}
+      </div>
+    </Modal>
   );
 }
 
@@ -212,6 +258,10 @@ function ItemForm({
               <option key={k} value={k}>{KIND_LABEL[k]}</option>
             ))}
           </select>
+        </label>
+        <label>
+          Weight (optional)
+          <input type="text" value={draft.weight} onChange={(e) => set("weight", e.target.value)} placeholder="e.g. 20%" />
         </label>
         <label>
           Due date
@@ -352,30 +402,14 @@ export default function ModulePlanner({
       });
   }, [items, sortKey, kindFilter]);
 
+  const closeEdit = () => { setEditingId(null); setConfirmingDelete(null); };
+
   const rowProps = (item: ModuleItem) => ({
-    confirmingDelete: confirmingDelete === item.id,
-    onEdit: () => { setEditingId(item.id); setAddingCourse(null); },
+    onEdit: () => { setEditingId(item.id); setAddingCourse(null); setConfirmingDelete(null); },
     onToggle: () => api.toggle(item.id).then(refresh).catch((e) => setError(errorMessage(e))),
-    onAskDelete: () => setConfirmingDelete(item.id),
-    onCancelDelete: () => setConfirmingDelete(null),
-    onConfirmDelete: () =>
-      api.remove(item.id).then(() => { setConfirmingDelete(null); return refresh(); }).catch((e) => setError(errorMessage(e))),
   });
 
-  const renderEditRow = (item: ModuleItem) => (
-    <li key={item.id} id={`mp-item-${item.id}`}>
-      <ItemForm
-        initial={draftFrom(item)}
-        submitLabel="Save changes"
-        onCancel={() => setEditingId(null)}
-        onSubmit={async (d) => {
-          await api.update(item.id, d);
-          setEditingId(null);
-          await refresh();
-        }}
-      />
-    </li>
-  );
+  const editingItem = editingId == null ? null : items.find((it) => it.id === editingId) ?? null;
 
   return (
     <section className="board mp-board" aria-label="Module planner">
@@ -444,54 +478,68 @@ export default function ModulePlanner({
                   {isCollapsed ? "▸" : "▾"} {courseNameFor(code)} <span className="mp-course-code">{code}</span>
                   <span className="mp-course-count">{list.length}</span>
                 </button>
-                <button type="button" className="btn" onClick={() => { setAddingCourse(code); setEditingId(null); }}>+ Add</button>
+                <button type="button" className="btn" onClick={() => { setAddingCourse(code); closeEdit(); }}>+ Add</button>
               </div>
-
-              {!isCollapsed && addingCourse === code && (
-                <ItemForm
-                  initial={emptyDraft(code)}
-                  submitLabel="Add item"
-                  onCancel={() => setAddingCourse(null)}
-                  onSubmit={async (d) => {
-                    await api.create(d);
-                    setAddingCourse(null);
-                    await refresh();
-                  }}
-                />
-              )}
 
               {!isCollapsed &&
                 (list.length === 0 ? (
                   <p className="board-empty">No items yet — add your first assignment, presentation, or viva.</p>
                 ) : (
                   <ul className="board-rows">
-                    {list.map((item) =>
-                      editingId === item.id ? (
-                        renderEditRow(item)
-                      ) : (
-                        <PlannerRow key={item.id} item={item} moduleName={courseNameFor(code)} showModuleTag={false} {...rowProps(item)} />
-                      ),
-                    )}
+                    {list.map((item) => (
+                      <PlannerRow key={item.id} item={item} moduleName={courseNameFor(code)} showModuleTag={false} {...rowProps(item)} />
+                    ))}
                   </ul>
                 ))}
             </div>
           );
         })}
 
-      {viewMode === "flat" && (
-        flatItems.length === 0 ? (
+      {viewMode === "flat" &&
+        (flatItems.length === 0 ? (
           <p className="board-empty">Nothing matches this filter.</p>
         ) : (
           <ul className="board-rows mp-flat-list">
-            {flatItems.map((item) =>
-              editingId === item.id ? (
-                renderEditRow(item)
-              ) : (
-                <PlannerRow key={item.id} item={item} moduleName={courseNameFor(item.course)} showModuleTag {...rowProps(item)} />
-              ),
-            )}
+            {flatItems.map((item) => (
+              <PlannerRow key={item.id} item={item} moduleName={courseNameFor(item.course)} showModuleTag {...rowProps(item)} />
+            ))}
           </ul>
-        )
+        ))}
+
+      {addingCourse && (
+        <Modal title={`Add to ${courseNameFor(addingCourse)}`} onClose={() => setAddingCourse(null)}>
+          <ItemForm
+            initial={emptyDraft(addingCourse)}
+            submitLabel="Add item"
+            onCancel={() => setAddingCourse(null)}
+            onSubmit={async (d) => {
+              await api.create(d);
+              setAddingCourse(null);
+              await refresh();
+            }}
+          />
+        </Modal>
+      )}
+
+      {editingItem && (
+        <EditItemModal
+          item={editingItem}
+          confirmingDelete={confirmingDelete === editingItem.id}
+          onClose={closeEdit}
+          onSave={async (d) => {
+            await api.update(editingItem.id, d);
+            closeEdit();
+            await refresh();
+          }}
+          onAskDelete={() => setConfirmingDelete(editingItem.id)}
+          onCancelDelete={() => setConfirmingDelete(null)}
+          onConfirmDelete={() =>
+            api
+              .remove(editingItem.id)
+              .then(() => { closeEdit(); return refresh(); })
+              .catch((e) => setError(errorMessage(e)))
+          }
+        />
       )}
     </section>
   );

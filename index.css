@@ -1728,3 +1728,38 @@ a.btn {
 .mp-link-row { display: flex; gap: 0.35rem; flex-wrap: wrap; }
 .mp-flash { animation: mp-flash 1.6s ease-out; }
 @keyframes mp-flash { from { background: rgba(184, 134, 11, 0.25); } to { background: transparent; } }
+
+/* add / edit modal */
+.mp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 6vh 1rem 1rem;
+  z-index: 1000;
+}
+.mp-modal {
+  background: var(--panel, #fff);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  width: 100%;
+  max-width: 560px;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 1rem 1.25rem 1.25rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+.mp-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.mp-modal-head h3 { margin: 0; font-size: 1rem; }
+.mp-modal-x { padding: 0.1rem 0.5rem; font-size: 1.1rem; line-height: 1; }
+.mp-modal-danger {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
