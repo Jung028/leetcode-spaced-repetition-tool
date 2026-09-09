@@ -113,7 +113,30 @@ For more information, read the Bun API docs in `node_modules/bun-types/docs/**.m
 
 ## Exam content question format
 
-Use the type mix and ratio from `docs/exam-content-authoring-guide.md` (mcq/truefalse/short/scenario) — questions are no longer restricted to `mcq` only. Every question must still include a written `modelAnswer`: for mcq/truefalse, why the correct option is correct; for short/scenario, the revealed answer itself. Always traceable to the source material, never invented.
+### Generation phase — Phase 1 (current): recognition only
+
+While the user is still learning the material, **only generate question types
+that do NOT require typing a free-text answer**:
+
+- `mcq` (single correct option)
+- multiple-answer / select-all-that-apply
+- `truefalse`
+- the explanatory `modelAnswer` / notes on every question (always required)
+
+**Do NOT author `short` or `scenario` questions** (or any "enter your answer"
+type) in Phase 1. Recognition-style questions are faster to author, so aim for
+**more** questions and broader coverage. Every question still carries the
+teach-me `modelAnswer` written in the "explain it to a teenager" style below.
+
+**Phase 2 — typed answers — is NOT active yet.** The user will explicitly move
+to Phase 2 when they regenerate questions after roughly **Week 12–13**. Only
+then do `short` / `scenario` / answer-entry questions get authored, alongside
+mcq. Until the user says "we're on Phase 2", treat typed-answer types as
+out of scope.
+
+### Type mix (applies within the active phase)
+
+Use the type mix and ratio from `docs/exam-content-authoring-guide.md`, filtered to the phase's allowed types. Every question must still include a written `modelAnswer`: for mcq/truefalse, why the correct option is correct; for short/scenario (Phase 2 only), the revealed answer itself. Always traceable to the source material, never invented.
 
 ### `modelAnswer` and `prompt` style — explain it to a teenager
 
