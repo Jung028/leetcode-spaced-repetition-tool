@@ -2,151 +2,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { DueItem, DueSource, HomeStats } from "./home-api";
 import AnnouncementsBoard from "./AnnouncementsBoard";
-import { SEMESTER_DEADLINES, deadlineId, courseNameFor, noteFor } from "./semester-deadlines";
-import type { DeadlineView } from "./deadline-api";
-import { TIMELINE_URL } from "./shared/timeline-link";
 import { ED_DIGEST_URL } from "./ed-digest-link";
-import { localToday } from "./shared/scheduling";
 
 const EMPTY_STATS: HomeStats = { dueToday: 0, overdue: 0, completedToday: 0 };
-
-const DEADLINE_COURSE_COLOR: Record<string, string> = {
-  INFO5995: "var(--cat-info5995)",
-  COMP5348: "var(--cat-comp5348)",
-  INFO6007: "var(--cat-info6007)",
-  INFO5990: "var(--cat-info5990)",
-};
-
-function daysUntil(dueDate: string, today: string): number {
-  return Math.round((Date.parse(dueDate) - Date.parse(today)) / 86_400_000);
-}
-
-// Offline/error fallback: the static list computed exactly the way the
-// server would with no completions on record — soonest-first, anything
-// more than 3 days past due dropped.
-function fallbackDeadlineViews(today: string): DeadlineView[] {
-  return SEMESTER_DEADLINES.map((d) => ({
-    id: deadlineId(d),
-    course: d.course,
-    courseName: courseNameFor(d.course),
-    title: d.title,
-    note: noteFor(d),
-    weight: d.weight,
-    dueDate: d.dueDate,
-    days: daysUntil(d.dueDate, today),
-    completedAt: null,
-  }))
-    .filter((d) => d.days >= -3)
-    .sort((a, b) => a.days - b.days);
-}
-
-// Real assignment/project due dates, separate from the spaced-repetition
-// exam board. Completion state lives server-side (/api/deadlines): a
-// finished row greys out and strikes through, lingers ~3 days, then drops
-// off on the same clock as a past-due row.
-function DeadlinesPanel() {
-  const today = localToday();
-  const [rows, setRows] = useState<DeadlineView[] | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/deadlines")
-      .then((r) => (r.ok ? (r.json() as Promise<DeadlineView[]>) : Promise.reject()))
-      .then(setRows)
-      .catch(() => setRows(fallbackDeadlineViews(today)));
-  }, [today]);
-
-  const list = rows ?? [];
-  const activeCount = list.filter((d) => d.completedAt === null).length;
-
-  const toggle = (d: DeadlineView) => {
-    const nextCompleted = d.completedAt === null;
-    setBusy(d.id);
-    // Optimistic: reflect the flip immediately, reconcile with the server's
-    // filtered/sorted list on response.
-    setRows((cur) =>
-      (cur ?? []).map((r) => (r.id === d.id ? { ...r, completedAt: nextCompleted ? today : null } : r)),
-    );
-    fetch("/api/deadlines", {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id: d.id, completed: nextCompleted }),
-    })
-      .then((r) => (r.ok ? (r.json() as Promise<DeadlineView[]>) : Promise.reject()))
-      .then(setRows)
-      .catch(() =>
-        // Revert on failure.
-        setRows((cur) =>
-          (cur ?? []).map((r) => (r.id === d.id ? { ...r, completedAt: d.completedAt } : r)),
-        ),
-      )
-      .finally(() => setBusy(null));
-  };
-
-  return (
-    <details className="board deadlines-panel" open aria-label="Semester deadlines">
-      <summary className="section-head deadlines-summary">
-        <span className="deadlines-chevron" aria-hidden="true">›</span>
-        <h2>Semester deadlines</h2>
-        <span className="board-count">{activeCount}</span>
-        <a
-          className="section-head-link"
-          href={TIMELINE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-        >
-          Full timeline ↗
-        </a>
-      </summary>
-      {list.length === 0 ? (
-        <p className="board-empty">No graded deadlines with a confirmed date left this semester.</p>
-      ) : (
-        <ul className="board-rows">
-          {list.map((d, i) => {
-            const done = d.completedAt !== null;
-            const color = done ? "dim" : d.days < 0 ? "red" : d.days <= 3 ? "gold" : "green";
-            const label = done
-              ? "done"
-              : d.days < 0
-                ? `${-d.days}d ago`
-                : d.days === 0
-                  ? "today"
-                  : `in ${d.days}d`;
-            return (
-              <li key={d.id} style={{ animationDelay: `${i * 60}ms` }}>
-                <label
-                  className={done ? "board-row board-row-main step-row deadline-done" : "board-row board-row-main step-row"}
-                  style={{ "--urgency": `var(--${color})` } as React.CSSProperties}
-                >
-                  <input
-                    type="checkbox"
-                    checked={done}
-                    disabled={busy === d.id}
-                    onChange={() => toggle(d)}
-                    aria-label={done ? `Mark ${d.title} not done` : `Mark ${d.title} done`}
-                  />
-                  <span className="tag">{label}</span>
-                  <span className="cat-tag" style={{ "--cat-color": DEADLINE_COURSE_COLOR[d.course] } as React.CSSProperties}>
-                    {d.course}
-                  </span>
-                  <span className="deadline-main">
-                    <span className="board-title deadline-title">{d.title}</span>
-                    <span className="deadline-sub">
-                      {d.courseName}
-                      {d.note ? ` · ${d.note}` : ""}
-                    </span>
-                  </span>
-                  <span className="goal-deadline">{d.weight} · {d.dueDate}</span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </details>
-  );
-}
 
 // Twice-weekly nudge to keep the exam-content pipeline fed: Wednesday and
 // Friday are when new lecture material typically lands, so those mornings
@@ -368,7 +226,7 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
           onClose={() => setOpenModal(null)}
         />
       )}
-      <DeadlinesPanel />
+      {/* Module planner mounts here — Task 8 */}
       <section className="board" aria-label="Everything due">
         <div className="section-head">
           <h2>Everything due</h2>
