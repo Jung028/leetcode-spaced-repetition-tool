@@ -5,9 +5,7 @@ import {
   type ModuleItemKind,
   type ModuleItemLink,
 } from "./module-items-db";
-import { COURSE_NAMES, courseNameFor } from "./semester-deadlines";
-
-const COURSE_CODES = Object.keys(COURSE_NAMES);
+import type { Module } from "./modules-db";
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -49,6 +47,29 @@ const api = {
     fetch(`/api/module-items/${id}/toggle`, { method: "POST" }).then((r) => json<ModuleItem>(r)),
   remove: (id: number) =>
     fetch(`/api/module-items/${id}`, { method: "DELETE" }).then((r) => json<{ ok: true }>(r)),
+  modules: () => fetch("/api/modules").then((r) => json<Module[]>(r)),
+  createModule: (code: string, name: string) =>
+    fetch("/api/modules", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code, name }),
+    }).then((r) => json<Module>(r)),
+  renameModule: (code: string, name: string) =>
+    fetch(`/api/modules/${code}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name }),
+    }).then((r) => json<Module>(r)),
+  setModuleHidden: (code: string, hidden: boolean) =>
+    fetch(`/api/modules/${code}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ hidden }),
+    }).then((r) => json<Module>(r)),
+  deleteModule: (code: string, cascade: boolean) =>
+    fetch(`/api/modules/${code}${cascade ? "?cascade=1" : ""}`, { method: "DELETE" }).then((r) =>
+      json<{ ok: true }>(r),
+    ),
 };
 
 function toPayload(d: ItemDraft) {
@@ -318,10 +339,15 @@ export default function ModulePlanner({
   onOpened?: () => void;
 }) {
   const [items, setItems] = useState<ModuleItem[]>([]);
+  const [modules, setModules] = useState<Module[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [addingCourse, setAddingCourse] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<number | null>(null);
+  const [addingModule, setAddingModule] = useState(false);
+  const [renamingModule, setRenamingModule] = useState<string | null>(null);
+  const [confirmDeleteModule, setConfirmDeleteModule] = useState<string | null>(null);
+  const [showHiddenModules, setShowHiddenModules] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
     try {
       return JSON.parse(localStorage.getItem("modulePlanner.collapsed") ?? "{}");
@@ -345,7 +371,12 @@ export default function ModulePlanner({
 
   const refresh = () => {
     setError(null);
-    return api.list().then(setItems).catch((err) => setError(errorMessage(err)));
+    return Promise.all([api.list(), api.modules()])
+      .then(([list, mods]) => {
+        setItems(list);
+        setModules(mods);
+      })
+      .catch((err) => setError(errorMessage(err)));
   };
   useEffect(() => {
     refresh();
@@ -375,15 +406,22 @@ export default function ModulePlanner({
     });
   };
 
+  const visibleModules = useMemo(
+    () => modules.filter((m) => !m.hidden).sort((a, b) => a.sort_order - b.sort_order),
+    [modules],
+  );
+  const hiddenModules = useMemo(() => modules.filter((m) => m.hidden), [modules]);
+  const nameOf = (code: string) => modules.find((m) => m.code === code)?.name ?? code;
+
   const byCourse = useMemo(() => {
     const map: Record<string, ModuleItem[]> = {};
-    for (const code of COURSE_CODES) map[code] = [];
+    for (const m of visibleModules) map[m.code] = [];
     for (const item of items) (map[item.course] ??= []).push(item);
     return map;
-  }, [items]);
+  }, [items, visibleModules]);
 
   const orderOf = (code: string) => {
-    const i = COURSE_CODES.indexOf(code);
+    const i = visibleModules.findIndex((m) => m.code === code);
     return i === -1 ? 999 : i;
   };
 
@@ -400,7 +438,7 @@ export default function ModulePlanner({
           case "kind": return a.kind.localeCompare(b.kind) || byDue(a, b);
         }
       });
-  }, [items, sortKey, kindFilter]);
+  }, [items, sortKey, kindFilter, visibleModules]);
 
   const closeEdit = () => { setEditingId(null); setConfirmingDelete(null); };
 
@@ -467,16 +505,55 @@ export default function ModulePlanner({
         </div>
       )}
 
+      {viewMode === "grouped" && (
+        <div className="btn-row mp-module-tools">
+          <button type="button" className="btn" onClick={() => setAddingModule(true)}>+ New module</button>
+          {hiddenModules.length > 0 && (
+            <button type="button" className="btn" onClick={() => setShowHiddenModules((v) => !v)}>
+              {showHiddenModules ? "Hide" : "Show"} hidden modules ({hiddenModules.length})
+            </button>
+          )}
+        </div>
+      )}
+
       {viewMode === "grouped" &&
-        COURSE_CODES.map((code) => {
+        visibleModules.map((m) => {
+          const code = m.code;
           const list = byCourse[code] ?? [];
           const isCollapsed = collapsed[code];
           return (
             <div className="mp-course" key={code}>
               <div className="mp-course-head">
                 <button type="button" className="mp-course-toggle" onClick={() => toggleCollapse(code)}>
-                  {isCollapsed ? "▸" : "▾"} {courseNameFor(code)} <span className="mp-course-code">{code}</span>
+                  {isCollapsed ? "▸" : "▾"} {nameOf(code)} <span className="mp-course-code">{code}</span>
                   <span className="mp-course-count">{list.length}</span>
+                </button>
+                {renamingModule === code ? (
+                  <input
+                    className="mp-module-rename"
+                    defaultValue={nameOf(code)}
+                    autoFocus
+                    onBlur={(e) => {
+                      const v = e.target.value.trim();
+                      setRenamingModule(null);
+                      if (v && v !== nameOf(code))
+                        api.renameModule(code, v).then(refresh).catch((err) => setError(errorMessage(err)));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      if (e.key === "Escape") setRenamingModule(null);
+                    }}
+                  />
+                ) : (
+                  <button type="button" className="btn" title="Rename module" onClick={() => setRenamingModule(code)}>✎</button>
+                )}
+                <button
+                  type="button"
+                  className="btn"
+                  title="Hide module"
+                  onClick={() => api.setModuleHidden(code, true).then(refresh).catch((err) => setError(errorMessage(err)))}
+                >
+                  Hide
                 </button>
                 <button type="button" className="btn" onClick={() => { setAddingCourse(code); closeEdit(); }}>+ Add</button>
               </div>
@@ -487,7 +564,7 @@ export default function ModulePlanner({
                 ) : (
                   <ul className="board-rows">
                     {list.map((item) => (
-                      <PlannerRow key={item.id} item={item} moduleName={courseNameFor(code)} showModuleTag={false} {...rowProps(item)} />
+                      <PlannerRow key={item.id} item={item} moduleName={nameOf(code)} showModuleTag={false} {...rowProps(item)} />
                     ))}
                   </ul>
                 ))}
@@ -495,19 +572,82 @@ export default function ModulePlanner({
           );
         })}
 
+      {viewMode === "grouped" && showHiddenModules &&
+        hiddenModules.map((m) => (
+          <div className="mp-course mp-course-hidden" key={m.code}>
+            <div className="mp-course-head">
+              <span>{m.name} <span className="mp-course-code">{m.code}</span></span>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => api.setModuleHidden(m.code, false).then(refresh).catch((err) => setError(errorMessage(err)))}
+              >
+                Unhide
+              </button>
+              {confirmDeleteModule === m.code ? (
+                <>
+                  <span className="mp-confirm">Delete module &amp; its items?</span>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={() =>
+                      api
+                        .deleteModule(m.code, true)
+                        .then(() => { setConfirmDeleteModule(null); return refresh(); })
+                        .catch((err) => setError(errorMessage(err)))
+                    }
+                  >
+                    Yes
+                  </button>
+                  <button type="button" className="btn" onClick={() => setConfirmDeleteModule(null)}>No</button>
+                </>
+              ) : (
+                <button type="button" className="btn btn-danger" onClick={() => setConfirmDeleteModule(m.code)}>Delete</button>
+              )}
+            </div>
+          </div>
+        ))}
+
       {viewMode === "flat" &&
         (flatItems.length === 0 ? (
           <p className="board-empty">Nothing matches this filter.</p>
         ) : (
           <ul className="board-rows mp-flat-list">
             {flatItems.map((item) => (
-              <PlannerRow key={item.id} item={item} moduleName={courseNameFor(item.course)} showModuleTag {...rowProps(item)} />
+              <PlannerRow key={item.id} item={item} moduleName={nameOf(item.course)} showModuleTag {...rowProps(item)} />
             ))}
           </ul>
         ))}
 
+      {addingModule && (
+        <Modal title="New module" onClose={() => setAddingModule(false)}>
+          <form
+            className="form mp-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = e.currentTarget;
+              const code = (f.elements.namedItem("code") as HTMLInputElement).value.trim();
+              const name = (f.elements.namedItem("name") as HTMLInputElement).value.trim();
+              api
+                .createModule(code, name)
+                .then(() => { setAddingModule(false); return refresh(); })
+                .catch((err) => setError(errorMessage(err)));
+            }}
+          >
+            <div className="mp-form-row">
+              <label>Code<input name="code" placeholder="e.g. INFO5993" autoFocus /></label>
+              <label>Name<input name="name" placeholder="Full module name" /></label>
+            </div>
+            <div className="btn-row">
+              <button type="submit" className="btn btn-primary">Add module</button>
+              <button type="button" className="btn" onClick={() => setAddingModule(false)}>Cancel</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {addingCourse && (
-        <Modal title={`Add to ${courseNameFor(addingCourse)}`} onClose={() => setAddingCourse(null)}>
+        <Modal title={`Add to ${nameOf(addingCourse)}`} onClose={() => setAddingCourse(null)}>
           <ItemForm
             initial={emptyDraft(addingCourse)}
             submitLabel="Add item"

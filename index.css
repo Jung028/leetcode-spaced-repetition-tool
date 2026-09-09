@@ -1683,10 +1683,11 @@ a.btn {
 /* ---- Module planner ---- */
 .mp-board .rule-note { margin-top: 0; }
 .mp-course { border-top: 1px solid var(--line); padding: 0.5rem 0; }
-.mp-course-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.mp-course-head { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
 .mp-course-toggle {
   background: none; border: 0; color: var(--text); font: inherit; font-weight: 600;
   cursor: pointer; display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0;
+  margin-right: auto;
 }
 .mp-course-code { color: var(--dim); font-weight: 400; font-size: 0.85em; }
 .mp-course-count { color: var(--dim); font-weight: 400; }
@@ -1728,6 +1729,11 @@ a.btn {
 .mp-link-row { display: flex; gap: 0.35rem; flex-wrap: wrap; }
 .mp-flash { animation: mp-flash 1.6s ease-out; }
 @keyframes mp-flash { from { background: rgba(184, 134, 11, 0.25); } to { background: transparent; } }
+
+/* module management */
+.mp-module-tools { margin: 0.5rem 0 1rem; }
+.mp-module-rename { font: inherit; padding: 2px 6px; }
+.mp-course-hidden { opacity: 0.7; }
 
 /* add / edit modal */
 .mp-modal-backdrop {
