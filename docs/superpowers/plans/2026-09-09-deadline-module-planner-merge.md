@@ -1723,6 +1723,13 @@ git commit -m "$(printf 'feat: grouped/flat planner views with sort + 3-day agin
 
 ## Task 8: Move the planner to Home; strip it from the exam board; fix the deep link
 
+> **Executed differently (user request, ledger 2026-09-09):** the planner was
+> put on a **dedicated top-level "Deadlines" tab** in `frontend.tsx` (between
+> Home and LeetCode), not on Home. `<ModulePlanner>` renders directly on that
+> tab; `HomeApp` was not touched. The deep link is
+> `{ tab: "deadlines", moduleItemId }`. The `exam/App.tsx` removals below were
+> done as written. Shipped in commits d50b18d (tab) and later fixes.
+
 **Files:**
 - Modify: `HomeApp.tsx` (mount `<ModulePlanner>`, add `openItemId` prop)
 - Modify: `frontend.tsx:631,709-744` (deep-link variant + prop routing)
@@ -2045,7 +2052,7 @@ If nothing needed changing, skip this step.
 | §4.4 retire deadline store, keep `deadline_completions` table, keep `semester-deadlines.ts` | Task 5 |
 | §5.1 module-items API weight + module validation | Task 4 |
 | §5.2 `/api/modules` CRUD + cascade | Task 3 |
-| §6.1 planner to Home, **directly below `<AnnouncementsBoard />`**, off the exam board, deep link (`tab:"home"`) | Task 8 |
+| §6.1 planner off the exam board, deep link to it — **executed as a dedicated top-level "Deadlines" tab (between Home and LeetCode), deep link `tab:"deadlines"`, HomeApp untouched** (user request, ledger) rather than mounted on Home | Task 8 (variant) |
 | §6.2 two views + tab-style toggle + sort + kind filter + module CRUD + weight field + due-proximity colour coding | Tasks 6 (CRUD, weight) + 7 (tab toggle, sort, kind filter, due-colour) |
 | §6.3 announcement → deadline inline prefilled form | Task 9 |
 | §6.4 CSS (`.mp-view-toggle` tablist, `.mp-tab`, `.mp-flat-controls` sort + kind `<select>`, `.mp-row.mp-due-week/-3d/-1d`, `.mp-mod`, module-head, retire `.deadline*`) | Tasks 6, 7, 8 |

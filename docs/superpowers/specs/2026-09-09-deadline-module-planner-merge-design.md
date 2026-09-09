@@ -163,6 +163,14 @@ order matters), and `...moduleApiRoutes(db)` in the routes object.
 
 ### 6.1 Placement
 
+> **Amended during execution (user request):** the planner did **not** go on
+> the Home tab. It lives on its own top-level **"Deadlines"** tab in
+> `frontend.tsx` (between "Home" and "LeetCode"), rendered by `<ModulePlanner>`
+> directly. The deep link is `{ tab: "deadlines", moduleItemId }`, not
+> `{ tab: "home", ... }`. `HomeApp` never gained an `openItemId` prop. The
+> `exam/App.tsx` changes below still applied. The rest of this section and
+> Task 8 in the plan describe the original Home-page approach.
+
 - **`frontend.tsx`**: render the planner on the Home tab. Simplest: add
   `<ModulePlanner .../>` to `HomeApp` (see §6.2) and pass through an
   `openItemId` deep-link prop.
