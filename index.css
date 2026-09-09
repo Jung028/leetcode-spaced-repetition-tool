@@ -213,6 +213,38 @@ button {
   grid-template-columns: repeat(3, 1fr);
 }
 
+.home-toc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: var(--space-5);
+}
+
+.home-toc-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+  margin-right: 0.2rem;
+}
+
+.home-toc-link {
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 3px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.home-toc-link:hover {
+  border-color: var(--accent, #e8a44c);
+  color: var(--accent, #e8a44c);
+}
+
 .stat {
   background: var(--panel);
   padding: 0.9rem 1.1rem;
@@ -383,30 +415,6 @@ button.stat:hover {
 
 .section-head-link:hover {
   text-decoration: underline;
-}
-
-/* Semester deadlines panel, collapsible via <details>/<summary> */
-.deadlines-summary {
-  cursor: pointer;
-  list-style: none;
-}
-
-.deadlines-summary::-webkit-details-marker {
-  display: none;
-}
-
-.deadlines-summary::marker {
-  content: "";
-}
-
-.deadlines-chevron {
-  display: inline-block;
-  color: var(--dim);
-  transition: transform 0.15s ease;
-}
-
-.deadlines-panel[open] .deadlines-chevron {
-  transform: rotate(90deg);
 }
 
 /* Twice-weekly content-pipeline nudge on the Home tab */
@@ -1391,7 +1399,6 @@ a.btn {
   .form textarea,
   .theory-answer,
   .step-row input[type="checkbox"],
-  .deadlines-chevron,
   .theme-toggle {
     transition: none !important;
   }
@@ -1450,37 +1457,6 @@ a.btn {
 
 .announcement-done .announcement-message {
   text-decoration: line-through;
-}
-
-/* A finished semester deadline — greyed and struck through while it lingers
-   its ~3-day grace period before the panel drops it. */
-.deadline-done {
-  opacity: 0.55;
-}
-
-.deadline-done .deadline-title {
-  text-decoration: line-through;
-}
-
-/* Two-line middle cell: assignment title, then a wrapping dim line with the
-   full unit name and a short "what is this" description. */
-.deadlines-panel .board-row-main {
-  align-items: flex-start;
-}
-
-.deadline-main {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.deadline-sub {
-  font-size: var(--text-xs);
-  line-height: 1.35;
-  color: var(--dim);
-  white-space: normal;
 }
 
 /* Exam tab */
@@ -1651,10 +1627,11 @@ a.btn {
 /* ---- Module planner ---- */
 .mp-board .rule-note { margin-top: 0; }
 .mp-course { border-top: 1px solid var(--line); padding: 0.5rem 0; }
-.mp-course-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.mp-course-head { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
 .mp-course-toggle {
   background: none; border: 0; color: var(--text); font: inherit; font-weight: 600;
   cursor: pointer; display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0;
+  margin-right: auto;
 }
 .mp-course-code { color: var(--dim); font-weight: 400; font-size: 0.85em; }
 .mp-course-count { color: var(--dim); font-weight: 400; }
@@ -1664,16 +1641,30 @@ a.btn {
 .mp-row-main { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .mp-title { font-weight: 600; flex: 1 1 12rem; }
 .mp-due { color: var(--dim); font-variant-numeric: tabular-nums; }
+.mp-done-date { color: var(--dim); font-size: 0.85em; font-variant-numeric: tabular-nums; }
 .mp-kind { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.1rem 0.4rem; border-radius: 0.35rem; border: 1px solid var(--line); }
 .mp-kind-viva { border-color: #c0392b; color: #c0392b; }
 .mp-kind-presentation { border-color: #b8860b; color: #b8860b; }
 .mp-kind-assignment { border-color: #2e6da4; color: #2e6da4; }
+.mp-kind-quiz { border-color: #2f855a; color: #2f855a; }
+.mp-kind-exam { border-color: #9c4221; color: #9c4221; }
 .mp-kind-other { color: var(--dim); }
-.mp-sync { font-size: 0.75em; }
-.mp-sync-ok { color: var(--dim); }
-.mp-sync-pending { color: #b8860b; }
-.mp-sync-error { color: #c0392b; cursor: help; }
 .mp-actions { display: flex; align-items: center; gap: 0.35rem; }
+
+/* view toggle + flat-view controls */
+.mp-view-toggle { display: inline-flex; gap: 2px; background: var(--panel-2, rgba(127,127,127,0.12)); border-radius: 7px; padding: 2px; margin: 0.25rem 0 0.75rem; }
+.mp-tab { font: inherit; font-size: 0.82rem; padding: 3px 14px; border: 0; border-radius: 5px; background: transparent; color: var(--dim); cursor: pointer; }
+.mp-tab-active { background: var(--panel, rgba(127,127,127,0.22)); color: var(--text); }
+.mp-flat-controls { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.mp-flat-controls label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.78rem; color: var(--dim); }
+.mp-select { font: inherit; padding: 3px 6px; }
+.mp-mod { font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.1rem 0.4rem; border-radius: 0.35rem; background: rgba(192, 132, 252, 0.18); color: #c084fc; }
+.mp-weight { font-size: 0.8em; color: var(--dim); }
+
+/* due-proximity colour coding on pending rows */
+.mp-row.mp-due-week { background: rgba(245, 158, 11, 0.13); }  /* orange — within a week */
+.mp-row.mp-due-3d   { background: rgba(220, 38, 38, 0.16); }   /* dark red — within 3 days */
+.mp-row.mp-due-dday { background: rgba(248, 113, 113, 0.12); box-shadow: inset 3px 0 0 #ef4444; }  /* bright red — final day / overdue */
 .mp-confirm { color: #c0392b; font-size: 0.85em; }
 .mp-desc { margin: 0.35rem 0 0 1.6rem; color: var(--dim); white-space: pre-wrap; }
 .mp-link-chips { margin: 0.35rem 0 0 1.6rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
@@ -1685,3 +1676,62 @@ a.btn {
 .mp-link-row { display: flex; gap: 0.35rem; flex-wrap: wrap; }
 .mp-flash { animation: mp-flash 1.6s ease-out; }
 @keyframes mp-flash { from { background: rgba(184, 134, 11, 0.25); } to { background: transparent; } }
+
+/* completed-items history section */
+.mp-completed { margin-top: 1.25rem; border-top: 1px solid var(--line); padding-top: 0.5rem; }
+.mp-completed > summary {
+  cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--dim);
+  list-style: none; padding: 0.25rem 0;
+}
+.mp-completed > summary::-webkit-details-marker { display: none; }
+.mp-completed > summary::before { content: "▸ "; }
+.mp-completed[open] > summary::before { content: "▾ "; }
+.mp-completed-count {
+  display: inline-block; margin-left: 0.4rem; padding: 0 0.4rem;
+  border-radius: 999px; background: var(--panel-2, rgba(127,127,127,0.15)); color: var(--dim);
+  font-size: 0.8em;
+}
+
+/* announcement → deadline quick form */
+.announcement-deadline-form { margin: 0.5rem 0 0.25rem; }
+.announcement-added { color: var(--ok, #3fb950); font-size: 0.85rem; margin: 0.25rem 0 0; }
+
+/* module management */
+.mp-module-tools { margin: 0.5rem 0 1rem; }
+.mp-module-rename { font: inherit; padding: 2px 6px; }
+.mp-course-hidden { opacity: 0.7; }
+
+/* add / edit modal */
+.mp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 6vh 1rem 1rem;
+  z-index: 1000;
+}
+.mp-modal {
+  background: var(--panel, #fff);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  width: 100%;
+  max-width: 560px;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 1rem 1.25rem 1.25rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+.mp-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.mp-modal-head h3 { margin: 0; font-size: 1rem; }
+.mp-modal-x { padding: 0.1rem 0.5rem; font-size: 1.1rem; line-height: 1; }
+.mp-modal-danger {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

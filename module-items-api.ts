@@ -12,15 +12,10 @@ import {
   type ModuleItemKind,
   type ModuleItemLink,
 } from "./module-items-db";
-import { deleteCalendarEvent, reconcile, syncModuleItem, type SyncDeps } from "./gcal/sync";
-import { COURSE_NAMES } from "./semester-deadlines";
+import { moduleExists, normalizeModuleCode } from "./modules-db";
 import { localToday } from "./shared/scheduling";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
-
-export interface ModuleItemsApiDeps {
-  sync?: SyncDeps;
-}
 
 type ParseResult = { input: ModuleItemInput } | { error: string };
 
@@ -45,12 +40,12 @@ function parseLinks(raw: unknown): ModuleItemLink[] | { error: string } {
   return out;
 }
 
-function parseInput(body: unknown): ParseResult {
+function parseInput(db: Database, body: unknown): ParseResult {
   if (typeof body !== "object" || body === null) return { error: "invalid body" };
   const b = body as Record<string, unknown>;
 
-  const course = typeof b.course === "string" ? b.course : "";
-  if (!(course in COURSE_NAMES)) return { error: "unknown course" };
+  const course = typeof b.course === "string" ? normalizeModuleCode(b.course) : "";
+  if (!course || !moduleExists(db, course)) return { error: "unknown module" };
 
   const kind = typeof b.kind === "string" ? b.kind : "";
   if (!MODULE_ITEM_KINDS.includes(kind as ModuleItemKind)) {
@@ -69,41 +64,40 @@ function parseInput(body: unknown): ParseResult {
   }
 
   const description = typeof b.description === "string" ? b.description : "";
+  if (description.length > 4000) return { error: "description too long" };
+
+  const weightRaw = typeof b.weight === "string" ? b.weight.trim() : "";
+  if (weightRaw.length > 12) return { error: "weight too long" };
+  const weight = weightRaw || undefined;
 
   const links = parseLinks(b.links);
   if ("error" in links) return { error: links.error };
 
-  return { input: { course, kind: kind as ModuleItemKind, title, description, due_at, links } };
+  return { input: { course, kind: kind as ModuleItemKind, title, description, due_at, links, weight } };
 }
 
-export function moduleItemsApiRoutes(db: Database, deps: ModuleItemsApiDeps = {}) {
-  const sync = deps.sync;
+export function moduleItemsApiRoutes(db: Database) {
   return {
     "/api/module-items": {
       GET: () => json(listModuleItems(db)),
       POST: async (req: Request) => {
-        const parsed = parseInput(await req.json().catch(() => null));
+        const parsed = parseInput(db, await req.json().catch(() => null));
         if ("error" in parsed) return json({ error: parsed.error }, 400);
         const created = createModuleItem(db, parsed.input, localToday());
-        const synced = await syncModuleItem(db, created, sync);
-        return json(synced ?? created, 201);
+        return json(created, 201);
       },
     },
     "/api/module-items/:id": {
       PUT: async (req: Request & { params: { id: string } }) => {
-        const parsed = parseInput(await req.json().catch(() => null));
+        const parsed = parseInput(db, await req.json().catch(() => null));
         if ("error" in parsed) return json({ error: parsed.error }, 400);
         const updated = updateModuleItem(db, Number(req.params.id), parsed.input, localToday());
         if (!updated) return json({ error: "not found" }, 404);
-        const synced = await syncModuleItem(db, updated, sync);
-        return json(synced ?? updated);
+        return json(updated);
       },
       DELETE: async (req: { params: { id: string } }) => {
         const deleted = deleteModuleItem(db, Number(req.params.id));
         if (!deleted) return json({ error: "not found" }, 404);
-        if (deleted.gcal_event_id) {
-          await deleteCalendarEvent(deleted.gcal_event_id, sync).catch(() => {});
-        }
         return json({ ok: true });
       },
     },
@@ -111,12 +105,8 @@ export function moduleItemsApiRoutes(db: Database, deps: ModuleItemsApiDeps = {}
       POST: async (req: { params: { id: string } }) => {
         const toggled = toggleModuleItem(db, Number(req.params.id), localToday());
         if (!toggled) return json({ error: "not found" }, 404);
-        const synced = await syncModuleItem(db, toggled, sync);
-        return json(synced ?? toggled);
+        return json(toggled);
       },
-    },
-    "/api/module-items/sync": {
-      POST: async () => json(await reconcile(db, sync)),
     },
   };
 }

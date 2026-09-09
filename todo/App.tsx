@@ -266,6 +266,65 @@ function TodoBoard({
   );
 }
 
+function CompletedBoard({
+  completed,
+  onToggle,
+  onDelete,
+}: {
+  completed: Todo[];
+  onToggle: (id: number) => void;
+  onDelete: (id: number) => void;
+}) {
+  return (
+    <section className="board" aria-label="Todo completed today">
+      <div className="section-head">
+        <h2>Completed today</h2>
+        <span className="board-count">{completed.length}</span>
+      </div>
+      {completed.length === 0 ? (
+        <p className="board-empty">Nothing completed yet today.</p>
+      ) : (
+        <ul className="board-rows">
+          {completed.map((t, i) => (
+            <li key={t.id} style={{ animationDelay: `${i * 60}ms` }}>
+              <label className="board-row board-row-main step-row step-row-done">
+                <input type="checkbox" checked readOnly onChange={() => onToggle(t.id)} />
+                <span className="tag">done {t.done_at}</span>
+                <span className="board-title board-title-done">{t.task}</span>
+                {t.notes &&
+                  (isValidUrl(t.notes) ? (
+                    <a
+                      className="board-row-review"
+                      href={t.notes}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      title="Open link"
+                    >
+                      ↗
+                    </a>
+                  ) : (
+                    <span className="goal-deadline">{t.notes}</span>
+                  ))}
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onDelete(t.id);
+                  }}
+                >
+                  Delete
+                </button>
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export default function TodoApp({
   openTodoId,
   onOpened,
@@ -275,15 +334,19 @@ export default function TodoApp({
 } = {}) {
   const today = localToday();
   const [due, setDue] = useState<Todo[]>([]);
+  const [completed, setCompleted] = useState<Todo[]>([]);
   const [stats, setStats] = useState<Stats>({ dueCount: 0, overdueCount: 0, completedToday: 0 });
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = () => {
     setError(null);
-    return api
-      .due()
-      .then(({ due, stats }) => { setDue(due); setStats(stats); })
+    return Promise.all([api.due(), api.completedToday()])
+      .then(([{ due, stats }, completedToday]) => {
+        setDue(due);
+        setStats(stats);
+        setCompleted(completedToday);
+      })
       .catch((err) => setError(errorMessage(err)));
   };
   useEffect(() => { refresh(); }, []);
@@ -325,6 +388,7 @@ export default function TodoApp({
       )}
 
       <TodoBoard due={due} today={today} onToggle={toggle} onDelete={remove} />
+      <CompletedBoard completed={completed} onToggle={toggle} onDelete={remove} />
     </div>
   );
 }

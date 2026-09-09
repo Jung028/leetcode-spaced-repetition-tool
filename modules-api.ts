@@ -1,0 +1,70 @@
+import type { Database } from "bun:sqlite";
+import {
+  createModule,
+  deleteModule,
+  getModule,
+  listModules,
+  normalizeModuleCode,
+  renameModule,
+  setModuleHidden,
+  setModuleSortOrder,
+} from "./modules-db";
+import { countItemsForModule, deleteItemsForModule } from "./module-items-db";
+
+const json = (data: unknown, status = 200) => Response.json(data, { status });
+
+export function moduleApiRoutes(db: Database) {
+  return {
+    "/api/modules": {
+      GET: () => json(listModules(db)),
+      POST: async (req: Request) => {
+        const b = (await req.json().catch(() => null)) as
+          | { code?: unknown; name?: unknown }
+          | null;
+        const code = typeof b?.code === "string" ? b.code : "";
+        const name = typeof b?.name === "string" ? b.name : "";
+        try {
+          return json(createModule(db, code, name), 201);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "bad request";
+          return json({ error: msg }, /exists/i.test(msg) ? 409 : 400);
+        }
+      },
+    },
+    "/api/modules/:code": {
+      PUT: async (req: Request & { params: { code: string } }) => {
+        const b = (await req.json().catch(() => null)) as { name?: unknown } | null;
+        const name = typeof b?.name === "string" ? b.name : "";
+        try {
+          const m = renameModule(db, req.params.code, name);
+          return m ? json(m) : json({ error: "not found" }, 404);
+        } catch (err) {
+          return json({ error: err instanceof Error ? err.message : "bad request" }, 400);
+        }
+      },
+      PATCH: async (req: Request & { params: { code: string } }) => {
+        const b = (await req.json().catch(() => null)) as
+          | { hidden?: unknown; sort_order?: unknown }
+          | null;
+        const code = normalizeModuleCode(req.params.code);
+        let m = getModule(db, code);
+        if (!m) return json({ error: "not found" }, 404);
+        if (typeof b?.hidden === "boolean") m = setModuleHidden(db, code, b.hidden);
+        if (typeof b?.sort_order === "number") m = setModuleSortOrder(db, code, b.sort_order);
+        return json(m);
+      },
+      DELETE: (req: Request & { params: { code: string } }) => {
+        const code = normalizeModuleCode(req.params.code);
+        if (!getModule(db, code)) return json({ error: "not found" }, 404);
+        const count = countItemsForModule(db, code);
+        const cascade = new URL(req.url).searchParams.get("cascade") === "1";
+        if (count > 0 && !cascade) return json({ error: "module has items", count }, 409);
+        db.transaction(() => {
+          if (count > 0) deleteItemsForModule(db, code);
+          deleteModule(db, code);
+        })();
+        return json({ ok: true });
+      },
+    },
+  };
+}

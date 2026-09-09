@@ -7,6 +7,7 @@ import TodoApp from "./todo/App";
 import HomeApp from "./HomeApp";
 import type { DueItem } from "./home-api";
 import ExamApp from "./exam/App";
+import ModulePlanner from "./ModulePlanner";
 const InterviewApp = React.lazy(() => import("./interview/App"));
 import "./index.css";
 
@@ -622,13 +623,13 @@ function LeetCodeApp({
   );
 }
 
-type Tab = "home" | "leetcode" | "todo" | "exam" | "interview";
+type Tab = "home" | "deadlines" | "leetcode" | "todo" | "exam" | "interview";
 
 type DeepLink =
   | { tab: "leetcode"; problemId: number }
   | { tab: "todo"; todoId: number }
   | { tab: "exam"; course: string; week: number }
-  | { tab: "exam"; moduleItemId: number };
+  | { tab: "deadlines"; moduleItemId: number };
 
 function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -676,6 +677,12 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
         Home
       </button>
       <button
+        className={tab === "deadlines" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("deadlines")}
+      >
+        Deadlines
+      </button>
+      <button
         className={tab === "leetcode" ? "tab tab-active" : "tab"}
         onClick={() => onChange("leetcode")}
       >
@@ -716,15 +723,21 @@ function App() {
     if (item.source === "leetcode") setDeepLink({ tab: "leetcode", problemId: item.linkId });
     else if (item.source === "todo") setDeepLink({ tab: "todo", todoId: item.linkId });
     else if (item.source === "exam") setDeepLink({ tab: "exam", course: item.course!, week: item.linkId });
-    else if (item.source === "module-item") setDeepLink({ tab: "exam", moduleItemId: item.linkId });
-    // Module planner items live inside the Modules (exam) tab.
-    setTab(item.source === "module-item" ? "exam" : item.source);
+    else if (item.source === "module-item") setDeepLink({ tab: "deadlines", moduleItemId: item.linkId });
+    // Module planner items live in the Deadlines tab.
+    setTab(item.source === "module-item" ? "deadlines" : item.source);
   };
 
   return (
     <div className="app">
       <TabBar tab={tab} onChange={setTab} />
       {tab === "home" && <HomeApp onNavigate={navigate} />}
+      {tab === "deadlines" && (
+        <ModulePlanner
+          openItemId={deepLink?.tab === "deadlines" ? deepLink.moduleItemId : null}
+          onOpened={() => setDeepLink(null)}
+        />
+      )}
       {tab === "leetcode" && (
         <LeetCodeApp
           openProblemId={deepLink?.tab === "leetcode" ? deepLink.problemId : null}
@@ -741,7 +754,6 @@ function App() {
         <ExamApp
           openCourse={deepLink?.tab === "exam" && "course" in deepLink ? deepLink.course : null}
           openWeek={deepLink?.tab === "exam" && "week" in deepLink ? deepLink.week : null}
-          openItemId={deepLink?.tab === "exam" && "moduleItemId" in deepLink ? deepLink.moduleItemId : null}
           onOpened={() => setDeepLink(null)}
         />
       )}

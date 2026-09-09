@@ -5,11 +5,10 @@ import { migrateTodo } from "./todo/db";
 import { todoApiRoutes } from "./todo/api";
 import { migrateAnnouncements } from "./announcement-db";
 import { announcementApiRoutes } from "./announcement-api";
-import { migrateDeadlines } from "./deadline-db";
-import { deadlineApiRoutes } from "./deadline-api";
+import { migrateModules } from "./modules-db";
+import { moduleApiRoutes } from "./modules-api";
 import { migrateModuleItems } from "./module-items-db";
 import { moduleItemsApiRoutes } from "./module-items-api";
-import { reconcile as reconcileModuleCalendar } from "./gcal/sync";
 import { migrateExam } from "./exam/db";
 import { examApiRoutes } from "./exam/api";
 import { homeApiRoutes } from "./home-api";
@@ -30,11 +29,11 @@ db.exec(`
 `);
 migrateTodo(db);
 migrateAnnouncements(db);
-migrateDeadlines(db);
+migrateModules(db, localToday());
 migrateExam(db, localToday());
 migrateLeetcode150(db);
 migrateInterview(db);
-migrateModuleItems(db);
+migrateModuleItems(db, localToday());
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 
 const server = Bun.serve({
@@ -51,7 +50,7 @@ const server = Bun.serve({
     ...apiRoutes(db),
     ...todoApiRoutes(db),
     ...announcementApiRoutes(db),
-    ...deadlineApiRoutes(db),
+    ...moduleApiRoutes(db),
     ...examApiRoutes(db),
     ...homeApiRoutes(db),
     ...leetcode150ApiRoutes(db),
@@ -65,8 +64,3 @@ const server = Bun.serve({
 });
 
 console.log(`leetcode-srs running at ${server.url}`);
-
-// Catch-up sync for any module item changed while the server was down.
-reconcileModuleCalendar(db)
-  .then((r) => console.log(`[module-planner] calendar reconcile:`, r))
-  .catch((e) => console.error(`[module-planner] calendar reconcile failed:`, e));
