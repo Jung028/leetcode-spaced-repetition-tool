@@ -115,6 +115,50 @@ For more information, read the Bun API docs in `node_modules/bun-types/docs/**.m
 
 Use the type mix and ratio from `docs/exam-content-authoring-guide.md` (mcq/truefalse/short/scenario) — questions are no longer restricted to `mcq` only. Every question must still include a written `modelAnswer`: for mcq/truefalse, why the correct option is correct; for short/scenario, the revealed answer itself. Always traceable to the source material, never invented.
 
+### `modelAnswer` and `prompt` style — explain it to a teenager
+
+The person studying this is prioritising **understanding over getting the
+answer right**. Both the `prompt` and the `modelAnswer` must be written so a
+smart 15-year-old who has never seen the jargon can follow them. Getting the
+concept across matters more than sounding precise or exam-formal.
+
+**Every `modelAnswer` follows this shape:**
+
+1. **Start with a plain everyday analogy** — a sealed letter, a locked box, a
+   wax seal, a bouncer checking IDs, a tamper-evident seal on a pill bottle.
+   One or two sentences. This comes first, before any technical term.
+2. **Then a few short bullet points** — one idea per bullet. Lead each with a
+   plain-language label and a colon, e.g. `Why it happens:` , `The fix:` ,
+   `Why the other options are wrong:` . Keep sentences short.
+3. **End with one sentence that states the actual answer** in plain terms
+   ("So the answer is: …").
+4. **Define every acronym the first time inline** — "a MAC (Message
+   Authentication Code — think of it as an unbreakable personalised wax
+   seal)". Never leave a bare acronym.
+
+**Formatting rules (the renderer is `PromptText` in `exam/App.tsx` — it is
+NOT markdown):**
+
+- Separate every paragraph and every bullet with a blank line (`\n\n`). Each
+  bullet is its own block.
+- Start bullets with `• ` (the literal character). `-` and `*` render as
+  literal text; `**bold**` shows the asterisks — do not use them.
+- Do NOT put a multi-line block containing `()` `{}` `_` `=>` `==` — a
+  multi-line block with those characters renders as a grey monospace code box
+  (`looksLikeCode`). Keep each bullet to a single line, or keep those
+  characters out of multi-line blocks.
+- Unicode symbols (→ ⊕ ≥) are fine and often clearer than words.
+
+**`prompt` rewriting:** keep the question testing the exact same concept and
+keep the options / `correctIndex` unchanged, but rewrite the wording in short
+plain sentences. Cut lecturer in-jokes and transcript quotes from the
+question itself (they can stay in a trailing `Transcript:` line if present).
+If the question can't be understood without a definition, put the definition
+in the prompt.
+
+This style is the standard for all exam content going forward, and Weeks 5–6
+of every course were rewritten to it as the reference example — match them.
+
 ### Question count per paper
 
 Author enough questions to genuinely cover the source material — target
