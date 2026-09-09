@@ -9,7 +9,6 @@ import { migrateModules } from "./modules-db";
 import { moduleApiRoutes } from "./modules-api";
 import { migrateModuleItems } from "./module-items-db";
 import { moduleItemsApiRoutes } from "./module-items-api";
-import { reconcile as reconcileModuleCalendar } from "./gcal/sync";
 import { migrateExam } from "./exam/db";
 import { examApiRoutes } from "./exam/api";
 import { homeApiRoutes } from "./home-api";
@@ -65,8 +64,3 @@ const server = Bun.serve({
 });
 
 console.log(`leetcode-srs running at ${server.url}`);
-
-// Catch-up sync for any module item changed while the server was down.
-reconcileModuleCalendar(db)
-  .then((r) => console.log(`[module-planner] calendar reconcile:`, r))
-  .catch((e) => console.error(`[module-planner] calendar reconcile failed:`, e));

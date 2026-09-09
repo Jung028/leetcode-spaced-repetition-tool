@@ -12,15 +12,10 @@ import {
   type ModuleItemKind,
   type ModuleItemLink,
 } from "./module-items-db";
-import { deleteCalendarEvent, reconcile, syncModuleItem, type SyncDeps } from "./gcal/sync";
 import { moduleExists } from "./modules-db";
 import { localToday } from "./shared/scheduling";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
-
-export interface ModuleItemsApiDeps {
-  sync?: SyncDeps;
-}
 
 type ParseResult = { input: ModuleItemInput } | { error: string };
 
@@ -80,8 +75,7 @@ function parseInput(db: Database, body: unknown): ParseResult {
   return { input: { course, kind: kind as ModuleItemKind, title, description, due_at, links, weight } };
 }
 
-export function moduleItemsApiRoutes(db: Database, deps: ModuleItemsApiDeps = {}) {
-  const sync = deps.sync;
+export function moduleItemsApiRoutes(db: Database) {
   return {
     "/api/module-items": {
       GET: () => json(listModuleItems(db)),
@@ -89,8 +83,7 @@ export function moduleItemsApiRoutes(db: Database, deps: ModuleItemsApiDeps = {}
         const parsed = parseInput(db, await req.json().catch(() => null));
         if ("error" in parsed) return json({ error: parsed.error }, 400);
         const created = createModuleItem(db, parsed.input, localToday());
-        const synced = await syncModuleItem(db, created, sync);
-        return json(synced ?? created, 201);
+        return json(created, 201);
       },
     },
     "/api/module-items/:id": {
@@ -99,15 +92,11 @@ export function moduleItemsApiRoutes(db: Database, deps: ModuleItemsApiDeps = {}
         if ("error" in parsed) return json({ error: parsed.error }, 400);
         const updated = updateModuleItem(db, Number(req.params.id), parsed.input, localToday());
         if (!updated) return json({ error: "not found" }, 404);
-        const synced = await syncModuleItem(db, updated, sync);
-        return json(synced ?? updated);
+        return json(updated);
       },
       DELETE: async (req: { params: { id: string } }) => {
         const deleted = deleteModuleItem(db, Number(req.params.id));
         if (!deleted) return json({ error: "not found" }, 404);
-        if (deleted.gcal_event_id) {
-          await deleteCalendarEvent(deleted.gcal_event_id, sync).catch(() => {});
-        }
         return json({ ok: true });
       },
     },
@@ -115,12 +104,8 @@ export function moduleItemsApiRoutes(db: Database, deps: ModuleItemsApiDeps = {}
       POST: async (req: { params: { id: string } }) => {
         const toggled = toggleModuleItem(db, Number(req.params.id), localToday());
         if (!toggled) return json({ error: "not found" }, 404);
-        const synced = await syncModuleItem(db, toggled, sync);
-        return json(synced ?? toggled);
+        return json(toggled);
       },
-    },
-    "/api/module-items/sync": {
-      POST: async () => json(await reconcile(db, sync)),
     },
   };
 }

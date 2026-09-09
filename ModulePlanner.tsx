@@ -87,12 +87,6 @@ const KIND_LABEL: Record<ModuleItemKind, string> = {
   other: "Other",
 };
 
-function SyncBadge({ item }: { item: ModuleItem }) {
-  if (item.sync_state === "synced") return <span className="mp-sync mp-sync-ok" title={`Synced ${item.synced_at ?? ""}`}>✓ calendar</span>;
-  if (item.sync_state === "pending") return <span className="mp-sync mp-sync-pending" title="Sync queued">⟳ syncing</span>;
-  return <span className="mp-sync mp-sync-error" title={item.sync_error ?? "Sync failed"}>⚠ not synced</span>;
-}
-
 function ItemForm({
   initial,
   submitLabel,
@@ -243,7 +237,7 @@ export default function ModulePlanner({
         <h2>Module planner</h2>
         <span className="board-count">{items.length}</span>
       </div>
-      <p className="rule-note">Assignments, presentations and vivas per unit. Every change syncs to Google Calendar with 1-week / 3-day / 1-day reminders.</p>
+      <p className="rule-note">Assignments, presentations, vivas and quizzes per unit.</p>
       {error && <p className="form-error">{error}</p>}
 
       {COURSE_CODES.map((code) => {
@@ -303,11 +297,7 @@ export default function ModulePlanner({
                           <span className={`mp-kind mp-kind-${item.kind}`}>{KIND_LABEL[item.kind]}</span>
                           <span className="mp-title">{item.title}</span>
                           <span className="mp-due">{item.due_at.replace("T", " ")}</span>
-                          <SyncBadge item={item} />
                           <span className="mp-actions">
-                            {item.sync_state === "error" && (
-                              <button type="button" className="btn" onClick={() => api.update(item.id, draftFrom(item)).then(refresh).catch((e) => setError(errorMessage(e)))}>Retry sync</button>
-                            )}
                             <button type="button" className="btn" onClick={() => { setEditingId(item.id); setAddingCourse(null); }}>Edit</button>
                             {confirmingDelete === item.id ? (
                               <>

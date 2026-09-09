@@ -23,8 +23,6 @@ export interface ModuleItemLink {
   url: string;
 }
 
-export type SyncState = "pending" | "synced" | "error";
-
 export interface ModuleItem {
   id: number;
   course: string;
@@ -35,10 +33,6 @@ export interface ModuleItem {
   links: ModuleItemLink[];
   weight: string | null;
   completed: boolean;
-  gcal_event_id: string | null;
-  sync_state: SyncState;
-  sync_error: string | null;
-  synced_at: string | null;
   created_at: string; // local 'YYYY-MM-DD'
   updated_at: string; // local 'YYYY-MM-DD'
 }
@@ -63,10 +57,6 @@ interface ModuleItemRow {
   links: string;
   weight: string | null;
   completed: number;
-  gcal_event_id: string | null;
-  sync_state: string;
-  sync_error: string | null;
-  synced_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -90,10 +80,6 @@ const toModuleItem = (row: ModuleItemRow): ModuleItem => ({
   links: JSON.parse(row.links) as ModuleItemLink[],
   weight: row.weight,
   completed: row.completed === 1,
-  gcal_event_id: row.gcal_event_id,
-  sync_state: row.sync_state as SyncState,
-  sync_error: row.sync_error,
-  synced_at: row.synced_at,
   created_at: row.created_at,
   updated_at: row.updated_at,
 });
@@ -109,10 +95,6 @@ export function migrateModuleItems(db: Database, today: string = localToday()): 
       due_at TEXT NOT NULL,
       links TEXT NOT NULL DEFAULT '[]',
       completed INTEGER NOT NULL DEFAULT 0,
-      gcal_event_id TEXT,
-      sync_state TEXT NOT NULL DEFAULT 'pending',
-      sync_error TEXT,
-      synced_at TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -120,6 +102,9 @@ export function migrateModuleItems(db: Database, today: string = localToday()): 
   const cols = db.query(`PRAGMA table_info(module_items)`).all() as { name: string }[];
   if (!cols.some((c) => c.name === "weight")) {
     db.exec(`ALTER TABLE module_items ADD COLUMN weight TEXT`);
+  }
+  for (const col of ["gcal_event_id", "sync_state", "sync_error", "synced_at"]) {
+    if (cols.some((c) => c.name === col)) db.exec(`ALTER TABLE module_items DROP COLUMN ${col}`);
   }
   db.exec(`
     CREATE TABLE IF NOT EXISTS module_item_seeds (
@@ -156,8 +141,8 @@ export function seedDeadlineItems(db: Database, today: string = localToday()): v
 
   const insertItem = db.query(
     `INSERT INTO module_items
-       (course, kind, title, description, due_at, links, completed, weight, sync_state, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, '[]', ?, ?, 'pending', ?, ?)`,
+       (course, kind, title, description, due_at, links, completed, weight, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, '[]', ?, ?, ?, ?)`,
   );
   const markSeeded = db.query(
     `INSERT OR IGNORE INTO module_item_seeds (seed_key, seeded_at) VALUES (?, ?)`,
@@ -199,8 +184,8 @@ export function deleteItemsForModule(db: Database, course: string): ModuleItem[]
 export function createModuleItem(db: Database, input: ModuleItemInput, today: string): ModuleItem {
   const row = db
     .query(
-      `INSERT INTO module_items (course, kind, title, description, due_at, links, completed, weight, sync_state, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'pending', ?, ?) RETURNING *`,
+      `INSERT INTO module_items (course, kind, title, description, due_at, links, completed, weight, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?) RETURNING *`,
     )
     .get(
       input.course,
@@ -239,7 +224,7 @@ export function updateModuleItem(
     .query(
       `UPDATE module_items
           SET course = ?, kind = ?, title = ?, description = ?, due_at = ?, links = ?, weight = ?,
-              sync_state = 'pending', sync_error = NULL, updated_at = ?
+              updated_at = ?
         WHERE id = ? RETURNING *`,
     )
     .get(
@@ -264,7 +249,7 @@ export function toggleModuleItem(db: Database, id: number, today: string): Modul
   const row = db
     .query(
       `UPDATE module_items
-          SET completed = ?, sync_state = 'pending', sync_error = NULL, updated_at = ?
+          SET completed = ?, updated_at = ?
         WHERE id = ? RETURNING *`,
     )
     .get(current.completed === 0 ? 1 : 0, today, id) as ModuleItemRow;
@@ -278,22 +263,3 @@ export function deleteModuleItem(db: Database, id: number): ModuleItem | null {
   return row ? toModuleItem(row) : null;
 }
 
-export function markItemSynced(db: Database, id: number, eventId: string, now: string): void {
-  db.query(
-    `UPDATE module_items
-        SET gcal_event_id = ?, sync_state = 'synced', sync_error = NULL, synced_at = ?
-      WHERE id = ?`,
-  ).run(eventId, now, id);
-}
-
-export function markItemSyncError(db: Database, id: number, message: string): void {
-  db.query(`UPDATE module_items SET sync_state = 'error', sync_error = ? WHERE id = ?`).run(message, id);
-}
-
-export function listItemsNeedingSync(db: Database): ModuleItem[] {
-  return (
-    db
-      .query(`SELECT * FROM module_items WHERE sync_state != 'synced' ORDER BY id ASC`)
-      .all() as ModuleItemRow[]
-  ).map(toModuleItem);
-}

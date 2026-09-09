@@ -9,16 +9,10 @@ import {
   setModuleSortOrder,
 } from "./modules-db";
 import { countItemsForModule, deleteItemsForModule } from "./module-items-db";
-import { deleteCalendarEvent, type SyncDeps } from "./gcal/sync";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 
-export interface ModuleApiDeps {
-  sync?: SyncDeps;
-}
-
-export function moduleApiRoutes(db: Database, deps: ModuleApiDeps = {}) {
-  const sync = deps.sync;
+export function moduleApiRoutes(db: Database) {
   return {
     "/api/modules": {
       GET: () => json(listModules(db)),
@@ -64,11 +58,7 @@ export function moduleApiRoutes(db: Database, deps: ModuleApiDeps = {}) {
         const count = countItemsForModule(db, code);
         const cascade = new URL(req.url).searchParams.get("cascade") === "1";
         if (count > 0 && !cascade) return json({ error: "module has items", count }, 409);
-        if (count > 0) {
-          for (const it of deleteItemsForModule(db, code)) {
-            if (it.gcal_event_id) await deleteCalendarEvent(it.gcal_event_id, sync).catch(() => {});
-          }
-        }
+        if (count > 0) deleteItemsForModule(db, code);
         deleteModule(db, code);
         return json({ ok: true });
       },
