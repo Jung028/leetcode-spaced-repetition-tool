@@ -386,7 +386,9 @@ export default function ModulePlanner({
     if (openItemId == null) return;
     const el = document.getElementById(`mp-item-${openItemId}`);
     if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // A scroll handler elsewhere cancels in-progress smooth scrolls, so jump
+      // straight to the item rather than asking for `behavior: "smooth"`.
+      el.scrollIntoView({ block: "center" });
       el.classList.add("mp-flash");
       const t = setTimeout(() => el.classList.remove("mp-flash"), 1600);
       onOpened?.();
