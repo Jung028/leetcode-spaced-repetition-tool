@@ -1,6 +1,7 @@
 import { test, expect, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { migrateModuleItems, getModuleItem } from "./module-items-db";
+import { migrateModules } from "./modules-db";
 import { moduleItemsApiRoutes, type ModuleItemsApiDeps } from "./module-items-api";
 
 let db: Database;
@@ -42,6 +43,7 @@ function stubDeps(): ModuleItemsApiDeps {
 
 beforeEach(() => {
   db = new Database(":memory:");
+  migrateModules(db, "2026-09-09");
   migrateModuleItems(db);
   // migrateModuleItems now seeds 12 legacy-deadline rows; these API tests
   // assert on exactly the rows they POST, so start from an empty table.
@@ -137,6 +139,59 @@ test("DELETE removes the row and deletes the calendar event", async () => {
 test("DELETE on unknown id returns 404", async () => {
   const res = await fetch(`${base}/api/module-items/9999`, { method: "DELETE" });
   expect(res.status).toBe(404);
+});
+
+test("POST accepts an optional weight", async () => {
+  const res = await fetch(`${base}/api/module-items`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      course: "INFO5995",
+      kind: "assignment",
+      title: "Weighted",
+      due_at: "2026-09-20",
+      weight: "15%",
+    }),
+  });
+  expect(res.status).toBe(201);
+  expect((await res.json()).weight).toBe("15%");
+});
+
+test("POST rejects an unknown module", async () => {
+  const res = await fetch(`${base}/api/module-items`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ course: "ZZZ0000", kind: "other", title: "x", due_at: "2026-09-20" }),
+  });
+  expect(res.status).toBe(400);
+  expect((await res.json()).error).toMatch(/unknown module/i);
+});
+
+test("POST rejects an over-long weight", async () => {
+  const res = await fetch(`${base}/api/module-items`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      course: "INFO5995",
+      kind: "other",
+      title: "x",
+      due_at: "2026-09-20",
+      weight: "way too long to be a weight",
+    }),
+  });
+  expect(res.status).toBe(400);
+});
+
+test("POST still works for a hidden module", async () => {
+  // hide INFO5990 directly, then post to it
+  const { setModuleHidden } = await import("./modules-db");
+  setModuleHidden(db, "INFO5990", true);
+  const res = await fetch(`${base}/api/module-items`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ course: "INFO5990", kind: "other", title: "x", due_at: "2026-09-20" }),
+  });
+  expect(res.status).toBe(201);
 });
 
 test("POST /api/module-items/sync runs a reconcile and returns a summary", async () => {

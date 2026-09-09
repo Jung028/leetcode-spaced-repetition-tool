@@ -13,7 +13,7 @@ import {
   type ModuleItemLink,
 } from "./module-items-db";
 import { deleteCalendarEvent, reconcile, syncModuleItem, type SyncDeps } from "./gcal/sync";
-import { COURSE_NAMES } from "./semester-deadlines";
+import { moduleExists } from "./modules-db";
 import { localToday } from "./shared/scheduling";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
@@ -45,12 +45,12 @@ function parseLinks(raw: unknown): ModuleItemLink[] | { error: string } {
   return out;
 }
 
-function parseInput(body: unknown): ParseResult {
+function parseInput(db: Database, body: unknown): ParseResult {
   if (typeof body !== "object" || body === null) return { error: "invalid body" };
   const b = body as Record<string, unknown>;
 
   const course = typeof b.course === "string" ? b.course : "";
-  if (!(course in COURSE_NAMES)) return { error: "unknown course" };
+  if (!moduleExists(db, course)) return { error: "unknown module" };
 
   const kind = typeof b.kind === "string" ? b.kind : "";
   if (!MODULE_ITEM_KINDS.includes(kind as ModuleItemKind)) {
@@ -70,10 +70,14 @@ function parseInput(body: unknown): ParseResult {
 
   const description = typeof b.description === "string" ? b.description : "";
 
+  const weightRaw = typeof b.weight === "string" ? b.weight.trim() : "";
+  if (weightRaw.length > 12) return { error: "weight too long" };
+  const weight = weightRaw || undefined;
+
   const links = parseLinks(b.links);
   if ("error" in links) return { error: links.error };
 
-  return { input: { course, kind: kind as ModuleItemKind, title, description, due_at, links } };
+  return { input: { course, kind: kind as ModuleItemKind, title, description, due_at, links, weight } };
 }
 
 export function moduleItemsApiRoutes(db: Database, deps: ModuleItemsApiDeps = {}) {
@@ -82,7 +86,7 @@ export function moduleItemsApiRoutes(db: Database, deps: ModuleItemsApiDeps = {}
     "/api/module-items": {
       GET: () => json(listModuleItems(db)),
       POST: async (req: Request) => {
-        const parsed = parseInput(await req.json().catch(() => null));
+        const parsed = parseInput(db, await req.json().catch(() => null));
         if ("error" in parsed) return json({ error: parsed.error }, 400);
         const created = createModuleItem(db, parsed.input, localToday());
         const synced = await syncModuleItem(db, created, sync);
@@ -91,7 +95,7 @@ export function moduleItemsApiRoutes(db: Database, deps: ModuleItemsApiDeps = {}
     },
     "/api/module-items/:id": {
       PUT: async (req: Request & { params: { id: string } }) => {
-        const parsed = parseInput(await req.json().catch(() => null));
+        const parsed = parseInput(db, await req.json().catch(() => null));
         if ("error" in parsed) return json({ error: parsed.error }, 400);
         const updated = updateModuleItem(db, Number(req.params.id), parsed.input, localToday());
         if (!updated) return json({ error: "not found" }, 404);
