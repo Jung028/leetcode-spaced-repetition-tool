@@ -1701,11 +1701,22 @@ a.btn {
 .mp-kind-presentation { border-color: #b8860b; color: #b8860b; }
 .mp-kind-assignment { border-color: #2e6da4; color: #2e6da4; }
 .mp-kind-other { color: var(--dim); }
-.mp-sync { font-size: 0.75em; }
-.mp-sync-ok { color: var(--dim); }
-.mp-sync-pending { color: #b8860b; }
-.mp-sync-error { color: #c0392b; cursor: help; }
 .mp-actions { display: flex; align-items: center; gap: 0.35rem; }
+
+/* view toggle + flat-view controls */
+.mp-view-toggle { display: inline-flex; gap: 2px; background: var(--panel-2, rgba(127,127,127,0.12)); border-radius: 7px; padding: 2px; margin: 0.25rem 0 0.75rem; }
+.mp-tab { font: inherit; font-size: 0.82rem; padding: 3px 14px; border: 0; border-radius: 5px; background: transparent; color: var(--dim); cursor: pointer; }
+.mp-tab-active { background: var(--panel, rgba(127,127,127,0.22)); color: var(--fg); }
+.mp-flat-controls { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.mp-flat-controls label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.78rem; color: var(--dim); }
+.mp-select { font: inherit; padding: 3px 6px; }
+.mp-mod { font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.1rem 0.4rem; border-radius: 0.35rem; background: rgba(192, 132, 252, 0.18); color: #c084fc; }
+.mp-weight { font-size: 0.8em; color: var(--dim); }
+
+/* due-proximity colour coding on pending rows */
+.mp-row.mp-due-week { background: rgba(245, 158, 11, 0.13); }  /* orange — within a week */
+.mp-row.mp-due-3d   { background: rgba(220, 38, 38, 0.16); }   /* dark red — within 3 days */
+.mp-row.mp-due-dday { background: rgba(248, 113, 113, 0.12); box-shadow: inset 3px 0 0 #ef4444; }  /* bright red — final day / overdue */
 .mp-confirm { color: #c0392b; font-size: 0.85em; }
 .mp-desc { margin: 0.35rem 0 0 1.6rem; color: var(--dim); white-space: pre-wrap; }
 .mp-link-chips { margin: 0.35rem 0 0 1.6rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }

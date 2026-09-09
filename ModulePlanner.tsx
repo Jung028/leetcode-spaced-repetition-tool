@@ -87,6 +87,94 @@ const KIND_LABEL: Record<ModuleItemKind, string> = {
   other: "Other",
 };
 
+type ViewMode = "grouped" | "flat";
+type SortKey = "due-asc" | "due-desc" | "module" | "kind";
+type KindFilter = ModuleItemKind | "all";
+
+// How many whole days until an item is due (negative = overdue).
+function daysUntilDue(item: ModuleItem): number {
+  const day = 86_400_000;
+  const due = Date.parse(item.due_at.slice(0, 10));
+  const today = Date.parse(new Date().toISOString().slice(0, 10));
+  return Math.round((due - today) / day);
+}
+
+// Colour a pending row by how close its due date is:
+//  • within 1 day / due today / overdue -> bright red
+//  • within 3 days                      -> dark red
+//  • within a week                      -> orange
+function dueClass(item: ModuleItem): string {
+  if (item.completed) return "";
+  const d = daysUntilDue(item);
+  if (d <= 1) return "mp-due-dday";
+  if (d <= 3) return "mp-due-3d";
+  if (d <= 7) return "mp-due-week";
+  return "";
+}
+
+function PlannerRow({
+  item,
+  moduleName,
+  showModuleTag,
+  confirmingDelete,
+  onEdit,
+  onToggle,
+  onAskDelete,
+  onCancelDelete,
+  onConfirmDelete,
+}: {
+  item: ModuleItem;
+  moduleName: string;
+  showModuleTag: boolean;
+  confirmingDelete: boolean;
+  onEdit: () => void;
+  onToggle: () => void;
+  onAskDelete: () => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: () => void;
+}) {
+  return (
+    <li
+      id={`mp-item-${item.id}`}
+      className={["mp-row", item.completed ? "mp-row-done" : "", dueClass(item)].filter(Boolean).join(" ")}
+    >
+      <div className="mp-row-main">
+        <input
+          type="checkbox"
+          checked={item.completed}
+          onChange={onToggle}
+          aria-label={item.completed ? "Mark not done" : "Mark done"}
+        />
+        <span className={`mp-kind mp-kind-${item.kind}`}>{KIND_LABEL[item.kind]}</span>
+        {showModuleTag && <span className="mp-mod">{moduleName}</span>}
+        <span className="mp-title">{item.title}</span>
+        {item.weight && <span className="mp-weight">{item.weight}</span>}
+        <span className="mp-due">{item.due_at.replace("T", " ")}</span>
+        <span className="mp-actions">
+          <button type="button" className="btn" onClick={onEdit}>Edit</button>
+          {confirmingDelete ? (
+            <>
+              <span className="mp-confirm">Delete?</span>
+              <button type="button" className="btn btn-danger" onClick={onConfirmDelete}>Yes</button>
+              <button type="button" className="btn" onClick={onCancelDelete}>No</button>
+            </>
+          ) : (
+            <button type="button" className="btn btn-danger" onClick={onAskDelete}>Delete</button>
+          )}
+        </span>
+      </div>
+      {item.description && <p className="mp-desc">{item.description}</p>}
+      {item.links.length > 0 && (
+        <div className="mp-link-chips">
+          {item.links.map((l, i) => (
+            <a key={i} className="mp-chip" href={l.url} target="_blank" rel="noopener noreferrer">{l.label || l.url}</a>
+          ))}
+        </div>
+      )}
+    </li>
+  );
+}
+
 function ItemForm({
   initial,
   submitLabel,
@@ -191,6 +279,19 @@ export default function ModulePlanner({
       return {};
     }
   });
+  const readStore = <T,>(key: string, fallback: T): T => {
+    try {
+      return (localStorage.getItem(key) as T | null) ?? fallback;
+    } catch {
+      return fallback;
+    }
+  };
+  const [viewMode, setViewMode] = useState<ViewMode>(() => readStore("modulePlanner.view", "grouped"));
+  const [sortKey, setSortKey] = useState<SortKey>(() => readStore("modulePlanner.sort", "due-asc"));
+  const [kindFilter, setKindFilter] = useState<KindFilter>(() => readStore("modulePlanner.kind", "all"));
+  useEffect(() => { try { localStorage.setItem("modulePlanner.view", viewMode); } catch { /* ignore */ } }, [viewMode]);
+  useEffect(() => { try { localStorage.setItem("modulePlanner.sort", sortKey); } catch { /* ignore */ } }, [sortKey]);
+  useEffect(() => { try { localStorage.setItem("modulePlanner.kind", kindFilter); } catch { /* ignore */ } }, [kindFilter]);
 
   const refresh = () => {
     setError(null);
@@ -231,102 +332,167 @@ export default function ModulePlanner({
     return map;
   }, [items]);
 
+  const orderOf = (code: string) => {
+    const i = COURSE_CODES.indexOf(code);
+    return i === -1 ? 999 : i;
+  };
+
+  const flatItems = useMemo(() => {
+    const byDue = (a: ModuleItem, b: ModuleItem) => a.due_at.localeCompare(b.due_at) || a.id - b.id;
+    return items
+      .filter((it) => kindFilter === "all" || it.kind === kindFilter)
+      .sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        switch (sortKey) {
+          case "due-asc": return byDue(a, b);
+          case "due-desc": return -byDue(a, b);
+          case "module": return orderOf(a.course) - orderOf(b.course) || byDue(a, b);
+          case "kind": return a.kind.localeCompare(b.kind) || byDue(a, b);
+        }
+      });
+  }, [items, sortKey, kindFilter]);
+
+  const rowProps = (item: ModuleItem) => ({
+    confirmingDelete: confirmingDelete === item.id,
+    onEdit: () => { setEditingId(item.id); setAddingCourse(null); },
+    onToggle: () => api.toggle(item.id).then(refresh).catch((e) => setError(errorMessage(e))),
+    onAskDelete: () => setConfirmingDelete(item.id),
+    onCancelDelete: () => setConfirmingDelete(null),
+    onConfirmDelete: () =>
+      api.remove(item.id).then(() => { setConfirmingDelete(null); return refresh(); }).catch((e) => setError(errorMessage(e))),
+  });
+
+  const renderEditRow = (item: ModuleItem) => (
+    <li key={item.id} id={`mp-item-${item.id}`}>
+      <ItemForm
+        initial={draftFrom(item)}
+        submitLabel="Save changes"
+        onCancel={() => setEditingId(null)}
+        onSubmit={async (d) => {
+          await api.update(item.id, d);
+          setEditingId(null);
+          await refresh();
+        }}
+      />
+    </li>
+  );
+
   return (
     <section className="board mp-board" aria-label="Module planner">
       <div className="section-head">
         <h2>Module planner</h2>
         <span className="board-count">{items.length}</span>
       </div>
-      <p className="rule-note">Assignments, presentations, vivas and quizzes per unit.</p>
+      <p className="rule-note">
+        Assignments, presentations, vivas and quizzes per unit. Rows turn orange a week before an item is
+        due, dark red at three days, and bright red on the final day.
+      </p>
       {error && <p className="form-error">{error}</p>}
 
-      {COURSE_CODES.map((code) => {
-        const list = byCourse[code] ?? [];
-        const isCollapsed = collapsed[code];
-        return (
-          <div className="mp-course" key={code}>
-            <div className="mp-course-head">
-              <button type="button" className="mp-course-toggle" onClick={() => toggleCollapse(code)}>
-                {isCollapsed ? "▸" : "▾"} {courseNameFor(code)} <span className="mp-course-code">{code}</span>
-                <span className="mp-course-count">{list.length}</span>
-              </button>
-              <button type="button" className="btn" onClick={() => { setAddingCourse(code); setEditingId(null); }}>+ Add</button>
+      <div className="mp-view-toggle" role="tablist" aria-label="Planner view">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === "grouped"}
+          className={viewMode === "grouped" ? "mp-tab mp-tab-active" : "mp-tab"}
+          onClick={() => setViewMode("grouped")}
+        >
+          By module
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === "flat"}
+          className={viewMode === "flat" ? "mp-tab mp-tab-active" : "mp-tab"}
+          onClick={() => setViewMode("flat")}
+        >
+          All tasks
+        </button>
+      </div>
+
+      {viewMode === "flat" && (
+        <div className="mp-flat-controls">
+          <label>
+            Sort
+            <select className="mp-select" value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}>
+              <option value="due-asc">Deadline — earliest first</option>
+              <option value="due-desc">Deadline — latest first</option>
+              <option value="module">Module</option>
+              <option value="kind">Type</option>
+            </select>
+          </label>
+          <label>
+            Type
+            <select className="mp-select" value={kindFilter} onChange={(e) => setKindFilter(e.target.value as KindFilter)}>
+              <option value="all">All types</option>
+              {MODULE_ITEM_KINDS.map((k) => (
+                <option key={k} value={k}>{KIND_LABEL[k]}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
+      {viewMode === "grouped" &&
+        COURSE_CODES.map((code) => {
+          const list = byCourse[code] ?? [];
+          const isCollapsed = collapsed[code];
+          return (
+            <div className="mp-course" key={code}>
+              <div className="mp-course-head">
+                <button type="button" className="mp-course-toggle" onClick={() => toggleCollapse(code)}>
+                  {isCollapsed ? "▸" : "▾"} {courseNameFor(code)} <span className="mp-course-code">{code}</span>
+                  <span className="mp-course-count">{list.length}</span>
+                </button>
+                <button type="button" className="btn" onClick={() => { setAddingCourse(code); setEditingId(null); }}>+ Add</button>
+              </div>
+
+              {!isCollapsed && addingCourse === code && (
+                <ItemForm
+                  initial={emptyDraft(code)}
+                  submitLabel="Add item"
+                  onCancel={() => setAddingCourse(null)}
+                  onSubmit={async (d) => {
+                    await api.create(d);
+                    setAddingCourse(null);
+                    await refresh();
+                  }}
+                />
+              )}
+
+              {!isCollapsed &&
+                (list.length === 0 ? (
+                  <p className="board-empty">No items yet — add your first assignment, presentation, or viva.</p>
+                ) : (
+                  <ul className="board-rows">
+                    {list.map((item) =>
+                      editingId === item.id ? (
+                        renderEditRow(item)
+                      ) : (
+                        <PlannerRow key={item.id} item={item} moduleName={courseNameFor(code)} showModuleTag={false} {...rowProps(item)} />
+                      ),
+                    )}
+                  </ul>
+                ))}
             </div>
+          );
+        })}
 
-            {!isCollapsed && addingCourse === code && (
-              <ItemForm
-                initial={emptyDraft(code)}
-                submitLabel="Add item"
-                onCancel={() => setAddingCourse(null)}
-                onSubmit={async (d) => {
-                  await api.create(d);
-                  setAddingCourse(null);
-                  await refresh();
-                }}
-              />
-            )}
-
-            {!isCollapsed && (
-              list.length === 0 ? (
-                <p className="board-empty">No items yet — add your first assignment, presentation, or viva.</p>
+      {viewMode === "flat" && (
+        flatItems.length === 0 ? (
+          <p className="board-empty">Nothing matches this filter.</p>
+        ) : (
+          <ul className="board-rows mp-flat-list">
+            {flatItems.map((item) =>
+              editingId === item.id ? (
+                renderEditRow(item)
               ) : (
-                <ul className="board-rows">
-                  {list.map((item) =>
-                    editingId === item.id ? (
-                      <li key={item.id} id={`mp-item-${item.id}`}>
-                        <ItemForm
-                          initial={draftFrom(item)}
-                          submitLabel="Save changes"
-                          onCancel={() => setEditingId(null)}
-                          onSubmit={async (d) => {
-                            await api.update(item.id, d);
-                            setEditingId(null);
-                            await refresh();
-                          }}
-                        />
-                      </li>
-                    ) : (
-                      <li key={item.id} id={`mp-item-${item.id}`} className={item.completed ? "mp-row mp-row-done" : "mp-row"}>
-                        <div className="mp-row-main">
-                          <input
-                            type="checkbox"
-                            checked={item.completed}
-                            onChange={() => api.toggle(item.id).then(refresh).catch((e) => setError(errorMessage(e)))}
-                            aria-label={item.completed ? "Mark not done" : "Mark done"}
-                          />
-                          <span className={`mp-kind mp-kind-${item.kind}`}>{KIND_LABEL[item.kind]}</span>
-                          <span className="mp-title">{item.title}</span>
-                          <span className="mp-due">{item.due_at.replace("T", " ")}</span>
-                          <span className="mp-actions">
-                            <button type="button" className="btn" onClick={() => { setEditingId(item.id); setAddingCourse(null); }}>Edit</button>
-                            {confirmingDelete === item.id ? (
-                              <>
-                                <span className="mp-confirm">Delete?</span>
-                                <button type="button" className="btn btn-danger" onClick={() => api.remove(item.id).then(() => { setConfirmingDelete(null); return refresh(); }).catch((e) => setError(errorMessage(e)))}>Yes</button>
-                                <button type="button" className="btn" onClick={() => setConfirmingDelete(null)}>No</button>
-                              </>
-                            ) : (
-                              <button type="button" className="btn btn-danger" onClick={() => setConfirmingDelete(item.id)}>Delete</button>
-                            )}
-                          </span>
-                        </div>
-                        {item.description && <p className="mp-desc">{item.description}</p>}
-                        {item.links.length > 0 && (
-                          <div className="mp-link-chips">
-                            {item.links.map((l, i) => (
-                              <a key={i} className="mp-chip" href={l.url} target="_blank" rel="noopener noreferrer">{l.label || l.url}</a>
-                            ))}
-                          </div>
-                        )}
-                      </li>
-                    ),
-                  )}
-                </ul>
-              )
+                <PlannerRow key={item.id} item={item} moduleName={courseNameFor(item.course)} showModuleTag {...rowProps(item)} />
+              ),
             )}
-          </div>
-        );
-      })}
+          </ul>
+        )
+      )}
     </section>
   );
 }
