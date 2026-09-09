@@ -40,7 +40,7 @@
 - `module-items-db.test.ts`, `module-items-api.test.ts` — extend; **Task 5b:** remove sync tests / stub.
 - `index.ts` — wire `migrateModules` + `moduleApiRoutes`; drop `migrateDeadlines` + `deadlineApiRoutes`.
 - `HomeApp.tsx` — drop `DeadlinesPanel` + `semester-deadlines`/`deadline-api` imports; mount `<ModulePlanner>` directly below `<AnnouncementsBoard />`; add `openItemId` prop.
-- `ModulePlanner.tsx` — modules-driven groups; module CRUD UI; `weight` field; tab-style grouped/flat view toggle + sort + kind filter; shared `PlannerRow`; due-proximity colour coding. **Task 5b:** remove `SyncBadge` + retry button.
+- `ModulePlanner.tsx` — modules-driven groups; module CRUD UI; `weight` field; tab-style grouped/flat view toggle + sort + kind filter; shared `PlannerRow` (collapsed row = one **Edit** button); reusable `Modal` shell — "+ Add" item form opens as a modal, and `EditItemModal` holds the row's Edit form + Delete; due-proximity colour coding. **Task 5b:** remove `SyncBadge` + retry button.
 - `AnnouncementsBoard.tsx` — inline "add to deadlines" form; fetch `/api/modules`.
 - `exam/App.tsx` — remove `ModulePlanner` mount + `openItemId`/`onOpened` props + import. (The `runSync`/`SyncBanner` exam content-generation feature is untouched.)
 - `frontend.tsx` — `module-item` deep link routes to Home; pass `openItemId` to `<HomeApp>` not `<ExamApp>`.
@@ -1037,6 +1037,7 @@ git commit -m "$(printf 'refactor: retire standalone /api/deadlines, wire /api/m
 
 **Files:**
 - Delete: `gcal/sync.ts`, `gcal/sync.test.ts`, `gcal/auth.ts`, `gcal/auth.test.ts`, `scripts/gcal-auth.ts`, `scripts/gcal-auth.test.ts` (the whole `gcal/` directory + the two scripts)
+- Modify: `index.ts` — remove the `import { reconcile as reconcileModuleCalendar } from "./gcal/sync"` line and the boot-time `reconcileModuleCalendar(db).then(…).catch(…)` block (the "Catch-up sync" comment + 3 lines)
 - Modify: `module-items-db.ts` — drop the sync columns + fields + helpers
 - Modify: `module-items-api.ts` — drop the sync deps + calls + `/api/module-items/sync` route
 - Modify: `modules-api.ts` — drop the `deleteCalendarEvent` cascade cleanup
@@ -1308,6 +1309,60 @@ Above the module list (near the `<p className="rule-note">`), add:
 ))}
 ```
 
+- [ ] **Step 3b: Show the add-item form in a modal popup** *(user request — Image #22: "when i click on add, show a pop up, so its clear")*
+
+Add a small reusable modal shell near the top of `ModulePlanner.tsx` (Task 7 reuses it for the row Edit form):
+
+```tsx
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="mp-modal-backdrop" onClick={onClose}>
+      <div className="mp-modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+        <div className="mp-modal-head">
+          <h3>{title}</h3>
+          <button type="button" className="btn mp-modal-x" aria-label="Close" onClick={onClose}>×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+```
+
+Wrap the per-group add-item form (the `addingCourse === code && <ItemForm … submitLabel="Add item" …>` block from Step 2's render) in it:
+
+```tsx
+{addingCourse === code && (
+  <Modal title={`Add to ${nameOf(code)}`} onClose={() => setAddingCourse(null)}>
+    <ItemForm
+      course={code}
+      submitLabel="Add item"
+      onCancel={() => setAddingCourse(null)}
+      onSubmit={async (d) => { await api.create(toPayload(d, code)); setAddingCourse(null); return refresh(); }}
+    />
+  </Modal>
+)}
+```
+
+Do the same for the `+ New module` form from Step 3 — wrap it in `<Modal title="New module" onClose={() => setAddingModule(false)}>`. The inline `✎` rename input stays inline (it is already a single field in place).
+
+CSS (add to Step 5's block):
+
+```css
+.mp-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
+.mp-modal { background: var(--bg, #16171b); border: 1px solid var(--border, #2a2c33); border-radius: 10px; padding: 1rem 1.25rem 1.25rem; max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto; }
+.mp-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+.mp-modal-head h3 { margin: 0; font-size: 1rem; }
+.mp-modal-x { padding: 2px 10px; }
+```
+
+Step 6 browser check gains: clicking **+ Add** on a group opens a centred modal over a dimmed backdrop; Esc and backdrop-click and Cancel all close it; submitting adds the item and closes it.
+
 - [ ] **Step 4: Add the `weight` field to `ItemForm`**
 
 `ItemDraft`: add `weight: string;`. `emptyDraft`: add `weight: ""`. `draftFrom`: add `weight: item.weight ?? ""`. `toPayload`: add `weight: d.weight.trim() || undefined`.
@@ -1366,6 +1421,8 @@ git commit -m "$(printf 'feat: modules-driven planner groups with add/rename/hid
 
 Task 5b already removed the sync badge and "Retry sync" button from the inline row. Pull the remaining per-item `<li className="mp-row …">…</li>` body (the non-editing branch inside `list.map`) into a shared component, and add a `dueClass` helper that colours a row by how close its due date is.
 
+**Row actions collapse** *(user request — Image #21: "you dont have to keep showing the edit delete buttons, only have one … click on edit … then only display all the edit and delete buttons")*: the collapsed row shows a **single** `Edit` button. Delete is no longer on the row at all — it moves into the edit modal (Step 1b). So `PlannerRow` drops the `onDelete` / `confirmingDelete` / `setConfirmingDelete` props entirely.
+
 ```tsx
 // Colour a pending row by proximity to its due date. Overdue and the final
 // day get a red border; ≤3 days a dark-red tint; ≤1 week an amber tint.
@@ -1387,18 +1444,12 @@ function PlannerRow({
   showModuleTag,
   onEdit,
   onToggle,
-  onDelete,
-  confirmingDelete,
-  setConfirmingDelete,
 }: {
   item: ModuleItem;
   moduleName: string;
   showModuleTag: boolean;
   onEdit: () => void;
   onToggle: () => void;
-  onDelete: () => void;
-  confirmingDelete: boolean;
-  setConfirmingDelete: (v: number | null) => void;
 }) {
   return (
     <li
@@ -1415,15 +1466,6 @@ function PlannerRow({
         <span className="mp-due">{item.due_at.replace("T", " ")}</span>
         <span className="mp-actions">
           <button type="button" className="btn" onClick={onEdit}>Edit</button>
-          {confirmingDelete ? (
-            <>
-              <span className="mp-confirm">Delete?</span>
-              <button type="button" className="btn btn-danger" onClick={onDelete}>Yes</button>
-              <button type="button" className="btn" onClick={() => setConfirmingDelete(null)}>No</button>
-            </>
-          ) : (
-            <button type="button" className="btn btn-danger" onClick={() => setConfirmingDelete(item.id)}>Delete</button>
-          )}
         </span>
       </div>
       {item.description && <p className="mp-desc">{item.description}</p>}
@@ -1441,7 +1483,72 @@ function PlannerRow({
 
 `KIND_LABEL` already has all six kinds (Task 2 added `quiz`/`exam`) — no change needed; just confirm.
 
-Rewire the grouped renderer to use `<PlannerRow>` (keeping the `editingId === item.id ? <ItemForm…> : <PlannerRow…>` branch). The grouped call passes the same props minus `showModuleTag` (`showModuleTag={false}`).
+Rewire the grouped renderer to use `<PlannerRow>` inside the `editingId === item.id ? <edit modal> : <PlannerRow…>` branch (see Step 1b for the edit modal). The grouped call passes `showModuleTag={false}`; `onEdit={() => { setEditingId(item.id); setAddingCourse(null); }}`, `onToggle={() => api.toggle(item.id).then(refresh)…}`.
+
+- [ ] **Step 1b: Move Edit + Delete into a modal** *(user request — Image #21)*
+
+Reuse the `Modal` shell added in Task 6 Step 3b. Define a named `EditItemModal` component (used by both the grouped and flat renderers). When a row is being edited it shows the `ItemForm` **and** the Delete control together inside one modal — nothing edit/delete-related shows on the collapsed row:
+
+```tsx
+function EditItemModal({
+  item, onClose, onSave, confirmingDelete, onAskDelete, onCancelDelete, onConfirmDelete,
+}: {
+  item: ModuleItem;
+  onClose: () => void;
+  onSave: (d: ItemDraft) => Promise<void>;
+  confirmingDelete: boolean;
+  onAskDelete: () => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: () => void;
+}) {
+  return (
+    <Modal title={`Edit ${item.title}`} onClose={onClose}>
+      <ItemForm
+        course={item.course}
+        initial={draftFrom(item)}
+        submitLabel="Save"
+        onCancel={onClose}
+        onSubmit={onSave}
+      />
+      <div className="mp-modal-danger">
+        {confirmingDelete ? (
+          <>
+            <span className="mp-confirm">Delete this item?</span>
+            <button type="button" className="btn btn-danger" onClick={onConfirmDelete}>Yes, delete</button>
+            <button type="button" className="btn" onClick={onCancelDelete}>Cancel</button>
+          </>
+        ) : (
+          <button type="button" className="btn btn-danger" onClick={onAskDelete}>Delete item</button>
+        )}
+      </div>
+    </Modal>
+  );
+}
+```
+
+Grouped-renderer usage (inside the `visibleModules.map` → item loop, alongside `<PlannerRow>`):
+
+```tsx
+{editingId === item.id && (
+  <EditItemModal
+    item={item}
+    onClose={() => { setEditingId(null); setConfirmingDelete(null); }}
+    confirmingDelete={confirmingDelete === item.id}
+    onAskDelete={() => setConfirmingDelete(item.id)}
+    onCancelDelete={() => setConfirmingDelete(null)}
+    onConfirmDelete={() => api.remove(item.id).then(() => { setConfirmingDelete(null); setEditingId(null); return refresh(); }).catch((e) => setError(errorMessage(e)))}
+    onSave={async (d) => { await api.update(item.id, toPayload(d, item.course)); setEditingId(null); return refresh(); }}
+  />
+)}
+```
+
+`confirmingDelete` / `setConfirmingDelete` state stays in the `ModulePlanner` body (it just no longer feeds `PlannerRow`). Add CSS to Step 4's block:
+
+```css
+.mp-modal-danger { margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border, #2a2c33); display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+```
+
+**If `ItemForm` currently takes an `initial` prop typed as `ItemDraft`** (via `draftFrom`), keep that; if it takes the raw `ModuleItem`, pass `item` directly and drop the `draftFrom` call. Match the existing `ItemForm` contract — do not change its signature.
 
 - [ ] **Step 2: Add view + sort state and the aging memo**
 
@@ -1537,34 +1644,35 @@ Wrap the existing per-module rendering in `{viewMode === "grouped" && ( … )}`,
     {flatItems.length === 0 ? (
       <p className="board-empty">Nothing due. Add an item in the grouped view.</p>
     ) : (
-      flatItems.map((item) =>
-        editingId === item.id ? (
-          <li key={item.id} id={`mp-item-${item.id}`}>
-            <ItemForm
-              initial={draftFrom(item)}
-              submitLabel="Save changes"
-              onCancel={() => setEditingId(null)}
-              onSubmit={async (d) => { await api.update(item.id, d); setEditingId(null); await refresh(); }}
-            />
-          </li>
-        ) : (
+      flatItems.map((item) => (
+        <React.Fragment key={item.id}>
           <PlannerRow
-            key={item.id}
             item={item}
             moduleName={nameOf(item.course)}
             showModuleTag
-            confirmingDelete={confirmingDelete === item.id}
-            setConfirmingDelete={setConfirmingDelete}
             onEdit={() => { setEditingId(item.id); setAddingCourse(null); }}
             onToggle={() => api.toggle(item.id).then(refresh).catch((e) => setError(errorMessage(e)))}
-            onDelete={() => api.remove(item.id).then(() => { setConfirmingDelete(null); return refresh(); }).catch((e) => setError(errorMessage(e)))}
           />
-        ),
-      )
+          {/* the Edit+Delete modal from Step 1b — render it here too so it works in the flat view */}
+          {editingId === item.id && (
+            <EditItemModal
+              item={item}
+              onClose={() => { setEditingId(null); setConfirmingDelete(null); }}
+              confirmingDelete={confirmingDelete === item.id}
+              onAskDelete={() => setConfirmingDelete(item.id)}
+              onCancelDelete={() => setConfirmingDelete(null)}
+              onConfirmDelete={() => api.remove(item.id).then(() => { setConfirmingDelete(null); setEditingId(null); return refresh(); }).catch((e) => setError(errorMessage(e)))}
+              onSave={async (d) => { await api.update(item.id, toPayload(d, item.course)); setEditingId(null); return refresh(); }}
+            />
+          )}
+        </React.Fragment>
+      ))
     )}
   </ul>
 )}
 ```
+
+**Refactor the Step 1b modal into a named `EditItemModal` component** so both the grouped and flat renderers call it identically (props as used above: `item`, `onClose`, `confirmingDelete`, `onAskDelete`, `onCancelDelete`, `onConfirmDelete`, `onSave`). Its body is exactly the `<Modal title={`Edit ${item.title}`}>…<ItemForm/>…<div className="mp-modal-danger">…</div></Modal>` from Step 1b. Update the grouped renderer's Step 1b usage to call `<EditItemModal … />` too.
 
 Also update the `<p className="rule-note">` text (Task 5b shortened it to "Assignments, presentations, vivas and quizzes per unit.") — append the colour legend:
 `Assignments, presentations, vivas and quizzes per unit. Rows turn amber a week before an item is due, red at three days, and take a red border on the final day.`
@@ -1602,6 +1710,7 @@ In the browser (planner on the Home page once Task 8 lands; until then the Modul
 6. Tick an item done → it sinks below incomplete ones; its due-colour clears.
 7. Due-colour: INFO5995 "Project 1" (due 2026-09-13, ~4 days out) shows the amber tint. Add a throwaway item due tomorrow → red border; one due in 2 days → dark-red tint. Delete the throwaways.
 8. An item due > 3 days ago and not done is absent from both views (the Aug-30 seeded quizzes are already past — hidden unless completed within 3 days).
+9. Each row shows only a single **Edit** button (no inline Delete). Click **Edit** → a modal opens with the item form plus a **Delete item** button at the bottom; **Delete item** → **Yes, delete** confirm → row gone. Esc / backdrop / Cancel close the modal without changing anything. Works from both the grouped and the flat view.
 
 - [ ] **Step 6: Commit**
 
@@ -1942,6 +2051,8 @@ If nothing needed changing, skip this step.
 | §6.4 CSS (`.mp-view-toggle` tablist, `.mp-tab`, `.mp-flat-controls` sort + kind `<select>`, `.mp-row.mp-due-week/-3d/-1d`, `.mp-mod`, module-head, retire `.deadline*`) | Tasks 6, 7, 8 |
 | user: remove Google Calendar sync entirely (`gcal/` dir, db columns/helpers, api deps, `SyncBadge`, retry button, `/api/module-items/sync`) | **Task 5b** |
 | user: due-proximity colour coding replaces the sync indicator (amber ≤1wk, dark red ≤3d, light-red border ≤1d/overdue) | Task 7 |
+| user (Image #22): "+ Add" opens the item form in a modal popup (+ reusable `Modal` shell) | Task 6 Step 3b |
+| user (Image #21): collapsed row shows one **Edit** button; Edit + Delete live in an `EditItemModal` | Task 7 Steps 1/1b |
 | §7 migration order (`migrateModules` before `migrateModuleItems`) | Task 5 Step 3 |
 | §8.1 unit/integration tests | Tasks 1–5 (each ships its tests); `deadline-*` tests deleted in Task 5; `gcal/*.test.ts` + `scripts/gcal-auth.test.ts` deleted and sync-specific cases pruned from `module-items-*.test.ts` in Task 5b |
 | §8.2 tsc + check-mcq-lengths unaffected | every frontend task Step; exam content untouched |
