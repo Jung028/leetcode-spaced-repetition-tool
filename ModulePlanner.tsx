@@ -166,12 +166,14 @@ function PlannerRow({
   item,
   moduleName,
   showModuleTag,
+  showDoneDate,
   onEdit,
   onToggle,
 }: {
   item: ModuleItem;
   moduleName: string;
   showModuleTag: boolean;
+  showDoneDate?: boolean;
   onEdit: () => void;
   onToggle: () => void;
 }) {
@@ -191,7 +193,11 @@ function PlannerRow({
         {showModuleTag && <span className="mp-mod">{moduleName}</span>}
         <span className="mp-title">{item.title}</span>
         {item.weight && <span className="mp-weight">{item.weight}</span>}
-        <span className="mp-due">{item.due_at.replace("T", " ")}</span>
+        {showDoneDate ? (
+          <span className="mp-done-date">done {item.updated_at}</span>
+        ) : (
+          <span className="mp-due">{item.due_at.replace("T", " ")}</span>
+        )}
         <span className="mp-actions">
           <button type="button" className="btn" onClick={onEdit}>Edit</button>
         </span>
@@ -449,10 +455,12 @@ export default function ModulePlanner({
   const hiddenModules = useMemo(() => modules.filter((m) => m.hidden), [modules]);
   const nameOf = (code: string) => modules.find((m) => m.code === code)?.name ?? code;
 
+  // Ticked-off items leave the active lists entirely and collect in one
+  // "Completed" history section at the bottom, newest first.
   const byCourse = useMemo(() => {
     const map: Record<string, ModuleItem[]> = {};
     for (const m of visibleModules) map[m.code] = [];
-    for (const item of items) (map[item.course] ??= []).push(item);
+    for (const item of items) if (!item.completed) (map[item.course] ??= []).push(item);
     return map;
   }, [items, visibleModules]);
 
@@ -465,10 +473,9 @@ export default function ModulePlanner({
     const byDue = (a: ModuleItem, b: ModuleItem) => a.due_at.localeCompare(b.due_at) || a.id - b.id;
     const visibleCodes = new Set(visibleModules.map((m) => m.code));
     return items
-      .filter((it) => visibleCodes.has(it.course))
+      .filter((it) => !it.completed && visibleCodes.has(it.course))
       .filter((it) => kindFilter === "all" || it.kind === kindFilter)
       .sort((a, b) => {
-        if (a.completed !== b.completed) return a.completed ? 1 : -1;
         switch (sortKey) {
           case "due-asc": return byDue(a, b);
           case "due-desc": return -byDue(a, b);
@@ -477,6 +484,18 @@ export default function ModulePlanner({
         }
       });
   }, [items, sortKey, kindFilter, visibleModules]);
+
+  const completedItems = useMemo(() => {
+    const visibleCodes = new Set(visibleModules.map((m) => m.code));
+    return items
+      .filter((it) => it.completed && visibleCodes.has(it.course))
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at) || b.id - a.id);
+  }, [items, visibleModules]);
+
+  const activeCount = useMemo(() => {
+    const visibleCodes = new Set(visibleModules.map((m) => m.code));
+    return items.filter((it) => !it.completed && visibleCodes.has(it.course)).length;
+  }, [items, visibleModules]);
 
   const closeEdit = () => { setEditingId(null); setConfirmingDelete(null); };
 
@@ -491,7 +510,7 @@ export default function ModulePlanner({
     <section className="board mp-board" aria-label="Module planner">
       <div className="section-head">
         <h2>Module planner</h2>
-        <span className="board-count">{items.length}</span>
+        <span className="board-count">{activeCount}</span>
       </div>
       <p className="rule-note">
         Assignments, presentations, vivas and quizzes per unit. Rows turn orange a week before an item is
@@ -656,6 +675,26 @@ export default function ModulePlanner({
             ))}
           </ul>
         ))}
+
+      {completedItems.length > 0 && (
+        <details className="mp-completed" open>
+          <summary>
+            Completed <span className="mp-completed-count">{completedItems.length}</span>
+          </summary>
+          <ul className="board-rows">
+            {completedItems.map((item) => (
+              <PlannerRow
+                key={item.id}
+                item={item}
+                moduleName={nameOf(item.course)}
+                showModuleTag
+                showDoneDate
+                {...rowProps(item)}
+              />
+            ))}
+          </ul>
+        </details>
+      )}
 
       {addingModule && (
         <Modal title="New module" onClose={() => setAddingModule(false)}>

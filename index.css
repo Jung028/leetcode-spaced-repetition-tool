@@ -1641,6 +1641,7 @@ a.btn {
 .mp-row-main { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .mp-title { font-weight: 600; flex: 1 1 12rem; }
 .mp-due { color: var(--dim); font-variant-numeric: tabular-nums; }
+.mp-done-date { color: var(--dim); font-size: 0.85em; font-variant-numeric: tabular-nums; }
 .mp-kind { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.1rem 0.4rem; border-radius: 0.35rem; border: 1px solid var(--line); }
 .mp-kind-viva { border-color: #c0392b; color: #c0392b; }
 .mp-kind-presentation { border-color: #b8860b; color: #b8860b; }
@@ -1675,6 +1676,21 @@ a.btn {
 .mp-link-row { display: flex; gap: 0.35rem; flex-wrap: wrap; }
 .mp-flash { animation: mp-flash 1.6s ease-out; }
 @keyframes mp-flash { from { background: rgba(184, 134, 11, 0.25); } to { background: transparent; } }
+
+/* completed-items history section */
+.mp-completed { margin-top: 1.25rem; border-top: 1px solid var(--line); padding-top: 0.5rem; }
+.mp-completed > summary {
+  cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--dim);
+  list-style: none; padding: 0.25rem 0;
+}
+.mp-completed > summary::-webkit-details-marker { display: none; }
+.mp-completed > summary::before { content: "▸ "; }
+.mp-completed[open] > summary::before { content: "▾ "; }
+.mp-completed-count {
+  display: inline-block; margin-left: 0.4rem; padding: 0 0.4rem;
+  border-radius: 999px; background: var(--panel-2, rgba(127,127,127,0.15)); color: var(--dim);
+  font-size: 0.8em;
+}
 
 /* announcement → deadline quick form */
 .announcement-deadline-form { margin: 0.5rem 0 0.25rem; }
