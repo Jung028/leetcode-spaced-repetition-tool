@@ -56,12 +56,14 @@ export function listModules(db: Database): Module[] {
 }
 
 export function getModule(db: Database, code: string): Module | null {
-  const r = db.query(`SELECT * FROM modules WHERE code = ?`).get(code) as ModuleRow | null;
+  const r = db
+    .query(`SELECT * FROM modules WHERE code = ?`)
+    .get(normalizeModuleCode(code)) as ModuleRow | null;
   return r ? toModule(r) : null;
 }
 
 export function moduleExists(db: Database, code: string): boolean {
-  return db.query(`SELECT 1 FROM modules WHERE code = ?`).get(code) != null;
+  return db.query(`SELECT 1 FROM modules WHERE code = ?`).get(normalizeModuleCode(code)) != null;
 }
 
 export function createModule(
@@ -91,24 +93,24 @@ export function renameModule(db: Database, code: string, name: string): Module |
   if (!n) throw new Error("name is required");
   const r = db
     .query(`UPDATE modules SET name = ? WHERE code = ? RETURNING *`)
-    .get(n, code) as ModuleRow | null;
+    .get(n, normalizeModuleCode(code)) as ModuleRow | null;
   return r ? toModule(r) : null;
 }
 
 export function setModuleHidden(db: Database, code: string, hidden: boolean): Module | null {
   const r = db
     .query(`UPDATE modules SET hidden = ? WHERE code = ? RETURNING *`)
-    .get(hidden ? 1 : 0, code) as ModuleRow | null;
+    .get(hidden ? 1 : 0, normalizeModuleCode(code)) as ModuleRow | null;
   return r ? toModule(r) : null;
 }
 
 export function setModuleSortOrder(db: Database, code: string, sortOrder: number): Module | null {
   const r = db
     .query(`UPDATE modules SET sort_order = ? WHERE code = ? RETURNING *`)
-    .get(sortOrder, code) as ModuleRow | null;
+    .get(sortOrder, normalizeModuleCode(code)) as ModuleRow | null;
   return r ? toModule(r) : null;
 }
 
 export function deleteModule(db: Database, code: string): boolean {
-  return db.query(`DELETE FROM modules WHERE code = ?`).run(code).changes > 0;
+  return db.query(`DELETE FROM modules WHERE code = ?`).run(normalizeModuleCode(code)).changes > 0;
 }

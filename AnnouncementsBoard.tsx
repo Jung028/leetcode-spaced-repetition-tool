@@ -104,6 +104,11 @@ function DeadlineQuickForm({
 }) {
   const firstLine = announcement.message.split("\n")[0]!.slice(0, 80);
   const [course, setCourse] = useState(modules[0]?.code ?? "");
+  // Modules may still be loading when the form mounts; adopt the first one once
+  // it arrives (but never clobber a choice the user has already made).
+  useEffect(() => {
+    setCourse((c) => (c || modules[0]?.code) ?? "");
+  }, [modules]);
   const [kind, setKind] = useState<ModuleItemKind>("assignment");
   const [title, setTitle] = useState(firstLine);
   const [date, setDate] = useState("");
@@ -290,8 +295,14 @@ export default function AnnouncementsBoard() {
                   <button
                     type="button"
                     className="btn"
-                    disabled={modulesError}
-                    title={modulesError ? "Couldn't load modules" : "Add this as a deadline"}
+                    disabled={modulesError || modules.length === 0}
+                    title={
+                      modulesError
+                        ? "Couldn't load modules"
+                        : modules.length === 0
+                          ? "No modules to add to"
+                          : "Add this as a deadline"
+                    }
                     onClick={(e) => {
                       e.preventDefault();
                       setDeadlineFor(a.id);

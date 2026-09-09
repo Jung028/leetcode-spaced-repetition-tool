@@ -121,6 +121,21 @@ test("POST rejects an unknown module", async () => {
   expect((await res.json()).error).toMatch(/unknown module/i);
 });
 
+test("POST normalises a lower-cased / padded course to the canonical module code", async () => {
+  const res = await fetch(`${base}/api/module-items`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      course: "  info5995 ",
+      kind: "other",
+      title: "case-insensitive course",
+      due_at: "2026-09-20",
+    }),
+  });
+  expect(res.status).toBe(201);
+  expect((await res.json()).course).toBe("INFO5995");
+});
+
 test("POST rejects an over-long weight", async () => {
   const res = await fetch(`${base}/api/module-items`, {
     method: "POST",

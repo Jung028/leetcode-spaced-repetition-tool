@@ -255,7 +255,6 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
           onClose={() => setOpenModal(null)}
         />
       )}
-      {/* Module planner mounts here — Task 8 */}
       <section className="board" id="home-everything-due" aria-label="Everything due">
         <div className="section-head">
           <h2>Everything due</h2>

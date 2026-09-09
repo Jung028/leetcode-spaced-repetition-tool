@@ -87,3 +87,30 @@ test("DELETE blocks a module with items unless cascade=1", async () => {
   expect(forced.status).toBe(200);
   expect(await (await fetch(`${base}/api/modules`)).json()).toHaveLength(3);
 });
+
+test("a lower-cased :code in the URL resolves to the canonical module", async () => {
+  const put = await fetch(`${base}/api/modules/info6007`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "Renamed via lowercase" }),
+  });
+  expect(put.status).toBe(200);
+  expect((await put.json()).name).toBe("Renamed via lowercase");
+
+  const patch = await fetch(`${base}/api/modules/info6007`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ hidden: true }),
+  });
+  expect(patch.status).toBe(200);
+  expect((await patch.json()).hidden).toBe(true);
+
+  createModuleItem(
+    db,
+    { course: "INFO5995", kind: "other", title: "T", due_at: "2026-10-01" },
+    "2026-09-09",
+  );
+  const del = await fetch(`${base}/api/modules/info5995?cascade=1`, { method: "DELETE" });
+  expect(del.status).toBe(200);
+  expect(await (await fetch(`${base}/api/modules`)).json()).toHaveLength(3);
+});

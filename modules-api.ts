@@ -4,6 +4,7 @@ import {
   deleteModule,
   getModule,
   listModules,
+  normalizeModuleCode,
   renameModule,
   setModuleHidden,
   setModuleSortOrder,
@@ -45,21 +46,23 @@ export function moduleApiRoutes(db: Database) {
         const b = (await req.json().catch(() => null)) as
           | { hidden?: unknown; sort_order?: unknown }
           | null;
-        let m = getModule(db, req.params.code);
+        const code = normalizeModuleCode(req.params.code);
+        let m = getModule(db, code);
         if (!m) return json({ error: "not found" }, 404);
-        if (typeof b?.hidden === "boolean") m = setModuleHidden(db, req.params.code, b.hidden);
-        if (typeof b?.sort_order === "number")
-          m = setModuleSortOrder(db, req.params.code, b.sort_order);
+        if (typeof b?.hidden === "boolean") m = setModuleHidden(db, code, b.hidden);
+        if (typeof b?.sort_order === "number") m = setModuleSortOrder(db, code, b.sort_order);
         return json(m);
       },
-      DELETE: async (req: Request & { params: { code: string } }) => {
-        const code = req.params.code;
+      DELETE: (req: Request & { params: { code: string } }) => {
+        const code = normalizeModuleCode(req.params.code);
         if (!getModule(db, code)) return json({ error: "not found" }, 404);
         const count = countItemsForModule(db, code);
         const cascade = new URL(req.url).searchParams.get("cascade") === "1";
         if (count > 0 && !cascade) return json({ error: "module has items", count }, 409);
-        if (count > 0) deleteItemsForModule(db, code);
-        deleteModule(db, code);
+        db.transaction(() => {
+          if (count > 0) deleteItemsForModule(db, code);
+          deleteModule(db, code);
+        })();
         return json({ ok: true });
       },
     },

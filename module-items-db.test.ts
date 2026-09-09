@@ -68,6 +68,55 @@ test("migrateModuleItems is idempotent", () => {
   expect(listModuleItems(db).length).toBe(1);
 });
 
+test("migrateModuleItems upgrades a legacy gcal-era table: drops sync columns, adds weight, keeps rows", () => {
+  const legacy = new Database(":memory:");
+  // The schema as it stood before Task 2 (no weight) + Task 5b (gcal sync columns).
+  legacy.exec(`
+    CREATE TABLE module_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      course TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      due_at TEXT NOT NULL,
+      links TEXT NOT NULL DEFAULT '[]',
+      completed INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      gcal_event_id TEXT,
+      sync_state TEXT NOT NULL DEFAULT 'pending',
+      sync_error TEXT,
+      synced_at TEXT
+    );
+  `);
+  legacy.exec(
+    `INSERT INTO module_items
+       (course, kind, title, description, due_at, links, completed, created_at, updated_at,
+        gcal_event_id, sync_state, sync_error, synced_at)
+     VALUES ('COMP5348', 'assignment', 'Legacy row', 'kept', '2026-10-01T23:59', '[]', 1,
+             '2026-09-01', '2026-09-01', 'evt_123', 'error', 'boom', '2026-09-02')`,
+  );
+
+  migrateModuleItems(legacy, TODAY);
+
+  const cols = (legacy.query(`PRAGMA table_info(module_items)`).all() as { name: string }[]).map(
+    (c) => c.name,
+  );
+  for (const gone of ["gcal_event_id", "sync_state", "sync_error", "synced_at"]) {
+    expect(cols).not.toContain(gone);
+  }
+  expect(cols).toContain("weight");
+
+  const row = getModuleItem(legacy, 1)!;
+  expect(row.title).toBe("Legacy row");
+  expect(row.description).toBe("kept");
+  expect(row.completed).toBe(true);
+  expect(row.weight).toBeNull();
+
+  // Safe to run again over the already-upgraded table.
+  expect(() => migrateModuleItems(legacy, TODAY)).not.toThrow();
+});
+
 test("listModuleItems orders incomplete before complete, then by due_at ascending", () => {
   const a = createModuleItem(db, { ...base, title: "later", due_at: "2026-11-01" }, TODAY);
   const b = createModuleItem(db, { ...base, title: "sooner", due_at: "2026-09-10" }, TODAY);

@@ -6,6 +6,7 @@ import {
   type ModuleItemLink,
 } from "./module-items-db";
 import type { Module } from "./modules-db";
+import { localToday } from "./shared/scheduling";
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -115,11 +116,13 @@ type ViewMode = "grouped" | "flat";
 type SortKey = "due-asc" | "due-desc" | "module" | "kind";
 type KindFilter = ModuleItemKind | "all";
 
-// How many whole days until an item is due (negative = overdue).
+// How many whole days until an item is due (negative = overdue). "Today" is the
+// local calendar date — `toISOString()` would be UTC, which reads as yesterday
+// all morning in UTC+ zones and slips every colour threshold a rung.
 function daysUntilDue(item: ModuleItem): number {
   const day = 86_400_000;
   const due = Date.parse(item.due_at.slice(0, 10));
-  const today = Date.parse(new Date().toISOString().slice(0, 10));
+  const today = Date.parse(localToday());
   return Math.round((due - today) / day);
 }
 
@@ -355,16 +358,26 @@ export default function ModulePlanner({
       return {};
     }
   });
-  const readStore = <T,>(key: string, fallback: T): T => {
+  // Read a persisted enum, falling back if the stored value isn't a known one
+  // (stale key, hand-edited storage) — an unrecognised sort/filter otherwise
+  // wedges the view with every row hidden or an undefined comparator.
+  const readEnum = <T extends string>(key: string, allowed: readonly T[], fallback: T): T => {
     try {
-      return (localStorage.getItem(key) as T | null) ?? fallback;
+      const v = localStorage.getItem(key);
+      return v != null && (allowed as readonly string[]).includes(v) ? (v as T) : fallback;
     } catch {
       return fallback;
     }
   };
-  const [viewMode, setViewMode] = useState<ViewMode>(() => readStore("modulePlanner.view", "grouped"));
-  const [sortKey, setSortKey] = useState<SortKey>(() => readStore("modulePlanner.sort", "due-asc"));
-  const [kindFilter, setKindFilter] = useState<KindFilter>(() => readStore("modulePlanner.kind", "all"));
+  const [viewMode, setViewMode] = useState<ViewMode>(() =>
+    readEnum("modulePlanner.view", ["grouped", "flat"], "grouped"),
+  );
+  const [sortKey, setSortKey] = useState<SortKey>(() =>
+    readEnum("modulePlanner.sort", ["due-asc", "due-desc", "module", "kind"], "due-asc"),
+  );
+  const [kindFilter, setKindFilter] = useState<KindFilter>(() =>
+    readEnum("modulePlanner.kind", ["all", ...MODULE_ITEM_KINDS], "all"),
+  );
   useEffect(() => { try { localStorage.setItem("modulePlanner.view", viewMode); } catch { /* ignore */ } }, [viewMode]);
   useEffect(() => { try { localStorage.setItem("modulePlanner.sort", sortKey); } catch { /* ignore */ } }, [sortKey]);
   useEffect(() => { try { localStorage.setItem("modulePlanner.kind", kindFilter); } catch { /* ignore */ } }, [kindFilter]);
@@ -378,12 +391,27 @@ export default function ModulePlanner({
       })
       .catch((err) => setError(errorMessage(err)));
   };
+  // Item-only refresh for hot interactions (tick on/off) that can't change modules.
+  const refreshItems = () => {
+    setError(null);
+    return api.list().then(setItems).catch((err) => setError(errorMessage(err)));
+  };
   useEffect(() => {
     refresh();
   }, []);
 
   useEffect(() => {
     if (openItemId == null) return;
+    const target = items.find((it) => it.id === openItemId);
+    if (!target) return; // items not loaded yet — a later `items` change re-runs this
+
+    // The row has to be rendered before we can scroll to it: expand its group and
+    // drop a flat-view kind filter that would hide it.
+    if (collapsed[target.course]) setCollapsed((c) => ({ ...c, [target.course]: false }));
+    if (viewMode === "flat" && kindFilter !== "all" && kindFilter !== target.kind) {
+      setKindFilter("all");
+    }
+
     const el = document.getElementById(`mp-item-${openItemId}`);
     if (el) {
       // A scroll handler elsewhere cancels in-progress smooth scrolls, so jump
@@ -394,7 +422,13 @@ export default function ModulePlanner({
       onOpened?.();
       return () => clearTimeout(t);
     }
-  }, [openItemId, items, onOpened]);
+
+    // Not in the DOM. A state change above will re-run this effect and hit the
+    // branch above; but an item in a hidden module never surfaces, so clear the
+    // pending link after a beat rather than letting it dangle.
+    const t = setTimeout(() => onOpened?.(), 500);
+    return () => clearTimeout(t);
+  }, [openItemId, items, onOpened, collapsed, kindFilter, viewMode]);
 
   const toggleCollapse = (code: string) => {
     setCollapsed((c) => {
@@ -429,7 +463,9 @@ export default function ModulePlanner({
 
   const flatItems = useMemo(() => {
     const byDue = (a: ModuleItem, b: ModuleItem) => a.due_at.localeCompare(b.due_at) || a.id - b.id;
+    const visibleCodes = new Set(visibleModules.map((m) => m.code));
     return items
+      .filter((it) => visibleCodes.has(it.course))
       .filter((it) => kindFilter === "all" || it.kind === kindFilter)
       .sort((a, b) => {
         if (a.completed !== b.completed) return a.completed ? 1 : -1;
@@ -446,7 +482,7 @@ export default function ModulePlanner({
 
   const rowProps = (item: ModuleItem) => ({
     onEdit: () => { setEditingId(item.id); setAddingCourse(null); setConfirmingDelete(null); },
-    onToggle: () => api.toggle(item.id).then(refresh).catch((e) => setError(errorMessage(e))),
+    onToggle: () => api.toggle(item.id).then(refreshItems).catch((e) => setError(errorMessage(e))),
   });
 
   const editingItem = editingId == null ? null : items.find((it) => it.id === editingId) ?? null;

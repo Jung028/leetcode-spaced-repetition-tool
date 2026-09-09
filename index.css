@@ -225,7 +225,7 @@ button {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--fg-dim, #9aa0aa);
+  color: var(--dim);
   margin-right: 0.2rem;
 }
 
@@ -233,10 +233,10 @@ button {
   font: inherit;
   font-size: 0.82rem;
   padding: 3px 12px;
-  border: 1px solid var(--border, #2a2c33);
+  border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--panel);
-  color: var(--fg, #f2f2f4);
+  color: var(--text);
   cursor: pointer;
 }
 
@@ -1645,13 +1645,15 @@ a.btn {
 .mp-kind-viva { border-color: #c0392b; color: #c0392b; }
 .mp-kind-presentation { border-color: #b8860b; color: #b8860b; }
 .mp-kind-assignment { border-color: #2e6da4; color: #2e6da4; }
+.mp-kind-quiz { border-color: #2f855a; color: #2f855a; }
+.mp-kind-exam { border-color: #9c4221; color: #9c4221; }
 .mp-kind-other { color: var(--dim); }
 .mp-actions { display: flex; align-items: center; gap: 0.35rem; }
 
 /* view toggle + flat-view controls */
 .mp-view-toggle { display: inline-flex; gap: 2px; background: var(--panel-2, rgba(127,127,127,0.12)); border-radius: 7px; padding: 2px; margin: 0.25rem 0 0.75rem; }
 .mp-tab { font: inherit; font-size: 0.82rem; padding: 3px 14px; border: 0; border-radius: 5px; background: transparent; color: var(--dim); cursor: pointer; }
-.mp-tab-active { background: var(--panel, rgba(127,127,127,0.22)); color: var(--fg); }
+.mp-tab-active { background: var(--panel, rgba(127,127,127,0.22)); color: var(--text); }
 .mp-flat-controls { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .mp-flat-controls label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.78rem; color: var(--dim); }
 .mp-select { font: inherit; padding: 3px 6px; }

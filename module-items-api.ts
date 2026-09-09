@@ -12,7 +12,7 @@ import {
   type ModuleItemKind,
   type ModuleItemLink,
 } from "./module-items-db";
-import { moduleExists } from "./modules-db";
+import { moduleExists, normalizeModuleCode } from "./modules-db";
 import { localToday } from "./shared/scheduling";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
@@ -44,8 +44,8 @@ function parseInput(db: Database, body: unknown): ParseResult {
   if (typeof body !== "object" || body === null) return { error: "invalid body" };
   const b = body as Record<string, unknown>;
 
-  const course = typeof b.course === "string" ? b.course : "";
-  if (!moduleExists(db, course)) return { error: "unknown module" };
+  const course = typeof b.course === "string" ? normalizeModuleCode(b.course) : "";
+  if (!course || !moduleExists(db, course)) return { error: "unknown module" };
 
   const kind = typeof b.kind === "string" ? b.kind : "";
   if (!MODULE_ITEM_KINDS.includes(kind as ModuleItemKind)) {
@@ -64,6 +64,7 @@ function parseInput(db: Database, body: unknown): ParseResult {
   }
 
   const description = typeof b.description === "string" ? b.description : "";
+  if (description.length > 4000) return { error: "description too long" };
 
   const weightRaw = typeof b.weight === "string" ? b.weight.trim() : "";
   if (weightRaw.length > 12) return { error: "weight too long" };
