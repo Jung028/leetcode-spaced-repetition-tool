@@ -24,7 +24,11 @@ const input: ModuleItemInput = {
 let db: Database;
 beforeEach(() => {
   db = new Database(":memory:");
-  migrateModuleItems(db);
+  migrateModuleItems(db, TODAY);
+  // These tests build their own rows via createModuleItem; drop the 12
+  // legacy-deadline rows the migration now seeds so sync/reconcile counts
+  // reflect only what each test set up.
+  db.exec("DELETE FROM module_items; DELETE FROM sqlite_sequence WHERE name = 'module_items';");
 });
 
 function recorder(script: Array<{ status: number; body?: unknown }>) {

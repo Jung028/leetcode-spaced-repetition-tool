@@ -21,6 +21,8 @@ const COLOR_BY_KIND: Record<ModuleItemKind, string> = {
   viva: "11", // Tomato
   presentation: "5", // Banana
   assignment: "9", // Blueberry
+  quiz: "7", // Peacock
+  exam: "11", // Tomato — high alert
   other: "8", // Graphite
 };
 

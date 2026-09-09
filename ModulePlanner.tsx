@@ -82,6 +82,8 @@ const KIND_LABEL: Record<ModuleItemKind, string> = {
   assignment: "Assignment",
   presentation: "Presentation",
   viva: "Viva",
+  quiz: "Quiz",
+  exam: "Exam",
   other: "Other",
 };
 

@@ -55,7 +55,12 @@ beforeEach(() => {
   migrateExam(db, TODAY);
   migrateLeetcode150(db);
   migrateInterview(db);
-  migrateModuleItems(db);
+  migrateModuleItems(db, TODAY);
+  // migrateModuleItems now seeds the 12 legacy SEMESTER_DEADLINES rows. The
+  // home stats/due assertions below are calibrated against exam/leetcode/
+  // interview sources only (and tests that need a module item create their
+  // own), so drop the seeded rows here to keep those counts deterministic.
+  db.exec("DELETE FROM module_items; DELETE FROM sqlite_sequence WHERE name = 'module_items';");
   server = Bun.serve({ port: 0, routes: homeApiRoutes(db) });
   base = server.url.origin;
 });

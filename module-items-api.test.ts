@@ -43,6 +43,9 @@ function stubDeps(): ModuleItemsApiDeps {
 beforeEach(() => {
   db = new Database(":memory:");
   migrateModuleItems(db);
+  // migrateModuleItems now seeds 12 legacy-deadline rows; these API tests
+  // assert on exactly the rows they POST, so start from an empty table.
+  db.exec("DELETE FROM module_items; DELETE FROM sqlite_sequence WHERE name = 'module_items';");
   calendarCalls = [];
   server = Bun.serve({ port: 0, routes: moduleItemsApiRoutes(db, stubDeps()) });
   base = server.url.origin;
@@ -82,7 +85,7 @@ test("POST still returns 201 when the calendar call fails; row is marked error",
 
 test("POST rejects an unknown course / bad kind / empty title / bad due_at / bad link", async () => {
   expect((await post("/api/module-items", { ...good, course: "NOPE1000" })).status).toBe(400);
-  expect((await post("/api/module-items", { ...good, kind: "exam" })).status).toBe(400);
+  expect((await post("/api/module-items", { ...good, kind: "midterm" })).status).toBe(400);
   expect((await post("/api/module-items", { ...good, title: "   " })).status).toBe(400);
   expect((await post("/api/module-items", { ...good, due_at: "next tuesday" })).status).toBe(400);
   expect((await post("/api/module-items", { ...good, links: [{ label: "x", url: "javascript:alert(1)" }] })).status).toBe(400);
