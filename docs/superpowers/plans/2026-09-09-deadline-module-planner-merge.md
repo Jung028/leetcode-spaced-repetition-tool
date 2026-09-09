@@ -31,23 +31,25 @@
 
 **New files:**
 - `modules-db.ts` — `modules` table: migration + seed + CRUD + `moduleExists`.
-- `modules-api.ts` — `moduleApiRoutes(db, deps)`: REST for `/api/modules`.
+- `modules-api.ts` — `moduleApiRoutes(db)`: REST for `/api/modules`.
 - `modules-db.test.ts`, `modules-api.test.ts` — coverage for the above.
 
 **Modified files:**
-- `module-items-db.ts` — `weight` column/field; `quiz`+`exam` kinds; `module_item_seeds` table; `seedDeadlineItems`; `countItemsForModule`; `deleteItemsForModule`; `migrateModuleItems` takes `today`.
-- `module-items-api.ts` — accept `weight`; validate `course` against `modules`.
-- `module-items-db.test.ts`, `module-items-api.test.ts` — extend.
+- `module-items-db.ts` — `weight` column/field; `quiz`+`exam` kinds; `module_item_seeds` table; `seedDeadlineItems`; `countItemsForModule`; `deleteItemsForModule`; `migrateModuleItems` takes `today`. **Task 5b:** drop the sync columns/fields/helpers.
+- `module-items-api.ts` — accept `weight`; validate `course` against `modules`. **Task 5b:** drop the sync deps + `/api/module-items/sync` route.
+- `module-items-db.test.ts`, `module-items-api.test.ts` — extend; **Task 5b:** remove sync tests / stub.
 - `index.ts` — wire `migrateModules` + `moduleApiRoutes`; drop `migrateDeadlines` + `deadlineApiRoutes`.
-- `HomeApp.tsx` — drop `DeadlinesPanel` + `semester-deadlines`/`deadline-api` imports; later mount `<ModulePlanner>`; add `openItemId` prop.
-- `ModulePlanner.tsx` — modules-driven groups; module CRUD UI; `weight` field; grouped/flat view toggle + sort; shared `PlannerRow`.
+- `HomeApp.tsx` — drop `DeadlinesPanel` + `semester-deadlines`/`deadline-api` imports; mount `<ModulePlanner>` directly below `<AnnouncementsBoard />`; add `openItemId` prop.
+- `ModulePlanner.tsx` — modules-driven groups; module CRUD UI; `weight` field; tab-style grouped/flat view toggle + sort + kind filter; shared `PlannerRow`; due-proximity colour coding. **Task 5b:** remove `SyncBadge` + retry button.
 - `AnnouncementsBoard.tsx` — inline "add to deadlines" form; fetch `/api/modules`.
-- `exam/App.tsx` — remove `ModulePlanner` mount + `openItemId`/`onOpened` props + import.
+- `exam/App.tsx` — remove `ModulePlanner` mount + `openItemId`/`onOpened` props + import. (The `runSync`/`SyncBanner` exam content-generation feature is untouched.)
 - `frontend.tsx` — `module-item` deep link routes to Home; pass `openItemId` to `<HomeApp>` not `<ExamApp>`.
-- `index.css` — planner view/sort/module-head/subject-tag styles; retire unused `.deadline*`.
+- `index.css` — planner tab/sort/filter/module-head/subject-tag/due-colour styles; retire unused `.deadline*`.
+- `modules-api.ts` — **Task 5b:** drop the `deleteCalendarEvent` cascade cleanup.
 
 **Deleted files:**
 - `deadline-db.ts`, `deadline-api.ts`, `deadline-db.test.ts`, `deadline-api.test.ts`.
+- **Task 5b:** `gcal/sync.ts`, `gcal/sync.test.ts`, `gcal/auth.ts`, `gcal/auth.test.ts`, `scripts/gcal-auth.ts`, `scripts/gcal-auth.test.ts`.
 
 **Untouched (kept as-is):** `semester-deadlines.ts` (becomes seed-only; still exports `COURSE_NAMES`, `courseNameFor`, `SEMESTER_DEADLINES`, `deadlineId`, `noteFor`). `deadline_completions` table is left in the DB (read once by the seed) — not dropped.
 
@@ -1029,6 +1031,109 @@ git commit -m "$(printf 'refactor: retire standalone /api/deadlines, wire /api/m
 
 ---
 
+## Task 5b: Remove Google Calendar sync entirely
+
+**Why:** the user decided they don't want the calendar sync at all — not the badge, not the background sync. This task rips out the whole `gcal/` feature and every reference to it. Rows will instead be colour-coded by due date (Task 7). The exam board's *content-generation* "Sync" button (`runSync` / `SyncBanner` in `exam/App.tsx`) is a **different feature** — do NOT touch it.
+
+**Files:**
+- Delete: `gcal/sync.ts`, `gcal/sync.test.ts`, `gcal/auth.ts`, `gcal/auth.test.ts`, `scripts/gcal-auth.ts`, `scripts/gcal-auth.test.ts` (the whole `gcal/` directory + the two scripts)
+- Modify: `module-items-db.ts` — drop the sync columns + fields + helpers
+- Modify: `module-items-api.ts` — drop the sync deps + calls + `/api/module-items/sync` route
+- Modify: `modules-api.ts` — drop the `deleteCalendarEvent` cascade cleanup
+- Modify: `ModulePlanner.tsx` — remove `SyncBadge`, the "Retry sync" button, `SyncState` import; shorten the rule-note
+- Modify: `module-items-db.test.ts`, `module-items-api.test.ts` — remove sync tests / stub
+- Test: full `bun test` green, `bunx tsc --noEmit` clean
+
+**Interfaces (post-removal):**
+- `ModuleItem` loses `gcal_event_id`, `sync_state`, `sync_error`, `synced_at`. `SyncState` export gone.
+- `moduleItemsApiRoutes(db)` — no second `deps` arg any more; `ModuleItemsApiDeps` export gone; no `/api/module-items/sync` route.
+- `moduleApiRoutes(db)` — no `deps` arg; cascade just deletes the items.
+- `markItemSynced`, `markItemSyncError`, `listItemsNeedingSync` gone from `module-items-db.ts`.
+
+- [ ] **Step 1: Delete the gcal feature files**
+
+```bash
+git rm gcal/sync.ts gcal/sync.test.ts gcal/auth.ts gcal/auth.test.ts scripts/gcal-auth.ts scripts/gcal-auth.test.ts
+```
+
+- [ ] **Step 2: Strip sync from `module-items-db.ts`**
+
+- Remove `export type SyncState = …`.
+- In `ModuleItem` and `ModuleItemRow`: delete the four fields `gcal_event_id`, `sync_state`, `sync_error`, `synced_at`.
+- In `toModuleItem`: delete those four mappings.
+- In the `CREATE TABLE IF NOT EXISTS module_items (…)` DDL: delete the four column lines (`gcal_event_id TEXT`, `sync_state TEXT NOT NULL DEFAULT 'pending'`, `sync_error TEXT`, `synced_at TEXT`).
+- Add a guarded drop for existing DBs, right after the `weight` column guard added in Task 2:
+
+```ts
+for (const col of ["gcal_event_id", "sync_state", "sync_error", "synced_at"]) {
+  if (cols.some((c) => c.name === col)) db.exec(`ALTER TABLE module_items DROP COLUMN ${col}`);
+}
+```
+(`cols` is the `PRAGMA table_info(module_items)` array already read for the `weight` guard. Re-read it if scoping requires.)
+
+- In `createModuleItem`: remove `sync_state` from the INSERT column list and the `'pending'` literal from VALUES. (The row now inserts `course, kind, title, description, due_at, links, completed, weight, created_at, updated_at`.)
+- In `updateModuleItem`: remove `sync_state = 'pending', sync_error = NULL,` from the SET clause.
+- Delete the functions `markItemSynced`, `markItemSyncError`, `listItemsNeedingSync`.
+
+- [ ] **Step 3: Strip sync from `module-items-api.ts`**
+
+- Remove `import { deleteCalendarEvent, reconcile, syncModuleItem, type SyncDeps } from "./gcal/sync";`.
+- Remove `export interface ModuleItemsApiDeps { sync?: SyncDeps }` and the `deps: ModuleItemsApiDeps = {}` param on `moduleItemsApiRoutes` (signature becomes `moduleItemsApiRoutes(db: Database)`), and the `const sync = deps.sync;` line.
+- POST handler: drop `const synced = await syncModuleItem(db, created, sync); return json(synced ?? created, 201);` → `return json(created, 201);`.
+- PUT handler: same — `return json(updated);`.
+- `/toggle` handler: same — `return json(toggled);`.
+- DELETE handler: drop the `if (deleted.gcal_event_id) { await deleteCalendarEvent(...) }` block; just `return json({ ok: true });` after the 404 check.
+- Delete the entire `"/api/module-items/sync": { POST: … reconcile … }` route.
+
+- [ ] **Step 4: Strip the cascade calendar cleanup from `modules-api.ts`**
+
+- Remove `import { deleteCalendarEvent, type SyncDeps } from "./gcal/sync";`.
+- Remove the `deps: { sync?: SyncDeps } = {}` param and `const sync = deps.sync;` (signature becomes `moduleApiRoutes(db: Database)`).
+- In the DELETE cascade branch, replace the per-item loop:
+  ```ts
+  if (count > 0) {
+    for (const it of deleteItemsForModule(db, code)) {
+      if (it.gcal_event_id) await deleteCalendarEvent(it.gcal_event_id, sync).catch(() => {});
+    }
+  }
+  ```
+  with:
+  ```ts
+  if (count > 0) deleteItemsForModule(db, code);
+  ```
+
+- [ ] **Step 5: Strip sync UI from `ModulePlanner.tsx`**
+
+- Remove the `SyncBadge` function component entirely.
+- Remove `<SyncBadge item={item} />` from the inline row JSX.
+- Remove the `{item.sync_state === "error" && (<button … >Retry sync</button>)}` block and any `onRetrySync`/retry handler.
+- Remove `type SyncState` / `SyncState` from the `./module-items-db` import if present.
+- Change the rule-note text to: `Assignments, presentations, vivas and quizzes per unit.` (Task 7 Step 3 will append the colour legend.)
+
+- [ ] **Step 6: Fix the tests**
+
+- `module-items-db.test.ts`: delete the `markItemSynced` / `markItemSyncError` tests and remove those names + `listItemsNeedingSync` from the `./module-items-db` import. Any assertion on `sync_state` / `gcal_event_id` of a returned item → delete that assertion.
+- `module-items-api.test.ts`: delete the `stubDeps()` function, the `calendarCalls` array, the `ModuleItemsApiDeps` import, and every test that asserts on calendar behaviour (`calendarCalls`, `sync_state`, `/api/module-items/sync`). Change `moduleItemsApiRoutes(db, stubDeps())` → `moduleItemsApiRoutes(db)` in `beforeEach`. Keep the CRUD / validation / weight tests.
+- Grep sweep — all must return nothing:
+  ```bash
+  grep -rn "gcal/sync\|gcal/auth\|gcal-auth\|syncModuleItem\|deleteCalendarEvent\|reconcile(\|sync_state\|gcal_event_id\|listItemsNeedingSync\|markItemSync\|ModuleItemsApiDeps\|SyncBadge\|SyncState\|Retry sync" --include="*.ts" --include="*.tsx" . | grep -v node_modules
+  ```
+  (`exam/App.tsx` `runSync`/`SyncBanner`/`api.sync` are the exam feature — they will NOT match the patterns above; leave them.)
+
+- [ ] **Step 7: Full suite + typecheck**
+
+Run: `bun test && bunx tsc --noEmit`
+Expected: green. Note the pass count (it drops — sync tests removed).
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add -A
+git commit -m "$(printf 'refactor: remove Google Calendar sync from the module planner\n\nDrops the gcal/ feature, the sync columns/helpers on module_items, the\nsync deps + /api/module-items/sync route, and the sync badge / retry\nbutton. Due dates get colour-coded in the UI instead (later task).\nThe exam content-generation sync is a separate feature, untouched.\n\nCo-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/session_01DPCpgYPU82w8LYj1w6dH6v')"
+```
+
+---
+
 ## Task 6: `ModulePlanner.tsx` — modules-driven groups, module CRUD, weight field
 
 **Files:**
@@ -1257,11 +1362,25 @@ git commit -m "$(printf 'feat: modules-driven planner groups with add/rename/hid
 - Consumes: `items: ModuleItem[]`, `modules: Module[]` already in component state (Task 6).
 - Produces: a `viewMode: "grouped" | "flat"` + `sort` control persisted to `localStorage` (`modulePlanner.view`, `modulePlanner.sort`); a shared `PlannerRow` component used by both renderers; a `visibleItems` memo applying the 3-day aging rule.
 
-- [ ] **Step 1: Extract `PlannerRow`**
+- [ ] **Step 1: Extract `PlannerRow` + add the due-proximity colour helper**
 
-Pull the existing per-item `<li className="mp-row …">…</li>` body (the non-editing branch inside `list.map`) into a component so grouped + flat share it:
+Task 5b already removed the sync badge and "Retry sync" button from the inline row. Pull the remaining per-item `<li className="mp-row …">…</li>` body (the non-editing branch inside `list.map`) into a shared component, and add a `dueClass` helper that colours a row by how close its due date is.
 
 ```tsx
+// Colour a pending row by proximity to its due date. Overdue and the final
+// day get a red border; ≤3 days a dark-red tint; ≤1 week an amber tint.
+function dueClass(item: ModuleItem): string {
+  if (item.completed) return "";
+  const day = 86_400_000;
+  const days = Math.round(
+    (Date.parse(item.due_at.slice(0, 10)) - Date.parse(new Date().toISOString().slice(0, 10))) / day,
+  );
+  if (days <= 1) return "mp-due-1d"; // due today / tomorrow / overdue
+  if (days <= 3) return "mp-due-3d";
+  if (days <= 7) return "mp-due-week";
+  return "";
+}
+
 function PlannerRow({
   item,
   moduleName,
@@ -1271,7 +1390,6 @@ function PlannerRow({
   onDelete,
   confirmingDelete,
   setConfirmingDelete,
-  onRetrySync,
 }: {
   item: ModuleItem;
   moduleName: string;
@@ -1281,10 +1399,12 @@ function PlannerRow({
   onDelete: () => void;
   confirmingDelete: boolean;
   setConfirmingDelete: (v: number | null) => void;
-  onRetrySync: () => void;
 }) {
   return (
-    <li id={`mp-item-${item.id}`} className={item.completed ? "mp-row mp-row-done" : "mp-row"}>
+    <li
+      id={`mp-item-${item.id}`}
+      className={["mp-row", item.completed ? "mp-row-done" : "", dueClass(item)].filter(Boolean).join(" ")}
+    >
       <div className="mp-row-main">
         <input type="checkbox" checked={item.completed} onChange={onToggle}
           aria-label={item.completed ? "Mark not done" : "Mark done"} />
@@ -1293,11 +1413,7 @@ function PlannerRow({
         <span className="mp-title">{item.title}</span>
         {item.weight && <span className="mp-weight">{item.weight}</span>}
         <span className="mp-due">{item.due_at.replace("T", " ")}</span>
-        <SyncBadge item={item} />
         <span className="mp-actions">
-          {item.sync_state === "error" && (
-            <button type="button" className="btn" onClick={onRetrySync}>Retry sync</button>
-          )}
           <button type="button" className="btn" onClick={onEdit}>Edit</button>
           {confirmingDelete ? (
             <>
@@ -1323,15 +1439,16 @@ function PlannerRow({
 }
 ```
 
-Update `KIND_LABEL` to cover the new kinds: `quiz: "Quiz", exam: "Exam"`.
+`KIND_LABEL` already has all six kinds (Task 2 added `quiz`/`exam`) — no change needed; just confirm.
 
-Rewire the grouped renderer to use `<PlannerRow>` (keeping the `editingId === item.id ? <ItemForm…> : <PlannerRow…>` branch).
+Rewire the grouped renderer to use `<PlannerRow>` (keeping the `editingId === item.id ? <ItemForm…> : <PlannerRow…>` branch). The grouped call passes the same props minus `showModuleTag` (`showModuleTag={false}`).
 
 - [ ] **Step 2: Add view + sort state and the aging memo**
 
 ```ts
 type ViewMode = "grouped" | "flat";
 type SortKey = "due-asc" | "due-desc" | "module" | "weight";
+type KindFilter = ModuleItemKind | "all";
 
 const [viewMode, setViewMode] = useState<ViewMode>(
   () => ((localStorage.getItem("modulePlanner.view") as ViewMode) ?? "grouped"),
@@ -1339,8 +1456,12 @@ const [viewMode, setViewMode] = useState<ViewMode>(
 const [sortKey, setSortKey] = useState<SortKey>(
   () => ((localStorage.getItem("modulePlanner.sort") as SortKey) ?? "due-asc"),
 );
+const [kindFilter, setKindFilter] = useState<KindFilter>(
+  () => ((localStorage.getItem("modulePlanner.kind") as KindFilter) ?? "all"),
+);
 useEffect(() => { try { localStorage.setItem("modulePlanner.view", viewMode); } catch {} }, [viewMode]);
 useEffect(() => { try { localStorage.setItem("modulePlanner.sort", sortKey); } catch {} }, [sortKey]);
+useEffect(() => { try { localStorage.setItem("modulePlanner.kind", kindFilter); } catch {} }, [kindFilter]);
 
 const todayStr = new Date().toISOString().slice(0, 10);
 const daysBetween = (a: string, b: string) =>
@@ -1360,7 +1481,7 @@ const orderOf = (code: string) => modules.find((m) => m.code === code)?.sort_ord
 const weightNum = (w: string | null) => (w ? parseInt(w, 10) || 0 : -1);
 
 const flatItems = useMemo(() => {
-  const arr = [...visibleItems];
+  const arr = visibleItems.filter((it) => kindFilter === "all" || it.kind === kindFilter);
   const byDue = (a: ModuleItem, b: ModuleItem) => a.due_at.localeCompare(b.due_at) || a.id - b.id;
   arr.sort((a, b) => {
     if (a.completed !== b.completed) return a.completed ? 1 : -1;
@@ -1372,28 +1493,40 @@ const flatItems = useMemo(() => {
     }
   });
   return arr;
-}, [visibleItems, sortKey, modules]);
+}, [visibleItems, sortKey, kindFilter, modules]);
 ```
 
-Use `visibleItems` (not raw `items`) when building `byCourse` for the grouped view.
+Use `visibleItems` (not raw `items`) when building `byCourse` for the grouped view. The kind filter applies to the flat "All items" view only — the grouped view always shows every kind.
 
 - [ ] **Step 3: Render the toggle + flat list**
 
-In the `.section-head` area add:
+In the `.section-head` area add a small tab-style toggle, and (in the flat view) the sort + kind-filter controls:
 
 ```tsx
-<div className="mp-view-toggle">
-  <button type="button" className={viewMode === "grouped" ? "btn btn-primary" : "btn"} onClick={() => setViewMode("grouped")}>Grouped by subject</button>
-  <button type="button" className={viewMode === "flat" ? "btn btn-primary" : "btn"} onClick={() => setViewMode("flat")}>All items</button>
-  {viewMode === "flat" && (
+<div className="mp-view-toggle" role="tablist">
+  <button type="button" role="tab" aria-selected={viewMode === "grouped"}
+    className={viewMode === "grouped" ? "mp-tab mp-tab-active" : "mp-tab"}
+    onClick={() => setViewMode("grouped")}>Module plan</button>
+  <button type="button" role="tab" aria-selected={viewMode === "flat"}
+    className={viewMode === "flat" ? "mp-tab mp-tab-active" : "mp-tab"}
+    onClick={() => setViewMode("flat")}>All items</button>
+</div>
+{viewMode === "flat" && (
+  <div className="mp-flat-controls">
     <select className="mp-sort" value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}>
       <option value="due-asc">Due date — nearest first</option>
       <option value="due-desc">Due date — furthest first</option>
       <option value="module">Subject</option>
       <option value="weight">Weight</option>
     </select>
-  )}
-</div>
+    <select className="mp-sort" value={kindFilter} onChange={(e) => setKindFilter(e.target.value as KindFilter)}>
+      <option value="all">All types</option>
+      {MODULE_ITEM_KINDS.map((k) => (
+        <option key={k} value={k}>{KIND_LABEL[k]}</option>
+      ))}
+    </select>
+  </div>
+)}
 ```
 
 Wrap the existing per-module rendering in `{viewMode === "grouped" && ( … )}`, and add:
@@ -1425,7 +1558,6 @@ Wrap the existing per-module rendering in `{viewMode === "grouped" && ( … )}`,
             onEdit={() => { setEditingId(item.id); setAddingCourse(null); }}
             onToggle={() => api.toggle(item.id).then(refresh).catch((e) => setError(errorMessage(e)))}
             onDelete={() => api.remove(item.id).then(() => { setConfirmingDelete(null); return refresh(); }).catch((e) => setError(errorMessage(e)))}
-            onRetrySync={() => api.update(item.id, draftFrom(item)).then(refresh).catch((e) => setError(errorMessage(e)))}
           />
         ),
       )
@@ -1434,26 +1566,42 @@ Wrap the existing per-module rendering in `{viewMode === "grouped" && ( … )}`,
 )}
 ```
 
+Also update the `<p className="rule-note">` text (Task 5b shortened it to "Assignments, presentations, vivas and quizzes per unit.") — append the colour legend:
+`Assignments, presentations, vivas and quizzes per unit. Rows turn amber a week before an item is due, red at three days, and take a red border on the final day.`
+
 - [ ] **Step 4: CSS**
 
 ```css
-.mp-view-toggle { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; margin-left: auto; }
+/* small tab-style view toggle */
+.mp-view-toggle { display: inline-flex; gap: 2px; background: var(--panel-2, #1b1b1f); border-radius: 7px; padding: 2px; margin-bottom: 0.6rem; }
+.mp-tab { font: inherit; font-size: 0.82rem; padding: 3px 12px; border: 0; border-radius: 5px; background: transparent; color: var(--fg-dim, #9aa0aa); cursor: pointer; }
+.mp-tab-active { background: var(--panel, #2a2a30); color: var(--fg, #f2f2f4); }
+.mp-flat-controls { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
 .mp-sort { font: inherit; padding: 3px 6px; }
 .mp-mod { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 4px; background: var(--cat-src-goals, #c084fc); color: #1a1526; }
 .mp-weight { font-size: 0.78rem; opacity: 0.75; }
+
+/* due-proximity colour coding on pending rows */
+.mp-row.mp-due-week { background: rgba(245, 158, 11, 0.13); }   /* amber — within a week */
+.mp-row.mp-due-3d   { background: rgba(220, 38, 38, 0.17); }    /* dark red — within 3 days */
+.mp-row.mp-due-1d   { border: 1px solid #f87171; background: rgba(248, 113, 113, 0.10); } /* light-red border — final day / overdue */
 ```
+
+(Token names above are best-effort — the implementer should reuse whatever the sheet already defines for panel/foreground; the `rgba(...)` due-colour values are literal and must be kept.)
 
 - [ ] **Step 5: Typecheck + browser verification**
 
 Run: `bunx tsc --noEmit` → clean. Restart dev server.
 
-In the browser (Modules tab, planner):
-1. Default view = **Grouped by subject** (or whatever was last set).
-2. Click **All items** → one flat list; each row has a subject tag; nearest-due first.
+In the browser (planner on the Home page once Task 8 lands; until then the Modules tab):
+1. A small two-tab toggle shows **Module plan** | **All items**; default is Module plan (or last choice).
+2. Click **All items** → one flat list; each row carries a subject tag; nearest-due first. Sort `<select>` and a type-filter `<select>` appear.
 3. Sort → **Due date — furthest first** → order reverses. **Weight** → 25%/35% items rise. **Subject** → grouped by module order.
-4. Reload page → the flat view + chosen sort persist.
-5. Tick an item done → it sinks below incomplete ones in both views.
-6. An item due > 3 days ago and not done is absent from both views (seed data: the Aug-30 quizzes are already past — confirm they're hidden unless completed within 3 days).
+4. Type filter → **Quiz** → only quiz rows; **Viva** → only the Interactive Oral; **All types** → back to everything.
+5. Reload page → view, sort, and type filter all persist.
+6. Tick an item done → it sinks below incomplete ones; its due-colour clears.
+7. Due-colour: INFO5995 "Project 1" (due 2026-09-13, ~4 days out) shows the amber tint. Add a throwaway item due tomorrow → red border; one due in 2 days → dark-red tint. Delete the throwaways.
+8. An item due > 3 days ago and not done is absent from both views (the Aug-30 seeded quizzes are already past — hidden unless completed within 3 days).
 
 - [ ] **Step 6: Commit**
 
@@ -1477,7 +1625,7 @@ git commit -m "$(printf 'feat: grouped/flat planner views with sort + 3-day agin
 - Consumes: `ModulePlanner` (Tasks 6–7) with `{ openItemId, onOpened }`.
 - Produces: `HomeApp` gains `openItemId?: number | null`. `DeepLink`'s `module-item` case becomes `{ tab: "home"; moduleItemId: number }`. `ExamApp` loses `openItemId` / `onOpened`.
 
-- [ ] **Step 1: Mount `ModulePlanner` on Home**
+- [ ] **Step 1: Mount `ModulePlanner` on Home, directly below Announcements**
 
 `HomeApp.tsx`:
 - Add `import ModulePlanner from "./ModulePlanner";`.
@@ -1486,10 +1634,12 @@ git commit -m "$(printf 'feat: grouped/flat planner views with sort + 3-day agin
   export default function HomeApp({ onNavigate, openItemId }: { onNavigate: (item: DueItem) => void; openItemId?: number | null }) {
   ```
   (match the existing prop style in the file).
-- Replace the `{/* Module planner mounts here — Task 8 */}` placeholder with:
+- Mount it **immediately after `<AnnouncementsBoard />`** (currently ~line 343), not where the old `<DeadlinesPanel />` was:
   ```tsx
+  <AnnouncementsBoard />
   <ModulePlanner openItemId={openItemId ?? null} onOpened={() => {}} />
   ```
+- The `{/* Module planner mounts here — Task 8 */}` placeholder left by Task 5 (where `<DeadlinesPanel />` used to be, ~line 371) is now redundant — delete it.
 
 - [ ] **Step 2: Route the deep link to Home**
 
@@ -1786,26 +1936,30 @@ If nothing needed changing, skip this step.
 | §4.4 retire deadline store, keep `deadline_completions` table, keep `semester-deadlines.ts` | Task 5 |
 | §5.1 module-items API weight + module validation | Task 4 |
 | §5.2 `/api/modules` CRUD + cascade | Task 3 |
-| §6.1 planner to Home, off the exam board, deep link | Task 8 |
-| §6.2 two views + sort + module CRUD + weight field + aging | Tasks 6 (CRUD, weight) + 7 (views, sort, aging) |
-| §6.3 announcement → deadline inline form | Task 9 |
-| §6.4 CSS (`.mp-view-toggle`, `.mp-sort`, `.mp-mod`, module-head, retire `.deadline*`) | Tasks 6, 7, 8 |
+| §6.1 planner to Home, **directly below `<AnnouncementsBoard />`**, off the exam board, deep link (`tab:"home"`) | Task 8 |
+| §6.2 two views + tab-style toggle + sort + kind filter + module CRUD + weight field + due-proximity colour coding | Tasks 6 (CRUD, weight) + 7 (tab toggle, sort, kind filter, due-colour) |
+| §6.3 announcement → deadline inline prefilled form | Task 9 |
+| §6.4 CSS (`.mp-view-toggle` tablist, `.mp-tab`, `.mp-flat-controls` sort + kind `<select>`, `.mp-row.mp-due-week/-3d/-1d`, `.mp-mod`, module-head, retire `.deadline*`) | Tasks 6, 7, 8 |
+| user: remove Google Calendar sync entirely (`gcal/` dir, db columns/helpers, api deps, `SyncBadge`, retry button, `/api/module-items/sync`) | **Task 5b** |
+| user: due-proximity colour coding replaces the sync indicator (amber ≤1wk, dark red ≤3d, light-red border ≤1d/overdue) | Task 7 |
 | §7 migration order (`migrateModules` before `migrateModuleItems`) | Task 5 Step 3 |
-| §8.1 unit/integration tests | Tasks 1–5 (each ships its tests); `deadline-*` tests deleted in Task 5 |
+| §8.1 unit/integration tests | Tasks 1–5 (each ships its tests); `deadline-*` tests deleted in Task 5; `gcal/*.test.ts` + `scripts/gcal-auth.test.ts` deleted and sync-specific cases pruned from `module-items-*.test.ts` in Task 5b |
 | §8.2 tsc + check-mcq-lengths unaffected | every frontend task Step; exam content untouched |
 | §8.3 browser verification | Task 10 Step 4 |
 | §9 hooks / continuous testing / autonomous correction | Global Constraints — already wired in `.claude/settings.json`; every task relies on it |
 | §10 file-by-file | File Structure section |
 | §11 follow-ups | out of scope, not planned (correct) |
 
-No gaps.
+No gaps. Task 5b + the Task 7 colour/filter/tab additions are user-requested scope changes made mid-execution (messages: "remve this and google caldendar sync"; "turn the colour of it into orange if 1 week, dark red if 3 days and ligth red border if 1 day"; "like a tab … toggle view between the mnodule plan and a list of all them … filter by assignment quiz, qassessment, exam"); they extend §6.2 rather than replace any spec requirement.
 
 **2. Placeholder scan** — no "TBD"/"add error handling"/"similar to Task N". Every code step has real code. Browser-verification steps are enumerated, not "test it works".
 
 **3. Type consistency**
 - `migrateModules(db, today?)` / `migrateModuleItems(db, today?)` — both default `today` so Task 2/3 don't break `index.ts` before Task 5. ✓
 - `Module` shape identical in Tasks 1, 3, 6, 9. ✓
-- `ModuleItemKind` six-value union defined in Task 2, consumed as `MODULE_ITEM_KINDS` in Tasks 4/6/7/9. `KIND_LABEL` extended to all six in Task 7 (and re-declared locally in Task 9 with all six). ✓
+- `ModuleItemKind` six-value union defined in Task 2, consumed as `MODULE_ITEM_KINDS` in Tasks 4/6/7/9. `KIND_LABEL` extended to all six in Task 2 (preflight ruling — `Record<ModuleItemKind,string>` must stay total for tsc), verified in Task 7, re-declared locally in Task 9 with all six. ✓
+- `KindFilter = ModuleItemKind | "all"` + `dueClass(item) → "mp-due-1d" | "mp-due-3d" | "mp-due-week" | ""` defined and consumed within Task 7 only (single file). ✓
+- Task 5b removes `SyncState`, `gcal_event_id`/`sync_state`/`sync_error`/`synced_at`, `markItemSynced`/`markItemSyncError`/`listItemsNeedingSync`, `ModuleItemsApiDeps`/`ModuleApiDeps`, `deleteCalendarEvent`/`reconcile`/`syncModuleItem` — every downstream consumer (`module-items-api.ts`, `modules-api.ts`, `ModulePlanner.tsx`, the two test files) is edited in the same task. `exam/App.tsx` `runSync`/`SyncBanner`/`api.sync` is a separate feature and untouched. ✓
 - `seedDeadlineItems` / `countItemsForModule` / `deleteItemsForModule` defined in Task 2, consumed in Task 3. ✓
 - `parseInput(db, body)` new signature — both call sites updated in Task 4. ✓
 - Deep-link `{ tab: "home"; moduleItemId }` — produced in `frontend.tsx` and consumed by `<HomeApp openItemId=…>` in Task 8; `ExamApp` prop removed in the same task. ✓
