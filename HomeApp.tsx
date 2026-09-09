@@ -141,6 +141,32 @@ function GoogleCalendarEmbed() {
 
 type StatModal = "due" | "overdue" | "completed" | null;
 
+// Jump-nav for the Home page's long scroll. Each button scrolls its target
+// section into view; targets carry matching ids in the render below.
+function HomeToc() {
+  const jump = (id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    // Smooth scrolling is unreliable here (a scroll handler elsewhere cancels
+    // in-progress smooth scrolls), so jump straight to the section.
+    el.scrollIntoView({ block: "start" });
+  };
+  return (
+    <nav className="home-toc" aria-label="Jump to section">
+      <span className="home-toc-label">Jump to</span>
+      <button type="button" className="home-toc-link" onClick={() => jump("home-announcements")}>
+        Announcements
+      </button>
+      <button type="button" className="home-toc-link" onClick={() => jump("home-everything-due")}>
+        Everything due
+      </button>
+      <button type="button" className="home-toc-link" onClick={() => jump("home-calendar")}>
+        Calendar
+      </button>
+    </nav>
+  );
+}
+
 export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) => void }) {
   const [items, setItems] = useState<DueItem[]>([]);
   const [stats, setStats] = useState<HomeStats>(EMPTY_STATS);
@@ -197,8 +223,11 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
           <span className="stat-label">Completed today</span>
         </button>
       </div>
+      <HomeToc />
       <WeeklyContentReminder />
-      <AnnouncementsBoard />
+      <div id="home-announcements">
+        <AnnouncementsBoard />
+      </div>
       {openModal === "due" && (
         <HomeListModal
           title="Due today"
@@ -227,7 +256,7 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
         />
       )}
       {/* Module planner mounts here — Task 8 */}
-      <section className="board" aria-label="Everything due">
+      <section className="board" id="home-everything-due" aria-label="Everything due">
         <div className="section-head">
           <h2>Everything due</h2>
           <span className="board-count">{items.length}</span>
@@ -268,7 +297,9 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
           </ul>
         )}
       </section>
-      <GoogleCalendarEmbed />
+      <div id="home-calendar">
+        <GoogleCalendarEmbed />
+      </div>
     </div>
   );
 }
