@@ -182,14 +182,21 @@ in the prompt.
 This style is the standard for all exam content going forward, and Weeks 5–6
 of every course were rewritten to it as the reference example — match them.
 
-### Subjective (`short` / `scenario`) model answers — same rule, longer form, not optional
+### Subjective (`short` / `scenario`) model answers — same rule, longer form
 
-The `short` / `scenario` `modelAnswer`s already in `exam-content/` (~350 of
-them) were written before this rule and most are dense academic prose. They
-must be rewritten to the **same explain-it-to-a-teenager shape** as every
-other answer — just longer. **Any subjective answer that reads like one
-lecturer talking to another is wrong.** The person studying this says,
-verbatim: "I don't understand half of what it's asking."
+`short` / `scenario` `modelAnswer`s use the **same explain-it-to-a-teenager
+shape** as every other answer — just longer. **Any subjective answer that
+reads like one lecturer talking to another is wrong.** The person studying
+this says, verbatim: "I don't understand half of what it's asking."
+
+**Scope — going forward only, no bulk rewrite.** This is the standard for any
+subjective answer you **author or edit from now on**. The ~350 dense
+`short` / `scenario` answers already in `exam-content/` are **not** a
+bulk-rewrite task — leave them as-is. They get fixed opportunistically when
+their week is regenerated or updated (`Update from new material`), or in
+Phase 2. `exam-content/info5995/week-1.ts` is the rewritten reference to
+match. Do not open a task to sweep the back-catalogue unless the user
+explicitly asks.
 
 **Anti-pattern — do NOT write answers like this** (real current answer):
 
