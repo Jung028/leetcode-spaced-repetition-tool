@@ -412,3 +412,58 @@ test("PATCH /api/exam/:course/:week requires a boolean hidden field", async () =
   });
   expect(res.status).toBe(400);
 });
+
+const patchPaper = (week: number, paper: number, hidden: boolean) =>
+  fetch(`${base}/api/exam/courses/${COURSE}/${week}/${paper}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ hidden }),
+  });
+
+test("PATCH /api/exam/:course/:week/:paper drops one paper from its week in /due, leaving the other; unhide restores it", async () => {
+  const before: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
+  expect(before.hiddenPapers).toEqual([]);
+  const multi = before.weeksDue.find((w: any) => w.papers.length >= 2);
+  expect(multi).toBeDefined(); // INFO5995 weeks 5 & 6 each have two papers
+  const week = multi.week;
+
+  const patch = await patchPaper(week, 1, true);
+  expect(patch.status).toBe(200);
+  expect((await patch.json()).hiddenPapers).toEqual([{ week, paperNumber: 1 }]);
+
+  const after: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
+  const weekAfter = after.weeksDue.find((w: any) => w.week === week);
+  expect(weekAfter).toBeDefined(); // week still visible via its other paper
+  expect(weekAfter.papers.some((p: any) => p.paperNumber === 1)).toBe(false);
+  expect(weekAfter.papers.some((p: any) => p.paperNumber === 2)).toBe(true);
+  expect(after.hiddenPapers).toEqual([{ week, paperNumber: 1 }]);
+
+  await patchPaper(week, 1, false);
+  const restored: any = await (await fetch(`${base}/api/exam/${COURSE}/due`)).json();
+  const weekRestored = restored.weeksDue.find((w: any) => w.week === week);
+  expect(weekRestored.papers.some((p: any) => p.paperNumber === 1)).toBe(true);
+  expect(restored.hiddenPapers).toEqual([]);
+});
+
+test("PATCH /api/exam/:course/:week/:paper 404s for a paper number the week doesn't have", async () => {
+  const res = await patchPaper(1, 7, true);
+  expect(res.status).toBe(404);
+});
+
+test("PATCH /api/exam/:course/:week/:paper requires a boolean hidden field", async () => {
+  const res = await fetch(`${base}/api/exam/courses/${COURSE}/1/1`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  expect(res.status).toBe(400);
+});
+
+test("PATCH /api/exam/:course/:week/:paper does not touch the paper's submitted state or score", async () => {
+  await submitWeek1Paper1(true);
+  await patchPaper(1, 1, true);
+  await patchPaper(1, 1, false);
+  const historyBody: any = await (await fetch(`${base}/api/exam/${COURSE}/history`)).json();
+  const week1 = historyBody.weeks.find((w: any) => w.week === 1);
+  expect(week1.papers[0].submitted).toBe(true);
+});

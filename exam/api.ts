@@ -18,6 +18,9 @@ import {
   hideExamWeek,
   unhideExamWeek,
   listHiddenExamWeeks,
+  hideExamPaper,
+  unhideExamPaper,
+  listHiddenExamPapers,
   type ExamPaperRow,
   type ExamAttemptSummary,
 } from "./db";
@@ -184,6 +187,25 @@ export function examApiRoutes(
         return json({ hiddenWeeks: listHiddenExamWeeks(db, course) });
       },
     },
+    "/api/exam/courses/:course/:week/:paper": {
+      // Per-paper reversible hide, one level down from the per-week hide
+      // above. A hidden paper keeps all its answers, scores and attempt
+      // history — it just drops out of the week picker (and the board /
+      // Home due-list, once its whole week is hidden or submitted).
+      PATCH: async (req: Request & { params: { course: string; week: string; paper: string } }) => {
+        const course = req.params.course;
+        if (!isKnownCourse(course)) return json({ error: "unknown course" }, 400);
+        const week = parseWeek(req.params.week);
+        if (week === null || !weekExistsForCourse(db, course, week)) return json({ error: "week not found" }, 404);
+        const paperNumber = parsePaperNumber(req.params.paper, course, week);
+        if (paperNumber === null) return json({ error: "paper not found" }, 404);
+        const body = (await req.json().catch(() => null)) as { hidden?: unknown } | null;
+        if (typeof body?.hidden !== "boolean") return json({ error: "hidden must be a boolean" }, 400);
+        if (body.hidden) hideExamPaper(db, course, week, paperNumber);
+        else unhideExamPaper(db, course, week, paperNumber);
+        return json({ hiddenPapers: listHiddenExamPapers(db, course) });
+      },
+    },
     "/api/exam/sync": {
       GET: () => json({ pending: findPendingWeeks() }),
     },
@@ -231,8 +253,13 @@ export function examApiRoutes(
         const today = localToday();
         const hiddenWeeks = listHiddenExamWeeks(db, course);
         const hidden = new Set(hiddenWeeks);
+        const hiddenPapers = listHiddenExamPapers(db, course);
+        const hiddenPaperKeys = new Set(hiddenPapers.map((p) => `${p.week}:${p.paperNumber}`));
         const visibleRows = listExamPaperRows(db, course).filter(
-          (r) => weekStartDate(r.week) <= today && !hidden.has(r.week),
+          (r) =>
+            weekStartDate(r.week) <= today &&
+            !hidden.has(r.week) &&
+            !hiddenPaperKeys.has(`${r.week}:${r.paper_number}`),
         );
         const weeksDue: ExamWeekView[] = groupExamPapersByWeek(course, visibleRows, today).filter((w) =>
           w.papers.some((p) => !p.submitted),
@@ -242,6 +269,7 @@ export function examApiRoutes(
         return json({
           weeksDue,
           hiddenWeeks,
+          hiddenPapers,
           stats: {
             dueCount: dueWeekCount,
             overdueCount: overdueWeekCount,
