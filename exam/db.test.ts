@@ -15,6 +15,9 @@ import {
   hideExamWeek,
   unhideExamWeek,
   listHiddenExamWeeks,
+  hideExamPaper,
+  unhideExamPaper,
+  listHiddenExamPapers,
 } from "./db";
 import { buildExamSchedule } from "./content";
 import { addDays } from "../shared/scheduling";
@@ -374,4 +377,46 @@ test("migrateExam preserves hidden weeks on a second call", () => {
   hideExamWeek(db, COURSE, 4);
   migrateExam(db, TODAY);
   expect(listHiddenExamWeeks(db, COURSE)).toEqual([4]);
+});
+
+test("hideExamPaper hides one paper for one course only; unhideExamPaper restores it", () => {
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([]);
+
+  hideExamPaper(db, COURSE, 5, 2);
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([{ week: 5, paperNumber: 2 }]);
+  expect(listHiddenExamPapers(db, "COMP5348")).toEqual([]);
+
+  hideExamPaper(db, COURSE, 5, 2); // idempotent
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([{ week: 5, paperNumber: 2 }]);
+
+  unhideExamPaper(db, COURSE, 5, 2);
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([]);
+});
+
+test("listHiddenExamPapers returns papers ordered by week then paper number", () => {
+  hideExamPaper(db, COURSE, 5, 2);
+  hideExamPaper(db, COURSE, 2, 1);
+  hideExamPaper(db, COURSE, 5, 1);
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([
+    { week: 2, paperNumber: 1 },
+    { week: 5, paperNumber: 1 },
+    { week: 5, paperNumber: 2 },
+  ]);
+});
+
+test("hiding a week and hiding a paper are independent", () => {
+  hideExamWeek(db, COURSE, 5);
+  hideExamPaper(db, COURSE, 5, 1);
+  expect(listHiddenExamWeeks(db, COURSE)).toEqual([5]);
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([{ week: 5, paperNumber: 1 }]);
+
+  unhideExamWeek(db, COURSE, 5);
+  expect(listHiddenExamWeeks(db, COURSE)).toEqual([]);
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([{ week: 5, paperNumber: 1 }]);
+});
+
+test("migrateExam preserves hidden papers on a second call", () => {
+  hideExamPaper(db, COURSE, 5, 2);
+  migrateExam(db, TODAY);
+  expect(listHiddenExamPapers(db, COURSE)).toEqual([{ week: 5, paperNumber: 2 }]);
 });

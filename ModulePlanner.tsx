@@ -7,6 +7,7 @@ import {
 } from "./module-items-db";
 import type { Module } from "./modules-db";
 import { localToday } from "./shared/scheduling";
+import { deadlineLabel } from "./time-left";
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -196,7 +197,10 @@ function PlannerRow({
         {showDoneDate ? (
           <span className="mp-done-date">done {item.updated_at}</span>
         ) : (
-          <span className="mp-due">{item.due_at.replace("T", " ")}</span>
+          <>
+            <span className="mp-due">{item.due_at.replace("T", " ")}</span>
+            {!item.completed && <span className="mp-timeleft">{deadlineLabel(item.due_at)}</span>}
+          </>
         )}
         <span className="mp-actions">
           <button type="button" className="btn" onClick={onEdit}>Edit</button>

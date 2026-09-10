@@ -5,6 +5,7 @@ import type { JobStatus } from "./generate";
 import { TIMELINE_URL, TIMELINE_ANCHORS } from "../shared/timeline-link";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { isMultiCorrect } from "./grading";
+import { questionTimeBudget, formatCountdown } from "./timer";
 
 const EXCALIDRAW_URL = "https://excalidraw.com";
 
@@ -46,6 +47,11 @@ interface Stats {
   dueCount: number;
   overdueCount: number;
   completedToday: number;
+}
+
+interface HiddenPaper {
+  week: number;
+  paperNumber: number;
 }
 
 interface ExamCourse {
@@ -90,7 +96,12 @@ const api = {
     }).then((r) => json<ExamCourseWithVisibility>(r)),
   due: (course: string) =>
     fetch(`/api/exam/${course}/due`).then((r) =>
-      json<{ weeksDue: ExamWeekView[]; hiddenWeeks: number[]; stats: Stats }>(r),
+      json<{
+        weeksDue: ExamWeekView[];
+        hiddenWeeks: number[];
+        hiddenPapers: HiddenPaper[];
+        stats: Stats;
+      }>(r),
     ),
   setWeekHidden: (course: string, week: number, hidden: boolean) =>
     fetch(`/api/exam/courses/${course}/${week}`, {
@@ -98,6 +109,12 @@ const api = {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ hidden }),
     }).then((r) => json<{ hiddenWeeks: number[] }>(r)),
+  setPaperHidden: (course: string, week: number, paperNumber: number, hidden: boolean) =>
+    fetch(`/api/exam/courses/${course}/${week}/${paperNumber}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ hidden }),
+    }).then((r) => json<{ hiddenPapers: HiddenPaper[] }>(r)),
   completedToday: (course: string) =>
     fetch(`/api/exam/${course}/completed-today`).then((r) => json<{ papers: ExamPaperView[] }>(r)),
   paper: (course: string, week: number, paperNumber: number) =>
@@ -539,6 +556,36 @@ function HiddenWeeksPanel({
   );
 }
 
+function HiddenPapersPanel({
+  papers,
+  onRestore,
+}: {
+  papers: HiddenPaper[];
+  onRestore: (week: number, paperNumber: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (papers.length === 0) return null;
+  return (
+    <div className="hidden-courses" style={{ marginTop: "1rem" }}>
+      <button className="link-btn" onClick={() => setOpen((o) => !o)}>
+        {open ? "Hide" : "Show"} hidden papers ({papers.length})
+      </button>
+      {open && (
+        <ul className="hidden-courses-list">
+          {papers.map((p) => (
+            <li key={`${p.week}-${p.paperNumber}`}>
+              <span>Week {p.week} · Paper {p.paperNumber}</span>
+              <button className="btn" onClick={() => onRestore(p.week, p.paperNumber)}>
+                Restore
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function McqQuestion({
   question,
   course,
@@ -782,6 +829,51 @@ function ShortOrScenarioQuestion({
   );
 }
 
+// A pacing nudge in the quiz header: counts the current question's suggested
+// time budget down to zero, then keeps counting up in red as overtime. Purely
+// advisory — it never blocks, auto-advances, or submits. Resets whenever
+// `questionKey` changes (navigating to another question); freezes once the
+// question is graded, showing the budget as a static hint instead.
+function QuestionTimer({
+  budgetSeconds,
+  questionKey,
+  frozen,
+}: {
+  budgetSeconds: number;
+  questionKey: number;
+  frozen: boolean;
+}) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    setElapsed(0);
+  }, [questionKey]);
+
+  useEffect(() => {
+    if (frozen) return;
+    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(id);
+  }, [questionKey, frozen]);
+
+  if (frozen) {
+    return (
+      <span className="exam-timer" title="Suggested time for this question">
+        ⏱ {formatCountdown(budgetSeconds)} suggested
+      </span>
+    );
+  }
+
+  const remaining = budgetSeconds - elapsed;
+  return (
+    <span
+      className={remaining < 0 ? "exam-timer exam-timer-over" : "exam-timer"}
+      title="Suggested pace — nothing happens when it runs out"
+    >
+      ⏱ {formatCountdown(remaining)}
+    </span>
+  );
+}
+
 function PaperView({
   paper,
   course,
@@ -855,7 +947,14 @@ function PaperView({
             <span className="lang-tag">{current.scoreCorrect}/{current.scoreTotal} correct</span>
           </>
         ) : (
-          <span className="lang-tag">Question {index + 1} of {current.questions.length} — {remaining} left</span>
+          <>
+            <span className="lang-tag">Question {index + 1} of {current.questions.length} — {remaining} left</span>
+            <QuestionTimer
+              budgetSeconds={questionTimeBudget(question)}
+              questionKey={question.index}
+              frozen={question.correct !== null}
+            />
+          </>
         )}
       </header>
       {reviewing ? (
@@ -1003,14 +1102,17 @@ function WeekPicker({
   course,
   onBack,
   onPickPaper,
+  onHidePaper,
   onUpdated,
 }: {
   weekView: ExamWeekView;
   course: string;
   onBack: () => void;
   onPickPaper: (paperNumber: number) => void;
+  onHidePaper: (paperNumber: number) => void;
   onUpdated: () => void;
 }) {
+  const [confirmingHide, setConfirmingHide] = useState<number | null>(null);
   const totalQuestions = weekView.papers.reduce((sum, p) => sum + p.questionCount, 0);
   const doneQuestions = weekView.papers.filter((p) => p.submitted).reduce((sum, p) => sum + p.questionCount, 0);
   return (
@@ -1024,23 +1126,57 @@ function WeekPicker({
       <ul className="board-rows">
         {weekView.papers.map((p) => (
           <li key={p.paperNumber}>
-            {p.submitted ? (
-              <button
-                className="board-row board-row-main"
-                style={{ "--urgency": "var(--green)" } as React.CSSProperties}
-                onClick={() => onPickPaper(p.paperNumber)}
-              >
-                <span className="tag">done</span>
-                <span className="board-title">{p.title}</span>
-                <span className="lang-tag">{p.scoreCorrect}/{p.scoreTotal}</span>
-              </button>
-            ) : (
-              <button className="board-row board-row-main" onClick={() => onPickPaper(p.paperNumber)}>
-                <span className="tag">due</span>
-                <span className="board-title">{p.title}</span>
-                <span className="lang-tag">{p.questionCount} questions</span>
-              </button>
-            )}
+            <div className="board-row">
+              {p.submitted ? (
+                <button
+                  className="board-row-main"
+                  style={{ "--urgency": "var(--green)" } as React.CSSProperties}
+                  onClick={() => onPickPaper(p.paperNumber)}
+                >
+                  <span className="tag">done</span>
+                  <span className="board-title">{p.title}</span>
+                  <span className="lang-tag">{p.scoreCorrect}/{p.scoreTotal}</span>
+                </button>
+              ) : (
+                <button className="board-row-main" onClick={() => onPickPaper(p.paperNumber)}>
+                  <span className="tag">due</span>
+                  <span className="board-title">{p.title}</span>
+                  <span className="lang-tag">{p.questionCount} questions</span>
+                </button>
+              )}
+              {confirmingHide === p.paperNumber ? (
+                <>
+                  <button
+                    className="board-row-review board-row-review-danger"
+                    title={`Confirm hiding ${p.title}`}
+                    aria-label={`Confirm hiding ${p.title}`}
+                    onClick={() => {
+                      setConfirmingHide(null);
+                      onHidePaper(p.paperNumber);
+                    }}
+                  >
+                    Hide?
+                  </button>
+                  <button
+                    className="board-row-review"
+                    title="Cancel"
+                    aria-label="Cancel hide"
+                    onClick={() => setConfirmingHide(null)}
+                  >
+                    ✕
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="board-row-review"
+                  title="Hide this paper (reversible — answers and progress are kept)"
+                  aria-label={`Hide ${p.title}`}
+                  onClick={() => setConfirmingHide(p.paperNumber)}
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </li>
         ))}
       </ul>
@@ -1143,6 +1279,7 @@ export default function ExamApp({
   const [weeksDue, setWeeksDue] = useState<ExamWeekView[]>([]);
   const [hiddenWeeks, setHiddenWeeks] = useState<number[]>([]);
   const [confirmingHideWeek, setConfirmingHideWeek] = useState<number | null>(null);
+  const [hiddenPapers, setHiddenPapers] = useState<HiddenPaper[]>([]);
   const [stats, setStats] = useState<Stats>({ dueCount: 0, overdueCount: 0, completedToday: 0 });
   const [completedPapers, setCompletedPapers] = useState<ExamPaperView[] | null>(null);
   const [showCompleted, setShowCompleted] = useState(false);
@@ -1201,9 +1338,10 @@ export default function ExamApp({
     setError(null);
     return api
       .due(activeCourse)
-      .then(({ weeksDue, hiddenWeeks, stats }) => {
+      .then(({ weeksDue, hiddenWeeks, hiddenPapers, stats }) => {
         setWeeksDue(weeksDue);
         setHiddenWeeks(hiddenWeeks);
+        setHiddenPapers(hiddenPapers);
         setStats(stats);
       })
       .catch((err) => setError(errorMessage(err)));
@@ -1215,6 +1353,17 @@ export default function ExamApp({
     setError(null);
     try {
       await api.setWeekHidden(course, week, hidden);
+      await refresh(course);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  const setPaperHidden = async (week: number, paperNumber: number, hidden: boolean) => {
+    if (!course) return;
+    setError(null);
+    try {
+      await api.setPaperHidden(course, week, paperNumber, hidden);
       await refresh(course);
     } catch (err) {
       setError(errorMessage(err));
@@ -1433,6 +1582,10 @@ export default function ExamApp({
               </ul>
             )}
             <HiddenWeeksPanel weeks={hiddenWeeks} onRestore={(w) => setWeekHidden(w, false)} />
+            <HiddenPapersPanel
+              papers={hiddenPapers}
+              onRestore={(w, paperNumber) => setPaperHidden(w, paperNumber, false)}
+            />
           </section>
         </>
       )}
@@ -1443,6 +1596,7 @@ export default function ExamApp({
           course={course}
           onBack={() => setView({ name: "board" })}
           onPickPaper={(paperNumber) => setView({ name: "paper", week: view.week, paperNumber })}
+          onHidePaper={(paperNumber) => setPaperHidden(view.week, paperNumber, true)}
           onUpdated={() => refresh(course)}
         />
       )}

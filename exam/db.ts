@@ -59,6 +59,12 @@ export function migrateExam(db: Database, today: string): void {
       week INTEGER NOT NULL,
       PRIMARY KEY (course, week)
     );
+    CREATE TABLE IF NOT EXISTS exam_hidden_papers (
+      course TEXT NOT NULL,
+      week INTEGER NOT NULL,
+      paper_number INTEGER NOT NULL,
+      PRIMARY KEY (course, week, paper_number)
+    );
   `);
 
   migrateLegacySingleCourseShape(db);
@@ -374,6 +380,37 @@ export function listHiddenExamWeeks(db: Database, course: string): number[] {
     .query(`SELECT week FROM exam_hidden_weeks WHERE course = ? ORDER BY week`)
     .all(course) as { week: number }[];
   return rows.map((r) => r.week);
+}
+
+export interface HiddenExamPaper {
+  week: number;
+  paperNumber: number;
+}
+
+// Per-course, per-paper hide — one level down from hideExamWeek. Same
+// contract: a row's presence means "hidden", fully reversible, and every
+// answer / score / attempt-history row for the paper is kept. Lets the week
+// picker drop a single paper the way the board drops a whole week.
+export function hideExamPaper(db: Database, course: string, week: number, paperNumber: number): void {
+  db.query(
+    `INSERT INTO exam_hidden_papers (course, week, paper_number) VALUES (?, ?, ?)
+     ON CONFLICT (course, week, paper_number) DO NOTHING`,
+  ).run(course, week, paperNumber);
+}
+
+export function unhideExamPaper(db: Database, course: string, week: number, paperNumber: number): void {
+  db.query(
+    `DELETE FROM exam_hidden_papers WHERE course = ? AND week = ? AND paper_number = ?`,
+  ).run(course, week, paperNumber);
+}
+
+export function listHiddenExamPapers(db: Database, course: string): HiddenExamPaper[] {
+  const rows = db
+    .query(
+      `SELECT week, paper_number FROM exam_hidden_papers WHERE course = ? ORDER BY week, paper_number`,
+    )
+    .all(course) as { week: number; paper_number: number }[];
+  return rows.map((r) => ({ week: r.week, paperNumber: r.paper_number }));
 }
 
 export function listExamPaperRows(db: Database, course: string): ExamPaperRow[] {

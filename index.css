@@ -592,6 +592,25 @@ button.stat:hover {
   flex-shrink: 0;
 }
 
+/* Per-question pacing nudge in the quiz header — advisory only */
+.exam-timer {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0.1rem 0.4rem;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.exam-timer-over {
+  color: var(--red);
+  border-color: var(--red);
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+}
+
 /* Calendar — embedded Google Calendar */
 .gcal-frame {
   background: var(--panel);
@@ -1660,6 +1679,9 @@ a.btn {
 .mp-select { font: inherit; padding: 3px 6px; }
 .mp-mod { font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.1rem 0.4rem; border-radius: 0.35rem; background: rgba(192, 132, 252, 0.18); color: #c084fc; }
 .mp-weight { font-size: 0.8em; color: var(--dim); }
+.mp-timeleft { font-size: 0.8em; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mp-row.mp-due-3d .mp-timeleft,
+.mp-row.mp-due-dday .mp-timeleft { color: var(--text); font-weight: 600; }
 
 /* due-proximity colour coding on pending rows */
 .mp-row.mp-due-week { background: rgba(245, 158, 11, 0.13); }  /* orange — within a week */
