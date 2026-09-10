@@ -182,6 +182,57 @@ in the prompt.
 This style is the standard for all exam content going forward, and Weeks 5–6
 of every course were rewritten to it as the reference example — match them.
 
+### Subjective (`short` / `scenario`) model answers — same rule, longer form, not optional
+
+The `short` / `scenario` `modelAnswer`s already in `exam-content/` (~350 of
+them) were written before this rule and most are dense academic prose. They
+must be rewritten to the **same explain-it-to-a-teenager shape** as every
+other answer — just longer. **Any subjective answer that reads like one
+lecturer talking to another is wrong.** The person studying this says,
+verbatim: "I don't understand half of what it's asking."
+
+**Anti-pattern — do NOT write answers like this** (real current answer):
+
+> "Peak throughput is around MPL 60–90, but that is a saturated region: mean
+> response time there is already several times its unloaded value and its
+> variance is large, so many individual requests are far worse than the mean.
+> The right figure of merit is maximum throughput subject to a response-time
+> bound… enforce it with admission control: cap concurrent jobs near the knee
+> and queue or reject the rest."
+
+Jargon on jargon, no picture, no structure — you must already know the
+material to follow it.
+
+**Reference example — DO write answers like this** (same question, the way the
+user asked for it):
+
+> Imagine you're managing a super popular rideshare app like Uber. As more
+> people open the app at once, here's what happens:
+>
+> • **Sweet spot (~40 riders at once):** everything is fast and smooth —
+> drivers arrive in 2 minutes, payments go through instantly.
+>
+> • **Saturated / bad zone (~60–90):** you force extra riders in. You
+> technically finish a few more rides per minute, but the app lags hard —
+> waits jump from 2 minutes to 20, and it starts failing for random users.
+>
+> • **Crash zone (>90):** everyone refreshes at once, servers freeze, and
+> *fewer* rides get completed than before.
+>
+> **The bottom line:** don't chase the absolute maximum. Pick a limit (~40),
+> and when a 41st person arrives put them in a short queue or tell them
+> "drivers are busy" (this is *admission control*) instead of letting them
+> break the app for everyone. Smooth and reliable beats maximum-and-broken.
+
+Every technical term (multiprogramming level, throughput, the knee of the
+curve, admission control, thrashing) is delivered *through* the analogy, with
+the real term dropped in parentheses only after the plain version has landed.
+Structure is always: **one-paragraph everyday scenario → labelled bullets
+walking the cases → a plain "bottom line" that says what to actually do or
+conclude.** Same `PromptText` formatting rules as above (blank line between
+every block, `• ` bullets, no markdown, keep `()`/`=>` out of multi-line
+blocks).
+
 ### Question count per paper
 
 Author enough questions to genuinely cover the source material — target
