@@ -1720,6 +1720,7 @@ a.btn {
 
 /* module management */
 .mp-module-tools { margin: 0.5rem 0 1rem; }
+.mp-add-task { margin: 0 0 1rem; }
 .mp-module-rename { font: inherit; padding: 2px 6px; }
 .mp-course-hidden { opacity: 0.7; }
 

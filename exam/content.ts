@@ -7,6 +7,7 @@ import { WEEK_3_PAPERS as INFO5995_WEEK_3_PAPERS } from "../exam-content/info599
 import { WEEK_4_PAPERS as INFO5995_WEEK_4_PAPERS } from "../exam-content/info5995/week-4";
 import { WEEK_5_PAPERS as INFO5995_WEEK_5_PAPERS } from "../exam-content/info5995/week-5";
 import { WEEK_6_PAPERS as INFO5995_WEEK_6_PAPERS } from "../exam-content/info5995/week-6";
+import { WEEK_7_PAPERS as INFO5995_WEEK_7_PAPERS } from "../exam-content/info5995/week-7";
 import { WEEK_1_PAPERS as COMP5348_WEEK_1_PAPERS } from "../exam-content/comp5348/week-1";
 import { WEEK_2_PAPERS as COMP5348_WEEK_2_PAPERS } from "../exam-content/comp5348/week-2";
 import { WEEK_3_PAPERS as COMP5348_WEEK_3_PAPERS } from "../exam-content/comp5348/week-3";
@@ -18,11 +19,13 @@ import { WEEK_2_PAPERS as INFO6007_WEEK_2_PAPERS } from "../exam-content/info600
 import { WEEK_3_PAPERS as INFO6007_WEEK_3_PAPERS } from "../exam-content/info6007/week-3";
 import { WEEK_4_PAPERS as INFO6007_WEEK_4_PAPERS } from "../exam-content/info6007/week-4";
 import { WEEK_5_PAPERS as INFO6007_WEEK_5_PAPERS } from "../exam-content/info6007/week-5";
+import { WEEK_7_PAPERS as INFO6007_WEEK_7_PAPERS } from "../exam-content/info6007/week-7";
 import { WEEK_1_PAPERS as INFO5990_WEEK_1_PAPERS } from "../exam-content/info5990/week-1";
 import { WEEK_2_PAPERS as INFO5990_WEEK_2_PAPERS } from "../exam-content/info5990/week-2";
 import { WEEK_3_PAPERS as INFO5990_WEEK_3_PAPERS } from "../exam-content/info5990/week-3";
 import { WEEK_4_PAPERS as INFO5990_WEEK_4_PAPERS } from "../exam-content/info5990/week-4";
 import { WEEK_5_PAPERS as INFO5990_WEEK_5_PAPERS } from "../exam-content/info5990/week-5";
+import { WEEK_7_PAPERS as INFO5990_WEEK_7_PAPERS } from "../exam-content/info5990/week-7";
 import { WEEK_1_PAPERS as TRACELY_WEEK_1_PAPERS } from "../exam-content/tracely/week-1";
 import type { ExamPaperSeed } from "../exam-content/types";
 import { addDays } from "../shared/scheduling";
@@ -34,6 +37,7 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO5995_WEEK_4_PAPERS,
   ...INFO5995_WEEK_5_PAPERS,
   ...INFO5995_WEEK_6_PAPERS,
+  ...INFO5995_WEEK_7_PAPERS,
   ...COMP5348_WEEK_1_PAPERS,
   ...COMP5348_WEEK_2_PAPERS,
   ...COMP5348_WEEK_3_PAPERS,
@@ -45,11 +49,13 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO6007_WEEK_3_PAPERS,
   ...INFO6007_WEEK_4_PAPERS,
   ...INFO6007_WEEK_5_PAPERS,
+  ...INFO6007_WEEK_7_PAPERS,
   ...INFO5990_WEEK_1_PAPERS,
   ...INFO5990_WEEK_2_PAPERS,
   ...INFO5990_WEEK_3_PAPERS,
   ...INFO5990_WEEK_4_PAPERS,
   ...INFO5990_WEEK_5_PAPERS,
+  ...INFO5990_WEEK_7_PAPERS,
   ...TRACELY_WEEK_1_PAPERS,
 ];
 

@@ -260,11 +260,15 @@ function ItemForm({
   submitLabel,
   onCancel,
   onSubmit,
+  modules,
 }: {
   initial: ItemDraft;
   submitLabel: string;
   onCancel: () => void;
   onSubmit: (d: ItemDraft) => Promise<void>;
+  // When supplied, the form shows a Module picker (used by the top-level
+  // "+ Add task" button, which has no per-module context to inherit).
+  modules?: Module[];
 }) {
   const [draft, setDraft] = useState<ItemDraft>(initial);
   const [error, setError] = useState("");
@@ -285,6 +289,16 @@ function ItemForm({
       }}
     >
       <div className="mp-form-row">
+        {modules && modules.length > 0 && (
+          <label>
+            Module
+            <select value={draft.course} onChange={(e) => set("course", e.target.value)}>
+              {modules.map((m) => (
+                <option key={m.code} value={m.code}>{m.name} ({m.code})</option>
+              ))}
+            </select>
+          </label>
+        )}
         <label>
           Kind
           <select value={draft.kind} onChange={(e) => set("kind", e.target.value as ModuleItemKind)}>
@@ -355,6 +369,7 @@ export default function ModulePlanner({
   const [modules, setModules] = useState<Module[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [addingCourse, setAddingCourse] = useState<string | null>(null);
+  const [addingGlobal, setAddingGlobal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<number | null>(null);
   const [addingModule, setAddingModule] = useState(false);
@@ -543,6 +558,18 @@ export default function ModulePlanner({
         </button>
       </div>
 
+      <div className="btn-row mp-add-task">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={visibleModules.length === 0}
+          title={visibleModules.length === 0 ? "Add a module first" : "Add an assignment, presentation, viva or quiz"}
+          onClick={() => { setAddingGlobal(true); setAddingCourse(null); closeEdit(); }}
+        >
+          + Add task
+        </button>
+      </div>
+
       {viewMode === "flat" && (
         <div className="mp-flat-controls">
           <label>
@@ -724,6 +751,22 @@ export default function ModulePlanner({
               <button type="button" className="btn" onClick={() => setAddingModule(false)}>Cancel</button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {addingGlobal && visibleModules.length > 0 && (
+        <Modal title="New task" onClose={() => setAddingGlobal(false)}>
+          <ItemForm
+            initial={emptyDraft(visibleModules[0]!.code)}
+            modules={visibleModules}
+            submitLabel="Add task"
+            onCancel={() => setAddingGlobal(false)}
+            onSubmit={async (d) => {
+              await api.create(d);
+              setAddingGlobal(false);
+              await refresh();
+            }}
+          />
         </Modal>
       )}
 

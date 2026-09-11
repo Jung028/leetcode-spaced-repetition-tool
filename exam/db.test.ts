@@ -33,10 +33,10 @@ beforeEach(() => {
 
 test("seeds every paper for the course, unsubmitted", () => {
   const rows = listExamPaperRows(db, COURSE);
-  expect(rows.length).toBe(8); // INFO5995 Week 1-4 papers plus Week 5's and Week 6's two papers each
+  expect(rows.length).toBe(9); // INFO5995 Week 1-4 papers, Week 5's and Week 6's two papers each, plus Week 7's one paper
   expect(rows.every((r) => r.submitted_at === null)).toBe(true);
-  expect(rows.map((r) => r.week).sort()).toEqual([1, 2, 3, 4, 5, 5, 6, 6]);
-  expect(rows.map((r) => r.paper_number).sort()).toEqual([1, 1, 1, 1, 1, 1, 2, 2]);
+  expect(rows.map((r) => r.week).sort()).toEqual([1, 2, 3, 4, 5, 5, 6, 6, 7]);
+  expect(rows.map((r) => r.paper_number).sort()).toEqual([1, 1, 1, 1, 1, 1, 1, 2, 2]);
 });
 
 test("migrateExam does not reseed or reset progress on a second call", () => {
@@ -107,7 +107,7 @@ test("two different courses' rows are independent — course scoping partitions 
   expect(listExamAnswers(db, COURSE, 1, 1)[0]!.your_answer).toBe("info draft");
   expect(getExamPaperRow(db, "OTHERCOURSE", 1, 1)!.course).toBe("OTHERCOURSE");
   expect(listExamPaperRows(db, "OTHERCOURSE").length).toBe(1);
-  expect(listExamPaperRows(db, COURSE).length).toBe(8); // unaffected by OTHERCOURSE's row — INFO5995's own Week 1-4 papers plus Week 5's and Week 6's two papers each
+  expect(listExamPaperRows(db, COURSE).length).toBe(9); // unaffected by OTHERCOURSE's row — INFO5995's own Week 1-4 papers, Week 5's and Week 6's two papers each, plus Week 7's one paper
 });
 
 test("migrateExam upgrades a pre-existing paper_day-keyed db, recovering (week, paperNumber) by content position", () => {
@@ -175,8 +175,8 @@ test("migrateExam upgrades a pre-existing paper_day-keyed db, recovering (week, 
   expect(tablesAfter.some((t) => t.name === "exam_review_log")).toBe(false);
 
   // The migrated Week 1 paper survives, and migrateExam's seedNewPapers step
-  // fresh-seeds INFO5995's Week 2, Week 3, Week 4, Week 5 (discussion + lecture) and Week 6 (tutorial + lecture) papers (not present in the legacy fixture).
-  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(8);
+  // fresh-seeds INFO5995's Week 2, Week 3, Week 4, Week 5 (discussion + lecture), Week 6 (tutorial + lecture) and Week 7 (lecture) papers (not present in the legacy fixture).
+  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(9);
 
   // exam_state has no successor in the weekly-pacing schema. This is the
   // exact shape (course+paper_day, exam_state already present) the real
@@ -276,8 +276,8 @@ test("a migration failure rolls back cleanly, leaving the original paper_day-sha
   // The valid row (paper_day 1) migrated; the out-of-range row (999) was
   // dropped rather than crashing the whole migration or corrupting state.
   expect(getExamPaperRow(legacyDb, "INFO5995", 1, 1)).not.toBeNull();
-  // The migrated row plus INFO5995's Week 2, Week 3, Week 4, Week 5 (discussion + lecture) and Week 6 (tutorial + lecture) papers, fresh-seeded by seedNewPapers.
-  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(8);
+  // The migrated row plus INFO5995's Week 2, Week 3, Week 4, Week 5 (discussion + lecture), Week 6 (tutorial + lecture) and Week 7 (lecture) papers, fresh-seeded by seedNewPapers.
+  expect(listExamPaperRows(legacyDb, "INFO5995").length).toBe(9);
 });
 
 function submitPaper1AsWrongThenRight(db: Database, correctAllExceptFirst: boolean) {
