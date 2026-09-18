@@ -392,9 +392,9 @@ button.stat:hover {
 
 .modal-row-title {
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 /* Section headings, shared */
@@ -539,9 +539,9 @@ button.stat:hover {
   flex: 1;
   font-size: 1rem;
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .tag {
