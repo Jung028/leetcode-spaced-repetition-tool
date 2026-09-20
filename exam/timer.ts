@@ -32,6 +32,10 @@ export function questionTimeBudget(q: TimeBudgetQuestion): number {
   return seconds;
 }
 
+// How long the correct answer stays on screen after the timer runs out,
+// before the quiz moves to the next question.
+export const TIME_UP_PAUSE_MS = 3000;
+
 // True once the timer has gone red — the first second past the budget. The
 // header styles itself off this and the quiz auto-marks the question wrong
 // and moves on when it flips, so both must share one definition of "red".
