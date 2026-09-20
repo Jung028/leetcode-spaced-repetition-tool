@@ -20,8 +20,8 @@ const BASE_SECONDS: Record<ExamQuestionType, number> = {
 };
 
 // Seconds allowed for one question — shown in the quiz header; once it runs
-// out the timer goes red and the question is auto-marked wrong (see
-// isOvertime). Base time for the type, plus 10s for
+// out the timer goes red and the question is auto-marked wrong with its
+// correct answer revealed (see isOvertime). Base time for the type, plus 10s for
 // every option past the fourth, plus 15s when there's an image or diagram to
 // read before answering.
 export function questionTimeBudget(q: TimeBudgetQuestion): number {
@@ -34,7 +34,7 @@ export function questionTimeBudget(q: TimeBudgetQuestion): number {
 
 // True once the timer has gone red — the first second past the budget. The
 // header styles itself off this and the quiz auto-marks the question wrong
-// and moves on when it flips, so both must share one definition of "red".
+// (revealing the answer) when it flips, so both share one definition of "red".
 export function isOvertime(elapsedSeconds: number, budgetSeconds: number): boolean {
   return elapsedSeconds > budgetSeconds;
 }

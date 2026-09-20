@@ -831,7 +831,8 @@ function ShortOrScenarioQuestion({
 
 // The quiz header's per-question countdown: counts the question's time budget
 // down to zero, then turns red as overtime. The moment it goes red it calls
-// `onExpire` once — the paper marks the question wrong and moves to the next.
+// `onExpire` once — the paper marks the question wrong and shows the correct
+// answer, then waits on that question until the student moves on.
 // Resets whenever `questionKey` changes (navigating to another question);
 // freezes once the question is graded, showing the budget as a static hint.
 function QuestionTimer({
@@ -845,29 +846,31 @@ function QuestionTimer({
   frozen: boolean;
   onExpire: () => void;
 }) {
-  const [elapsed, setElapsed] = useState(0);
+  // Elapsed seconds are stored against the question they were counted for, so
+  // the moment `questionKey` changes the count reads as 0 in that very render —
+  // a stale count from the previous question must never look like overtime.
+  const [tick, setTick] = useState({ key: questionKey, seconds: 0 });
+  const elapsed = tick.key === questionKey ? tick.seconds : 0;
   // Always call the latest onExpire (it closes over the current question),
-  // and make sure it fires at most once per question.
+  // and remember which question it already fired for so it's once per question.
   const onExpireRef = useRef(onExpire);
   onExpireRef.current = onExpire;
-  const expiredRef = useRef(false);
-
-  useEffect(() => {
-    setElapsed(0);
-    expiredRef.current = false;
-  }, [questionKey]);
-
-  useEffect(() => {
-    if (frozen || expiredRef.current || !isOvertime(elapsed, budgetSeconds)) return;
-    expiredRef.current = true;
-    onExpireRef.current();
-  }, [elapsed, budgetSeconds, frozen]);
+  const expiredForRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (frozen) return;
-    const id = setInterval(() => setElapsed((e) => e + 1), 1000);
+    const id = setInterval(
+      () => setTick((t) => ({ key: questionKey, seconds: t.key === questionKey ? t.seconds + 1 : 1 })),
+      1000,
+    );
     return () => clearInterval(id);
   }, [questionKey, frozen]);
+
+  useEffect(() => {
+    if (frozen || expiredForRef.current === questionKey || !isOvertime(elapsed, budgetSeconds)) return;
+    expiredForRef.current = questionKey;
+    onExpireRef.current();
+  }, [elapsed, budgetSeconds, frozen, questionKey]);
 
   if (frozen) {
     return (
@@ -881,7 +884,7 @@ function QuestionTimer({
   return (
     <span
       className={remaining < 0 ? "exam-timer exam-timer-over" : "exam-timer"}
-      title="Time left — when it runs out the question is marked wrong and you move on"
+      title="Time left — when it runs out the correct answer is shown and the question is marked wrong"
     >
       ⏱ {formatCountdown(remaining)}
     </span>
@@ -951,17 +954,14 @@ function PaperView({
 
   const question = current.questions[index]!;
 
-  // Timer ran out on an unanswered question: mark it wrong and move on. On
-  // the last question there's nowhere to go, so it stays put, graded, with
-  // Submit available.
+  // Timer ran out on an unanswered question: mark it wrong, which reveals the
+  // correct answer in place. It deliberately does NOT move on — the student
+  // stays on the question to read the answer and presses Next when ready.
   const timeUp = async () => {
     if (question.correct !== null) return;
-    const expiredIndex = index;
     onError(null);
     try {
-      const updated = await api.grade(course, paper.week, paper.paperNumber, question.index, false);
-      setCurrent(updated);
-      setIndex((i) => (i === expiredIndex ? Math.min(current.questions.length - 1, i + 1) : i));
+      setCurrent(await api.grade(course, paper.week, paper.paperNumber, question.index, false));
     } catch (err) {
       onError(errorMessage(err));
     }
