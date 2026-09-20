@@ -623,6 +623,36 @@ button.stat:hover {
   background: color-mix(in srgb, var(--red) 12%, transparent);
 }
 
+/* Floating countdown pinned to the bottom of the viewport while a question is
+   being answered, so it stays visible however far the page is scrolled. It
+   never intercepts clicks on whatever it overlaps. */
+.exam-timer-float {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-5);
+  transform: translateX(-50%);
+  z-index: 60;
+  pointer-events: none;
+  font-family: var(--mono);
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: var(--panel-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: var(--space-2) var(--space-4);
+  box-shadow: var(--shadow-panel);
+}
+
+/* Opaque tint (not transparent) so page text never shows through the pill. */
+.exam-timer-float.exam-timer-over {
+  color: var(--red);
+  border-color: var(--red);
+  background: color-mix(in srgb, var(--red) 14%, var(--panel-raised));
+}
+
 /* Calendar — embedded Google Calendar */
 .gcal-frame {
   background: var(--panel);

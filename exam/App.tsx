@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ExamPaperView, ExamQuestionView, ExamHistoryWeek } from "./api";
 import type { ExamWeekView } from "./content";
 import type { JobStatus } from "./generate";
@@ -881,13 +882,29 @@ function QuestionTimer({
   }
 
   const remaining = budgetSeconds - elapsed;
+  const over = remaining < 0;
   return (
-    <span
-      className={remaining < 0 ? "exam-timer exam-timer-over" : "exam-timer"}
-      title="Time left — when it runs out the correct answer is shown and the question is marked wrong"
-    >
-      ⏱ {formatCountdown(remaining)}
-    </span>
+    <>
+      <span
+        className={over ? "exam-timer exam-timer-over" : "exam-timer"}
+        title="Time left — when it runs out the correct answer is shown and the question is marked wrong"
+      >
+        ⏱ {formatCountdown(remaining)}
+      </span>
+      {/* Floating copy pinned to the bottom of the screen so the countdown stays
+          visible while scrolling a long question. Portalled to <body> so no
+          transformed ancestor can turn `position: fixed` into something else. */}
+      {createPortal(
+        <span
+          className={over ? "exam-timer-float exam-timer-over" : "exam-timer-float"}
+          role="timer"
+          aria-label="Time left for this question"
+        >
+          ⏱ {formatCountdown(remaining)}
+        </span>,
+        document.body,
+      )}
+    </>
   );
 }
 
