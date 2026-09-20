@@ -90,6 +90,19 @@ export function toggleTodo(db: Database, id: number, today: string): Todo | null
   return toTodo(row);
 }
 
+export function updateTodo(
+  db: Database,
+  id: number,
+  task: string,
+  dueDate: string,
+  notes: string | null,
+): Todo | null {
+  const row = db
+    .query(`UPDATE todos SET task = ?, due_date = ?, notes = ? WHERE id = ? RETURNING *`)
+    .get(task, dueDate, notes, id) as TodoRow | undefined;
+  return row ? toTodo(row) : null;
+}
+
 export function deleteTodo(db: Database, id: number): boolean {
   return db.query(`DELETE FROM todos WHERE id = ?`).run(id).changes > 0;
 }

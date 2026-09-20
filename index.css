@@ -392,9 +392,9 @@ button.stat:hover {
 
 .modal-row-title {
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 /* Section headings, shared */
@@ -504,12 +504,24 @@ button.stat:hover {
 
 .board-row-main {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
   flex: 1;
   min-width: 0;
   text-align: left;
   padding: 0.85rem 1rem;
+}
+
+.board-row-click {
+  display: contents;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .board-row-review {
@@ -539,9 +551,9 @@ button.stat:hover {
   flex: 1;
   font-size: 1rem;
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .tag {
