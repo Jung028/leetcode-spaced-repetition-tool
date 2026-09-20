@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { questionTimeBudget, formatCountdown } from "./timer";
+import { questionTimeBudget, formatCountdown, isOvertime } from "./timer";
 
 test("base budget per question type", () => {
   expect(questionTimeBudget({ type: "truefalse" })).toBe(20);
@@ -35,4 +35,11 @@ test("formatCountdown renders m:ss and flips to +m:ss over budget", () => {
   expect(formatCountdown(0)).toBe("0:00");
   expect(formatCountdown(-7)).toBe("+0:07");
   expect(formatCountdown(-75)).toBe("+1:15");
+});
+
+test("isOvertime flips at the first second past the budget, matching the red state", () => {
+  expect(isOvertime(30, 30)).toBe(false);
+  expect(isOvertime(29, 30)).toBe(false);
+  expect(isOvertime(31, 30)).toBe(true);
+  expect(isOvertime(0, 20)).toBe(false);
 });
