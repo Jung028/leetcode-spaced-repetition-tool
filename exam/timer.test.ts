@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { questionTimeBudget, formatCountdown, isOvertime, TIME_UP_PAUSE_MS } from "./timer";
+import { questionTimeBudget, formatCountdown, isOvertime } from "./timer";
 
 test("base budget per question type", () => {
   expect(questionTimeBudget({ type: "truefalse" })).toBe(20);
@@ -42,8 +42,4 @@ test("isOvertime flips at the first second past the budget, matching the red sta
   expect(isOvertime(29, 30)).toBe(false);
   expect(isOvertime(31, 30)).toBe(true);
   expect(isOvertime(0, 20)).toBe(false);
-});
-
-test("the pause before auto-advancing after a timeout is 3 seconds", () => {
-  expect(TIME_UP_PAUSE_MS).toBe(3000);
 });

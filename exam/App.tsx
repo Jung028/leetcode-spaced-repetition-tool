@@ -5,7 +5,7 @@ import type { JobStatus } from "./generate";
 import { TIMELINE_URL, TIMELINE_ANCHORS } from "../shared/timeline-link";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { isMultiCorrect } from "./grading";
-import { questionTimeBudget, formatCountdown, isOvertime, TIME_UP_PAUSE_MS } from "./timer";
+import { questionTimeBudget, formatCountdown, isOvertime } from "./timer";
 
 const EXCALIDRAW_URL = "https://excalidraw.com";
 
@@ -831,8 +831,8 @@ function ShortOrScenarioQuestion({
 
 // The quiz header's per-question countdown: counts the question's time budget
 // down to zero, then turns red as overtime. The moment it goes red it calls
-// `onExpire` once — the paper marks the question wrong, shows the correct
-// answer, and moves to the next question after a short pause.
+// `onExpire` once — the paper marks the question wrong and shows the correct
+// answer, then waits on that question until the student moves on.
 // Resets whenever `questionKey` changes (navigating to another question);
 // freezes once the question is graded, showing the budget as a static hint.
 function QuestionTimer({
@@ -884,7 +884,7 @@ function QuestionTimer({
   return (
     <span
       className={remaining < 0 ? "exam-timer exam-timer-over" : "exam-timer"}
-      title="Time left — when it runs out the correct answer is shown, the question is marked wrong, and you move on"
+      title="Time left — when it runs out the correct answer is shown and the question is marked wrong"
     >
       ⏱ {formatCountdown(remaining)}
     </span>
@@ -955,25 +955,13 @@ function PaperView({
   const question = current.questions[index]!;
 
   // Timer ran out on an unanswered question: mark it wrong, which reveals the
-  // correct answer in place, then hold on it for a few seconds so it can be
-  // read before moving on. On the last question there's nowhere to go, so it
-  // stays put, graded, with Submit available.
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (advanceTimer.current) clearTimeout(advanceTimer.current);
-  }, []);
-
+  // correct answer in place. It deliberately does NOT move on — the student
+  // stays on the question to read the answer and presses Next when ready.
   const timeUp = async () => {
     if (question.correct !== null) return;
-    const expiredIndex = index;
     onError(null);
     try {
-      const updated = await api.grade(course, paper.week, paper.paperNumber, question.index, false);
-      setCurrent(updated);
-      advanceTimer.current = setTimeout(() => {
-        // If they moved on by hand during the pause, leave them where they are.
-        setIndex((i) => (i === expiredIndex ? Math.min(current.questions.length - 1, i + 1) : i));
-      }, TIME_UP_PAUSE_MS);
+      setCurrent(await api.grade(course, paper.week, paper.paperNumber, question.index, false));
     } catch (err) {
       onError(errorMessage(err));
     }
