@@ -83,6 +83,52 @@ test("POST /api/todo/:id/toggle on unknown id returns 404", async () => {
   expect(res.status).toBe(404);
 });
 
+test("PUT /api/todo/:id updates task/dueDate/notes", async () => {
+  const created = await (
+    await fetch(`${base}/api/todo`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ task: "Original", dueDate: TODAY }),
+    })
+  ).json();
+
+  const res = await fetch(`${base}/api/todo/${created.id}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ task: "Renamed", dueDate: TODAY, notes: "https://x.com" }),
+  });
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.task).toBe("Renamed");
+  expect(body.notes).toBe("https://x.com");
+});
+
+test("PUT /api/todo/:id requires task and dueDate", async () => {
+  const created = await (
+    await fetch(`${base}/api/todo`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ task: "Task", dueDate: TODAY }),
+    })
+  ).json();
+
+  const res = await fetch(`${base}/api/todo/${created.id}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ task: "", dueDate: "" }),
+  });
+  expect(res.status).toBe(400);
+});
+
+test("PUT /api/todo/:id on unknown id returns 404", async () => {
+  const res = await fetch(`${base}/api/todo/9999`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ task: "X", dueDate: TODAY }),
+  });
+  expect(res.status).toBe(404);
+});
+
 test("DELETE /api/todo/:id removes it", async () => {
   const created = await (
     await fetch(`${base}/api/todo`, {

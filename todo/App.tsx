@@ -28,6 +28,12 @@ const api = {
       body: JSON.stringify({ task, dueDate, notes }),
     }).then((r) => json<Todo>(r)),
   toggle: (id: number) => fetch(`/api/todo/${id}/toggle`, { method: "POST" }).then((r) => json<Todo>(r)),
+  update: (id: number, task: string, dueDate: string, notes: string | null) =>
+    fetch(`/api/todo/${id}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ task, dueDate, notes }),
+    }).then((r) => json<Todo>(r)),
   remove: (id: number) => fetch(`/api/todo/${id}`, { method: "DELETE" }).then((r) => json<{ ok: true }>(r)),
   completedToday: () => fetch("/api/todo/completed-today").then((r) => json<Todo[]>(r)),
 };
@@ -198,16 +204,76 @@ function NewTodoForm({ onCancel, onCreated }: { onCancel: () => void; onCreated:
   );
 }
 
+function EditTodoForm({
+  todo,
+  onCancel,
+  onSaved,
+}: {
+  todo: Todo;
+  onCancel: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [task, setTask] = useState(todo.task);
+  const [dueDate, setDueDate] = useState(todo.due_date);
+  const [notes, setNotes] = useState(todo.notes ?? "");
+  const [error, setError] = useState("");
+
+  return (
+    <form
+      className="form"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!task.trim() || !dueDate) {
+          setError("Task and due date are both required.");
+          return;
+        }
+        try {
+          await api.update(todo.id, task.trim(), dueDate, notes.trim() || null);
+          await onSaved();
+        } catch (err) {
+          setError(errorMessage(err));
+        }
+      }}
+    >
+      <label>
+        Task
+        <input value={task} onChange={(e) => setTask(e.target.value)} autoFocus />
+      </label>
+      <label>
+        When to complete
+        <input value={dueDate} onChange={(e) => setDueDate(e.target.value)} type="date" />
+      </label>
+      <label>
+        Link / description
+        <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="https://... or a short note" />
+      </label>
+      {error && <p className="form-error">{error}</p>}
+      <div className="btn-row">
+        <button type="submit" className="btn btn-primary">Save</button>
+        <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
 function TodoBoard({
   due,
   today,
+  editingId,
   onToggle,
   onDelete,
+  onEdit,
+  onCancelEdit,
+  onSaved,
 }: {
   due: Todo[];
   today: string;
+  editingId: number | null;
   onToggle: (id: number) => void;
   onDelete: (id: number) => void;
+  onEdit: (id: number) => void;
+  onCancelEdit: () => void;
+  onSaved: () => Promise<void>;
 }) {
   return (
     <section className="board" aria-label="Todo due today">
@@ -220,6 +286,13 @@ function TodoBoard({
       ) : (
         <ul className="board-rows">
           {due.map((t, i) => {
+            if (t.id === editingId) {
+              return (
+                <li key={t.id} style={{ animationDelay: `${i * 60}ms` }}>
+                  <EditTodoForm todo={t} onCancel={onCancelEdit} onSaved={onSaved} />
+                </li>
+              );
+            }
             const overdue = daysBetween(t.due_date, today);
             const color = overdue > 0 ? "red" : "gold";
             return (
@@ -248,6 +321,16 @@ function TodoBoard({
                     ))}
                   <button
                     type="button"
+                    className="btn"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onEdit(t.id);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
                     className="btn btn-danger"
                     onClick={(e) => {
                       e.preventDefault();
@@ -268,12 +351,20 @@ function TodoBoard({
 
 function CompletedBoard({
   completed,
+  editingId,
   onToggle,
   onDelete,
+  onEdit,
+  onCancelEdit,
+  onSaved,
 }: {
   completed: Todo[];
+  editingId: number | null;
   onToggle: (id: number) => void;
   onDelete: (id: number) => void;
+  onEdit: (id: number) => void;
+  onCancelEdit: () => void;
+  onSaved: () => Promise<void>;
 }) {
   return (
     <section className="board" aria-label="Todo completed today">
@@ -285,40 +376,59 @@ function CompletedBoard({
         <p className="board-empty">Nothing completed yet today.</p>
       ) : (
         <ul className="board-rows">
-          {completed.map((t, i) => (
-            <li key={t.id} style={{ animationDelay: `${i * 60}ms` }}>
-              <label className="board-row board-row-main step-row step-row-done">
-                <input type="checkbox" checked readOnly onChange={() => onToggle(t.id)} />
-                <span className="tag">done {t.done_at}</span>
-                <span className="board-title board-title-done">{t.task}</span>
-                {t.notes &&
-                  (isValidUrl(t.notes) ? (
-                    <a
-                      className="board-row-review"
-                      href={t.notes}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      title="Open link"
-                    >
-                      ↗
-                    </a>
-                  ) : (
-                    <span className="goal-deadline">{t.notes}</span>
-                  ))}
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onDelete(t.id);
-                  }}
-                >
-                  Delete
-                </button>
-              </label>
-            </li>
-          ))}
+          {completed.map((t, i) => {
+            if (t.id === editingId) {
+              return (
+                <li key={t.id} style={{ animationDelay: `${i * 60}ms` }}>
+                  <EditTodoForm todo={t} onCancel={onCancelEdit} onSaved={onSaved} />
+                </li>
+              );
+            }
+            return (
+              <li key={t.id} style={{ animationDelay: `${i * 60}ms` }}>
+                <label className="board-row board-row-main step-row step-row-done">
+                  <input type="checkbox" checked readOnly onChange={() => onToggle(t.id)} />
+                  <span className="tag">done {t.done_at}</span>
+                  <span className="board-title board-title-done">{t.task}</span>
+                  {t.notes &&
+                    (isValidUrl(t.notes) ? (
+                      <a
+                        className="board-row-review"
+                        href={t.notes}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        title="Open link"
+                      >
+                        ↗
+                      </a>
+                    ) : (
+                      <span className="goal-deadline">{t.notes}</span>
+                    ))}
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onEdit(t.id);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onDelete(t.id);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </label>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
@@ -337,6 +447,7 @@ export default function TodoApp({
   const [completed, setCompleted] = useState<Todo[]>([]);
   const [stats, setStats] = useState<Stats>({ dueCount: 0, overdueCount: 0, completedToday: 0 });
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = () => {
@@ -368,6 +479,11 @@ export default function TodoApp({
     api.remove(id).then(refresh).catch((err) => setError(errorMessage(err)));
   };
 
+  const saveEdit = async () => {
+    setEditingId(null);
+    await refresh();
+  };
+
   return (
     <div className="todo">
       <TodoStats stats={stats} due={due} onError={setError} />
@@ -387,8 +503,25 @@ export default function TodoApp({
         />
       )}
 
-      <TodoBoard due={due} today={today} onToggle={toggle} onDelete={remove} />
-      <CompletedBoard completed={completed} onToggle={toggle} onDelete={remove} />
+      <TodoBoard
+        due={due}
+        today={today}
+        editingId={editingId}
+        onToggle={toggle}
+        onDelete={remove}
+        onEdit={setEditingId}
+        onCancelEdit={() => setEditingId(null)}
+        onSaved={saveEdit}
+      />
+      <CompletedBoard
+        completed={completed}
+        editingId={editingId}
+        onToggle={toggle}
+        onDelete={remove}
+        onEdit={setEditingId}
+        onCancelEdit={() => setEditingId(null)}
+        onSaved={saveEdit}
+      />
     </div>
   );
 }

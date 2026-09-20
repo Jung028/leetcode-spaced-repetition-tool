@@ -7,6 +7,7 @@ import {
   countTodosCompletedToday,
   listTodosCompletedToday,
   toggleTodo,
+  updateTodo,
 } from "./db";
 import { localToday } from "../shared/scheduling";
 
@@ -50,6 +51,17 @@ export function todoApiRoutes(db: Database) {
       },
     },
     "/api/todo/:id": {
+      PUT: async (req: Request & { params: { id: string } }) => {
+        const body = (await req.json().catch(() => null)) as
+          | { task?: unknown; dueDate?: unknown; notes?: unknown }
+          | null;
+        const task = typeof body?.task === "string" ? body.task.trim() : "";
+        const dueDate = typeof body?.dueDate === "string" ? body.dueDate.trim() : "";
+        const notes = typeof body?.notes === "string" && body.notes.trim() ? body.notes.trim() : null;
+        if (!task || !dueDate) return json({ error: "task and dueDate are required" }, 400);
+        const updated = updateTodo(db, Number(req.params.id), task, dueDate, notes);
+        return updated ? json(updated) : json({ error: "not found" }, 404);
+      },
       DELETE: (req: { params: { id: string } }) => {
         const deleted = deleteTodo(db, Number(req.params.id));
         return deleted ? json({ ok: true }) : json({ error: "not found" }, 404);

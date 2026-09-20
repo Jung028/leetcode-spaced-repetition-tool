@@ -8,6 +8,7 @@ import {
   countTodosCompletedToday,
   listTodosCompletedToday,
   toggleTodo,
+  updateTodo,
   deleteTodo,
 } from "./db";
 
@@ -85,6 +86,24 @@ test("countTodosCompletedToday and listTodosCompletedToday only count today's co
 
   expect(countTodosCompletedToday(db, TODAY)).toBe(1);
   expect(listTodosCompletedToday(db, TODAY).map((t) => t.task)).toEqual(["Done today"]);
+});
+
+test("updateTodo changes task/dueDate/notes and returns the updated row", () => {
+  const t = createTodo(db, "Original", TODAY, null, TODAY);
+  const updated = updateTodo(db, t.id, "Renamed", "2026-08-20", "https://x.com");
+  expect(updated).toEqual({
+    id: t.id,
+    task: "Renamed",
+    due_date: "2026-08-20",
+    notes: "https://x.com",
+    done: false,
+    done_at: null,
+    created_at: TODAY,
+  });
+});
+
+test("updateTodo on an unknown id returns null", () => {
+  expect(updateTodo(db, 9999, "X", TODAY, null)).toBeNull();
 });
 
 test("deleteTodo removes the row and returns true", () => {

@@ -504,12 +504,24 @@ button.stat:hover {
 
 .board-row-main {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
   flex: 1;
   min-width: 0;
   text-align: left;
   padding: 0.85rem 1rem;
+}
+
+.board-row-click {
+  display: contents;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .board-row-review {

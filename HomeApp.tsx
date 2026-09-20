@@ -6,6 +6,15 @@ import { ED_DIGEST_URL } from "./ed-digest-link";
 
 const EMPTY_STATS: HomeStats = { dueToday: 0, overdue: 0, completedToday: 0 };
 
+const isValidUrl = (value: string) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+};
+
 // Twice-weekly nudge to keep the exam-content pipeline fed: Wednesday and
 // Friday are when new lecture material typically lands, so those mornings
 // get a standing reminder to pull it in. Computed from the local date, not
@@ -276,20 +285,34 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
           <ul className="board-rows">
             {items.map((item, i) => {
               const color = item.overdueDays > 0 ? "red" : "gold";
+              const hasLink = !!item.subtitle && isValidUrl(item.subtitle);
               return (
                 <li key={`${item.source}-${item.id}`} style={{ animationDelay: `${i * 60}ms` }}>
-                  <button
+                  <div
                     className="board-row board-row-main"
                     style={{ "--urgency": `var(--${color})` } as React.CSSProperties}
-                    onClick={() => onNavigate(item)}
                   >
-                    <span className="tag">{item.overdueDays > 0 ? `${item.overdueDays}d late` : "due"}</span>
-                    <span className="cat-tag" style={{ "--cat-color": SOURCE_COLOR[item.source] } as React.CSSProperties}>
-                      {SOURCE_LABEL[item.source]}
-                    </span>
-                    <span className="board-title">{item.title}</span>
-                    <span className="goal-deadline">{item.subtitle}</span>
-                  </button>
+                    <button type="button" className="board-row-click" onClick={() => onNavigate(item)}>
+                      <span className="tag">{item.overdueDays > 0 ? `${item.overdueDays}d late` : "due"}</span>
+                      <span className="cat-tag" style={{ "--cat-color": SOURCE_COLOR[item.source] } as React.CSSProperties}>
+                        {SOURCE_LABEL[item.source]}
+                      </span>
+                      <span className="board-title">{item.title}</span>
+                      {item.subtitle && !hasLink && <span className="goal-deadline">{item.subtitle}</span>}
+                    </button>
+                    {hasLink && (
+                      <a
+                        className="board-row-review"
+                        href={item.subtitle}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        title="Open link"
+                      >
+                        ↗
+                      </a>
+                    )}
+                  </div>
                 </li>
               );
             })}
