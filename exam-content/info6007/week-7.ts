@@ -409,27 +409,13 @@ const LECTURE_PAPER: ExamPaperSeed = {
   paperNumber: 2,
   title: "Week 7 Practice Paper — Lecture",
   topics:
-    "Project Risk Management: definition of a project risk (uncertain event, positive or negative effect on scope/schedule/cost/quality); risk vs issue; why risk management matters in dynamic IT projects; the Standish CHAOS figures cited in the deck; positive vs negative risk and their response strategies (exploit/enhance/share/accept vs avoid/mitigate/transfer/accept, plus escalation); the five risk categories (Market, Financial, Technology, People, Structure/Process); risk communication and stakeholder engagement; risk appetite, risk culture and risk utility functions; the six risk processes (Plan, Identify, Qualitative Analysis, Quantitative Analysis, Plan/Implement Responses, Monitor and Control); Risk Breakdown Structure; identification tools (brainstorming, Delphi, interviewing, SWOT); probability-impact matrix; Monte Carlo simulation and decision-tree/EMV analysis; the risk register; the NSW Digital Driver Licence worked case study; Traditional vs Agile vs Hybrid risk management. Reading 1 (Standish CHAOS Report): resolution types and rates, cost/time overruns, success and failure factors, the DMV / CONFIRM / Hyatt / Banco Itamarati case comparisons, 'growing' vs 'developing' software. Reading 2 (UK NHS NPfIT): the 2002 to 2011 programme, the Haste / Overambitious design / Strategy and skills themes, centralised top-down failure, 'connect all not replace all', and 'IT failure is management failure'. Continuity with Week 3 scope/schedule and Week 4 cost reserves.",
+    "Project Risk Management: risk vs issue; positive vs negative risk and their response strategies (avoid/mitigate/transfer/accept and escalation for threats; exploit/enhance/share/accept for opportunities), including avoidance vs mitigation, transfer vs escalation and exploit vs enhance; classifying and categorising risks in a cloud-migration case; risk identification tools (brainstorming, Delphi, interviewing, SWOT) vs analysis tools; the outputs of Identify Risks; the probability-impact matrix; Monte Carlo simulation and decision-tree/EMV analysis; the NSW Digital Driver Licence worked case (EMV figures, net expected exposure, low-probability/very-high-impact risks); the risk register; residual risk; risk appetite factors and risk utility (risk-averse vs risk-neutral); risk communication tailoring and stakeholder engagement; Agile and Hybrid risk practices (risk-based backlog prioritisation, risk burn-down); links to Week 3 change control and Week 4 contingency reserves. Reading 1 (Standish CHAOS Report): challenged/impaired project factors and the California DMV case. Reading 2 (UK NHS NPfIT): the Haste / Overambitious design / Strategy and skills themes, centralised top-down failure ('connect all not replace all'), and top-management support plus user involvement.",
   sourceFiles: [
     "lecture/Lecture - INFO6007 Week 07 - Risk Management Plan.pdf",
     "lecture/Reading 1 - Standish Group Chaos Report.pdf",
     "lecture/Reading 2 - NHS UK National Programme for IT case study.pdf",
   ],
   questions: [
-    {
-      type: "mcq",
-      prompt:
-        "The lecture defines a project risk as 'an uncertain event or condition that, if it occurs, has a positive or negative effect on one or more project objectives.' Which statement is most consistent with this definition?",
-      options: [
-        "A risk is any problem that has already occurred on the project and is now actively damaging the schedule, cost or quality of the work",
-        "A risk is only a negative event; beneficial uncertain events are handled separately and are never recorded in the project's risk documentation",
-        "A risk is a certainty that the project will be late or over budget, expressed as a percentage of the original baseline estimate",
-        "A risk is about uncertainty — it may or may not happen — and its effect on scope, schedule, cost or quality can be beneficial as well as harmful",
-      ],
-      correctIndex: 3,
-      modelAnswer:
-        "Think of a weather forecast for an outdoor wedding: rain might come or might not, and a cool breeze on a hot day would actually be welcome — uncertainty, and it can cut either way.\n\n• Key words: uncertain (may or may not happen) and positive or negative effect on objectives.\n\n• Why the others are wrong: something that has already happened is an issue, not a risk; a risk is not a certainty; and opportunities count as risks too.\n\nSo the answer is: an uncertain event whose effect on the project can be good or bad.",
-    },
     {
       type: "mcq",
       prompt:
@@ -447,62 +433,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
     {
       type: "mcq",
       prompt:
-        "The deck cites the Standish CHAOS research to make one headline point about IT projects. What is it?",
-      options: [
-        "Over 90% of IT projects now finish on time and on budget, so risk management is largely a formality for modern teams",
-        "IT project failure rates are impossible to measure reliably, so the deck advises ignoring industry statistics altogether",
-        "Roughly half of IT projects fail, and the single largest cause is developers choosing the wrong programming language early on",
-        "Over 60% of IT projects fail to meet time, budget or scope objectives, and the major reason given is poor risk management",
-      ],
-      correctIndex: 3,
-      modelAnswer:
-        "Think of a class where more than six in ten students fail the same exam — the teacher stops blaming the students and looks at how the course is run.\n\n• The slide's claim: more than 60% of IT projects miss time, budget or scope, and poor risk management is the headline reason.\n\nSo the answer is: most IT projects miss their targets, largely due to poor risk management.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "The lecture stresses that risk management 'is not a one-time task.' What does this mean in practice?",
-      options: [
-        "Only the project sponsor may revisit risks, and only at the formal stage gates, so the team never touches the risk register between gates",
-        "Risk management restarts from scratch every sprint with a blank register, discarding all previously identified risks and their response history",
-        "Risk management is done thoroughly once at project initiation and then archived, because re-checking risks wastes effort that is better spent delivering",
-        "Risks are identified, analysed, responded to and monitored continuously across the whole project lifecycle, not just written up once during planning",
-      ],
-      correctIndex: 3,
-      modelAnswer:
-        "Think of checking your mirrors while driving — not once as you pull out, but constantly, because the road keeps changing.\n\n• Continuous: identify, analyse, respond and monitor run right through the project as conditions shift.\n\n• Why the others are wrong: you do not archive it after planning, it is not sponsor-only, and you carry the register forward rather than wiping it each sprint.\n\nSo the answer is: it runs continuously across the lifecycle.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "Which set of strategies does the lecture give for responding to POSITIVE risks (opportunities)?",
-      options: [
-        "Identify, analyse, respond, monitor (and close)",
-        "Exploit, enhance, share, accept (and escalate)",
-        "Plan, do, check, act (and standardise)",
-        "Avoid, mitigate, transfer, accept (and escalate)",
-      ],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of spotting a shortcut on a hike: make sure you take it (exploit), widen it so more of the group benefits (enhance), tell another group and split the effort (share), or just use it if you happen to reach it (accept).\n\n• Positive-risk strategies: exploit, enhance, share, accept, plus escalate if it is beyond the project's scope.\n\n• The other list — avoid, mitigate, transfer, accept — is for threats.\n\nSo the answer is: exploit, enhance, share, accept.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "Which set of strategies does the lecture give for responding to NEGATIVE risks (threats)?",
-      options: [
-        "Exploit, enhance, share, accept (and escalate)",
-        "Forming, storming, norming, performing (and adjourning)",
-        "Crash, fast-track, level, smooth (and rebaseline)",
-        "Avoid, mitigate, transfer, accept (and escalate)",
-      ],
-      correctIndex: 3,
-      modelAnswer:
-        "Think of a pothole on your street: reroute so you never hit it (avoid), slow down so it does little damage (mitigate), let the council own the repair (transfer), or just drive over it carefully (accept).\n\n• Threat strategies: avoid, mitigate, transfer, accept, plus escalate when it is outside the project's control.\n\n• The other lists are schedule-compression and team-development terms.\n\nSo the answer is: avoid, mitigate, transfer, accept.",
-    },
-    {
-      type: "mcq",
-      prompt:
         "In the lecture's terms, what distinguishes avoidance from mitigation as responses to a threat?",
       options: [
         "Avoidance removes the threat entirely, for example by dropping the high-risk feature; mitigation only reduces the threat's probability or impact, for example by extra testing",
@@ -513,20 +443,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
       correctIndex: 0,
       modelAnswer:
         "Think of a cliff-edge path: avoidance is taking a completely different trail so the drop is not on your route at all; mitigation is staying on the path but adding a handrail so a slip matters less.\n\n• Avoidance: eliminate the threat, often by changing scope or approach so it cannot occur.\n\n• Mitigation: the threat still exists, but you cut its probability or its impact.\n\n• The insurer answer describes transfer, not mitigation.\n\nSo the answer is: avoidance removes the threat; mitigation only shrinks it.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "The lecture gives 'buy insurance' and 'outsource to a vendor with SLA guarantees' as examples of which threat-response strategy?",
-      options: [
-        "Avoidance — buying insurance changes the project scope so the underlying threat can no longer occur at all",
-        "Escalation — the threat is handed up to program or portfolio management because it is outside the project's scope",
-        "Acceptance — the team decides to do nothing proactive and simply absorb the consequences if the threat occurs",
-        "Transfer — the threat still exists, but responsibility for bearing its consequences is shifted to a third party",
-      ],
-      correctIndex: 3,
-      modelAnswer:
-        "Think of renting a flat and taking out contents insurance: if there is a fire you still have the fire, but someone else pays to replace your things.\n\n• Transfer: the risk is not gone, its financial or delivery consequences are moved to a third party through insurance, warranties or SLA-backed contracts.\n\n• Why the others are wrong: the threat is not eliminated (avoidance), not simply absorbed (acceptance), and not pushed up the hierarchy (escalation).\n\nSo the answer is: transfer.",
     },
     {
       type: "mcq",
@@ -559,62 +475,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
     {
       type: "mcq",
       prompt:
-        "The lecture lists five risk categories. Which option lists them correctly?",
-      options: [
-        "Known, Unknown, Residual, Secondary, Emergent",
-        "Strategic, Operational, Compliance, Reputational, Environmental",
-        "Market, Financial, Technology, People, Structure/Process",
-        "Scope, Schedule, Cost, Quality, Procurement",
-      ],
-      correctIndex: 2,
-      modelAnswer:
-        "Think of sorting a pile of worries into labelled drawers so none get lost.\n\n• The deck's five drawers: Market (external conditions), Financial (funding and cost), Technology (adoption and integration), People (human factors and stakeholders), and Structure/Process (governance and organisation).\n\n• The other lists are project objectives, risk-status terms, and a generic enterprise-risk taxonomy — not this deck's categories.\n\nSo the answer is: Market, Financial, Technology, People, Structure/Process.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "In the deck's cloud-migration case study, one 'risk' is that adopting AI-powered monitoring tools could improve uptime and cut post-migration costs. How should this be classified?",
-      options: [
-        "A secondary risk — one created only as a side effect of responding to a different, primary risk",
-        "Not a risk at all — a benefit that is already certain does not belong in the risk register under any heading",
-        "A negative risk (threat) — because any change to the monitoring approach mid-migration endangers the schedule",
-        "A positive risk (opportunity) — an uncertain event that, if it occurs, would benefit the project's objectives",
-      ],
-      correctIndex: 3,
-      modelAnswer:
-        "Think of a sign on the highway saying a faster new bypass might open next month — if it does, your trip gets easier.\n\n• It is uncertain and, if it happens, it helps the project — that is the textbook definition of a positive risk or opportunity.\n\n• Why the others are wrong: it is not a threat, it is not certain, and it is not a by-product of another response.\n\nSo the answer is: a positive risk (opportunity).",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "What is the core difference between qualitative and quantitative risk analysis in the lecture?",
-      options: [
-        "Qualitative analysis is done by the project manager alone; quantitative analysis is done by the project sponsor alone, using the same probability-impact matrix",
-        "Qualitative analysis subjectively prioritises risks by rating probability and impact (often High/Medium/Low); quantitative analysis uses numbers, models and simulations to estimate the combined effect on objectives",
-        "Qualitative analysis only looks at threats; quantitative analysis only looks at opportunities, so a full picture needs both run in parallel",
-        "Qualitative analysis produces the risk register; quantitative analysis produces the risk breakdown structure, and neither feeds into response planning",
-      ],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of triaging a sports injury: first a quick 'this looks bad, that looks minor' sort (qualitative), then an MRI that puts actual numbers on the damage (quantitative).\n\n• Qualitative: fast, subjective, rates probability and impact to rank risks, usually with a probability-impact matrix.\n\n• Quantitative: numerical — Monte Carlo, decision trees, EMV — to model the overall effect on cost and schedule.\n\nSo the answer is: qualitative ranks risks by judgement; quantitative measures their effect with numbers.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "What is the purpose of a probability-impact matrix in qualitative risk analysis?",
-      options: [
-        "To calculate the Expected Monetary Value of each decision branch and select the branch with the highest value",
-        "To run thousands of random simulations of the project schedule and produce a probability distribution of possible finish dates",
-        "To record each risk's owner, trigger, planned response and residual risk in a single living document",
-        "To plot each risk's probability against its impact on a grid so risks can be sorted into High, Medium and Low priority for attention",
-      ],
-      correctIndex: 3,
-      modelAnswer:
-        "Think of an eisenhower-style box: urgent versus important on two axes, and where a task lands tells you how fast to act.\n\n• The matrix: probability on one axis, impact on the other; a risk's cell gives it a High, Medium or Low priority.\n\n• Why the others are wrong: those describe Monte Carlo simulation, decision-tree analysis, and the risk register.\n\nSo the answer is: it grades risks into priority bands by probability and impact.",
-    },
-    {
-      type: "mcq",
-      prompt:
         "How does the lecture describe Monte Carlo simulation?",
       options: [
         "A visual analytical tool that combines decision branches and chance branches with probabilities and payoffs attached to compute the Expected Monetary Value of each competing choice",
@@ -643,34 +503,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
     {
       type: "mcq",
       prompt:
-        "The deck's cloud-migration case study says there is a 25% chance of data loss during migration that would cost $200,000. What is the Expected Monetary Value of this risk?",
-      options: [
-        "$150,000",
-        "$50,000",
-        "$25,000",
-        "$200,000",
-      ],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of a raffle where a $200,000 loss lands one time in four — on average each run costs you a quarter of that.\n\n• EMV: probability times impact, so 0.25 × 200,000 = 50,000.\n\nSo the answer is: $50,000.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "In the NSW Digital Driver Licence quantitative analysis, the 'rollout delay' scenario has a 15% probability and a A$1.2 million cost effect. What EMV does the deck give it?",
-      options: [
-        "A$425k",
-        "A$180k",
-        "A$120k",
-        "A$1.2m",
-      ],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of a $1.2 million pothole that only opens up about one time in seven — spread that cost over all the trips and it averages out small.\n\n• EMV: 0.15 × 1,200,000 = 180,000.\n\nSo the answer is: A$180k.",
-    },
-    {
-      type: "mcq",
-      prompt:
         "The NSW Digital Driver Licence quantitative slide totals its scenarios to a single figure. It reports a net expected exposure of A$425k. How is that number reached?",
       options: [
         "The average of the four scenario EMVs, rounded to the nearest A$25k for reporting simplicity",
@@ -685,20 +517,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
     {
       type: "mcq",
       prompt:
-        "In the NSW Digital Driver Licence qualitative analysis, R1 'Peak launch demand' is rated High probability and High impact. What priority does the deck assign it, and what action follows?",
-      options: [
-        "LOW — accept R1 with no active response, since launch demand is outside the project's control",
-        "EXTREME — treat R1 immediately, ahead of planning responses for the lower-priority risks",
-        "MODERATE — monitor R1 and revisit it only if the probability rating rises at the next review",
-        "HIGH — plan a response for R1 but hold implementation until after the statewide launch",
-      ],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of a triage nurse seeing chest pain with a racing pulse — that patient goes straight in, not to the waiting room.\n\n• High probability and high impact together put R1 in the EXTREME cell, so it gets treated immediately, before the team works up responses for R2, R3 and R4.\n\nSo the answer is: EXTREME priority, treat it immediately.",
-    },
-    {
-      type: "mcq",
-      prompt:
         "In the NSW Digital Driver Licence qualitative table, R3 'Privacy or security issue' is rated Low probability but Very high impact, and still comes out as HIGH priority. What does this show about the probability-impact matrix?",
       options: [
         "Low-probability risks are always downgraded to LOW priority, so R3's HIGH rating must be an error in the deck",
@@ -709,20 +527,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
       correctIndex: 2,
       modelAnswer:
         "Think of a shark attack: very unlikely on any given swim, but the consequences are so severe that beaches still close on a sighting.\n\n• The lesson: the matrix multiplies severity into the priority, so a rare event with catastrophic impact still lands high.\n\n• Why the others are wrong: Very high does not auto-promote to EXTREME, low probability is not auto-demoted, and the axes are not simply summed.\n\nSo the answer is: a big enough impact can drive a high priority even at low probability.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "What is the main output of the first process, Plan Risk Management?",
-      options: [
-        "The Probability-Impact Matrix — a completed grid placing every identified risk into a High, Medium or Low band",
-        "The initial Risk Register — a first list of specific identified risks with their categories, triggers and owners",
-        "The Risk Management Plan — how risk activities will be run: roles and responsibilities, methods and tools, resources and reserves, and risk thresholds",
-        "The Risk Report — a closing summary of which risks occurred, how responses performed, and lessons for the next project",
-      ],
-      correctIndex: 2,
-      modelAnswer:
-        "Think of writing the house rules before anyone moves in: who does what, how decisions get made, what the budget is — not a list of actual problems yet.\n\n• Plan Risk Management defines the approach: roles, methods, tools, resources, reserves and thresholds. Its output is the Risk Management Plan.\n\n• The register comes out of Identify Risks; the matrix out of qualitative analysis.\n\nSo the answer is: the Risk Management Plan.",
     },
     {
       type: "mcq",
@@ -755,62 +559,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
     {
       type: "mcq",
       prompt:
-        "The lecture lists a specific disadvantage of brainstorming as a risk-identification technique. What is it?",
-      options: [
-        "It takes multiple rounds over several weeks, making it far too slow for early-stage projects",
-        "It produces a numerical probability distribution that most stakeholders find hard to interpret",
-        "It can only be run with a panel of external subject-matter experts, which is expensive to arrange",
-        "It can be dominated by louder voices, and its quality depends heavily on the facilitator's skill",
-      ],
-      correctIndex: 3,
-      modelAnswer:
-        "Think of a group dinner where one person picks the restaurant every time because they talk over everyone else.\n\n• Brainstorming's weakness per the deck: louder participants dominate, and a weak facilitator gets a weak result.\n\n• The multi-round and expert-panel points describe Delphi, not brainstorming.\n\nSo the answer is: louder voices dominate and it depends on the facilitator.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "Why does the lecture note that SWOT analysis is useful for identifying BOTH positive and negative risks?",
-      options: [
-        "SWOT replaces the risk register entirely, so there is no separate place to record threats and opportunities differently",
-        "SWOT deliberately covers internal strengths and weaknesses and external opportunities and threats, so opportunities are surfaced alongside threats",
-        "SWOT assigns a numerical probability and impact to each item, which lets the team rank opportunities and threats on the same scale",
-        "SWOT is run anonymously over several rounds, which removes the bias that normally causes teams to record only threats",
-      ],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of a school report that lists what a student is good at as well as what needs work — it is built to look both ways.\n\n• SWOT's four quadrants force attention onto opportunities (strengths, external opportunities) as well as threats (weaknesses, external threats).\n\n• The deck's caution: it can oversimplify complex risks, and output quality depends on participants' knowledge.\n\nSo the answer is: its four quadrants cover upside and downside by design.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "How does the lecture describe the Risk Register?",
-      options: [
-        "A one-page summary produced at project closure listing which risks occurred and how much they cost, archived and never revised",
-        "A central living document recording all identified risks, their characteristics and planned responses, updated throughout the lifecycle, with an owner for each risk",
-        "A confidential document held only by the sponsor, listing the contingency and management reserves but not the individual risks",
-        "A grid that plots probability against impact and is completed once during qualitative analysis, then frozen for the rest of the project",
-      ],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of a shared house-maintenance logbook: every fault, who is fixing it, what the plan is — and you keep writing in it, you do not close it after week one.\n\n• The register: all risks, their details and responses, an owner each, updated continuously; a decision-making and accountability tool.\n\nSo the answer is: a living, owner-assigned document of all risks and their responses.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "What does the sixth process, Monitor and Control Risks, involve?",
-      options: [
-        "Tracking identified risks, monitoring residual risks, identifying new risks, and evaluating how effective the risk process itself is — continuously, not once",
-        "Handing the risk register to the program office so the project team no longer has to think about risk during delivery",
-        "Choosing avoid, mitigate, transfer or accept for each risk that was identified during the planning phase",
-        "Running the Monte Carlo simulation one final time at project closure to confirm the original estimates were statistically sound",
-      ],
-      correctIndex: 0,
-      modelAnswer:
-        "Think of a night-shift security guard doing rounds: checking the doors you already know about, watching the leftover weak spots, spotting anything new, and asking whether the patrol route still makes sense.\n\n• Monitor and Control: track known risks, watch residual risks, catch new ones, and check the process is working — all ongoing.\n\n• Choosing a response is process 5, not 6.\n\nSo the answer is: continuously track known, residual and new risks and review process effectiveness.",
-    },
-    {
-      type: "mcq",
-      prompt:
         "The lecture uses the term 'residual risk.' What does it mean?",
       options: [
         "A brand-new risk created as a direct side effect of implementing a response to another risk",
@@ -821,20 +569,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
       correctIndex: 2,
       modelAnswer:
         "Think of putting sunscreen on before the beach: it cuts the burn risk a lot, but the bit of exposure still left is what you are accepting.\n\n• Residual risk: what is left over once your response has done its job.\n\n• A new risk caused by the response itself is a secondary risk — different thing.\n\nSo the answer is: the exposure that remains after the response.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "The lecture defines risk appetite as which of the following?",
-      options: [
-        "The maximum acceptable time overrun on any single activity on the project's critical path",
-        "The number of risks currently sitting in the High or Extreme bands of the probability-impact matrix",
-        "The degree of uncertainty an organisation is willing to accept in pursuit of its objectives",
-        "The total dollar value of contingency and management reserves set aside in the project budget",
-      ],
-      correctIndex: 2,
-      modelAnswer:
-        "Think of how spicy you are willing to order your curry — some people happily go hot, others always ask for mild.\n\n• Risk appetite: how much uncertainty an organisation will take on to chase its goals; some are risk-seeking, some risk-averse.\n\n• The other options are reserves, a matrix count, and a schedule tolerance — not appetite.\n\nSo the answer is: how much uncertainty the organisation will accept to pursue its objectives.",
     },
     {
       type: "mcq",
@@ -853,48 +587,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
     {
       type: "mcq",
       prompt:
-        "The lecture describes a risk-neutral decision-maker. How do they choose between risky options?",
-      options: [
-        "By always choosing the option with the largest possible best-case gain, regardless of how unlikely it is",
-        "Purely on Expected Monetary Value — they are indifferent to the spread of outcomes and pick the highest expected value",
-        "By always choosing the option with the smallest possible worst-case loss, regardless of its expected value",
-        "By refusing every option that has any chance of a negative outcome, no matter how small that chance is",
-      ],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of a calculator with no feelings: it adds up the average payoff of each choice and points at the biggest number.\n\n• Risk-neutral: indifferent to risk itself, decides on expected monetary value alone.\n\n• The other options describe minimax, maximax and extreme risk aversion.\n\nSo the answer is: they maximise expected monetary value and ignore the spread.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "The lecture says alignment between risk appetite and organisational culture is crucial. What happens when they do not match?",
-      options: [
-        "The probability-impact matrix must be recalculated using a different scoring scale, but the risk process is otherwise unaffected",
-        "Risk management fails — for example, a stated bold risk appetite collides with a compliance-heavy, approval-driven culture, so decisions stall or get overridden",
-        "The project automatically inherits the culture's risk stance and the stated appetite is simply discarded with no side effects",
-        "Nothing significant — risk appetite is set by the board and organisational culture has no practical effect on how projects handle risk",
-      ],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of a car tuned for the racetrack being driven only in heavy city traffic — the setup and the conditions fight each other and nothing works well.\n\n• Misalignment: if the declared appetite (say, risk-seeking) clashes with the real culture (risk-averse, approvals everywhere), risk decisions stall or get quietly reversed, and risk management breaks down.\n\nSo the answer is: risk management fails when the stated appetite and the real culture pull against each other.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "How does the lecture contrast Traditional (Waterfall) and Agile approaches to risk?",
-      options: [
-        "Traditional identifies, analyses and plans risks up front with a formal register and reviews; Agile addresses risks iteratively each sprint, embedded in daily work",
-        "Traditional and Agile handle risk identically; the only difference is that Agile calls the risk register a 'risk backlog'",
-        "Traditional ignores risk entirely until an issue occurs; Agile is the only approach that maintains any form of risk register",
-        "Traditional revisits risks every sprint in a retrospective; Agile fixes all risk decisions once during project initiation",
-      ],
-      correctIndex: 0,
-      modelAnswer:
-        "Think of planning a whole road trip in detail before leaving versus deciding the next leg each morning based on the weather.\n\n• Traditional: heavy up-front risk planning, formal register, scheduled reviews.\n\n• Agile: risk work spread across sprints and built into daily activity, revisited at each retrospective.\n\nSo the answer is: Traditional plans risk up front; Agile handles it iteratively throughout.",
-    },
-    {
-      type: "mcq",
-      prompt:
         "The lecture's Agile risk practice of 'risk-based backlog prioritisation' means what?",
       options: [
         "Letting the project sponsor personally rank every backlog item by business value, ignoring technical risk entirely",
@@ -905,48 +597,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
       correctIndex: 2,
       modelAnswer:
         "Think of testing the dodgiest bit of a second-hand car first — you want to find the engine problem on day one, not after you have fixed the paint.\n\n• Risk-based prioritisation: schedule the riskiest, least-understood stories early so failures happen when they are still cheap to handle.\n\nSo the answer is: do the riskiest stories first to fail fast.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "What does a risk burn-down chart track, and what is it modelled on?",
-      options: [
-        "The count of open defects over time, modelled on a defect-trend chart, to decide when the product is ready to release",
-        "The cumulative cost of implemented risk responses, modelled on an earned-value S-curve, to check the contingency reserve",
-        "The number of story points completed per sprint, modelled on a velocity chart, to forecast the project completion date",
-        "Total project risk exposure over time, modelled on the sprint burn-down chart, to show whether overall risk is rising or falling",
-      ],
-      correctIndex: 3,
-      modelAnswer:
-        "Think of a countdown thermometer at a fundraiser, except it is measuring how much danger is left in the project instead of dollars raised.\n\n• Risk burn-down: plots total risk exposure over time, borrowing the shape of a sprint burn-down, so the team can see if risk is trending down or creeping up.\n\nSo the answer is: it tracks overall risk exposure over time, based on the sprint burn-down chart.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "Reading 1 (the Standish CHAOS Report) classifies projects into three resolution types. Which figures does it report?",
-      options: [
-        "Success 9%, Challenged 61.5%, Impaired (cancelled) 29.5%",
-        "Success 16.2%, Challenged 52.7%, Impaired (cancelled) 31.1%",
-        "Success 42%, Challenged 33%, Impaired (cancelled) 25%",
-        "Success 52.7%, Challenged 31.1%, Impaired (cancelled) 16.2%",
-      ],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of a class of 100: about 16 pass cleanly, about 53 scrape through late and incomplete, and about 31 drop out.\n\n• CHAOS overall: 16.2% success (on time, on budget, full features), 52.7% challenged (completed but over budget/time, fewer features), 31.1% impaired (cancelled).\n\n• The 9% / 61.5% / 29.5% figures are the large-company subset, not the overall.\n\nSo the answer is: 16.2%, 52.7%, 31.1%.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "Reading 1 ranks the top three factors that make a project succeed. What are they, in order?",
-      options: [
-        "Executive management support; hard-working focused staff; a clear vision",
-        "User involvement; executive management support; a clear statement of requirements",
-        "Competent staff; proper planning; realistic expectations",
-        "A clear statement of requirements; smaller project milestones; ownership",
-      ],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of a school play that works: the kids are actually into it, the principal backs it, and everyone knows exactly what the play is.\n\n• CHAOS top three success factors: user involvement (number one), executive management support, and a clear statement of requirements.\n\n• The other items are real success factors but rank lower.\n\nSo the answer is: user involvement, executive support, clear requirements.",
     },
     {
       type: "mcq",
@@ -965,62 +615,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
     {
       type: "mcq",
       prompt:
-        "Reading 1 contrasts 'growing' software with 'developing' software. What does 'growing' software mean?",
-      options: [
-        "An iterative process of designing, prototyping, developing, testing and deploying small components early and often, which raises the success rate",
-        "Letting the codebase expand naturally without a Work Breakdown Structure, so the design emerges from the developers' daily choices",
-        "Continuously adding features to a released product for as long as users keep requesting them, with no fixed end to the project",
-        "Scaling the team up rapidly in the middle of the project so that more developers can work the requirements in parallel",
-      ],
-      correctIndex: 0,
-      modelAnswer:
-        "Think of raising a vegetable patch bed by bed and harvesting as you go, instead of trying to build a whole farm before picking anything.\n\n• 'Growing' software: short cycles delivering small, owned components early and often, which engages users sooner and sets realistic expectations.\n\n• It is the opposite of one big all-at-once 'develop then deliver' effort.\n\nSo the answer is: iterative delivery of small components early and often.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "Reading 1 reports average overruns for challenged and impaired projects. Which pair does it give?",
-      options: [
-        "Cost overrun averaging 45% of the original estimate; time overrun averaging 7% of the original estimate",
-        "Cost overrun averaging 100% of the original estimate; time overrun averaging 100% of the original estimate",
-        "Cost overrun averaging 189% of the original estimate; time overrun averaging 222% of the original estimate",
-        "Cost overrun averaging 250% of the original estimate; time overrun averaging 300% of the original estimate",
-      ],
-      correctIndex: 2,
-      modelAnswer:
-        "Think of a quote for a kitchen reno coming back at nearly double the price and more than double the time.\n\n• CHAOS averages: 189% of the original cost estimate and 222% of the original time estimate.\n\n• The 45% / 7% figures are from a different McKinsey study cited in the NPfIT reading, not CHAOS.\n\nSo the answer is: 189% cost, 222% time.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "Reading 2 (the UK NHS NPfIT case study) gives which timeline and initial budget?",
-      options: [
-        "Launched in 2002 with an initial budget of about £450 million; completed on budget in 2011",
-        "Launched in 2002 with an initial budget of about £6.2 billion; officially dismantled in September 2011",
-        "Launched in 2008 with an initial budget of about £12 billion; paused indefinitely in 2015",
-        "Launched in 1995 with an initial budget of about £2.3 billion; delivered in full by 2005",
-      ],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of a ten-year national building programme announced with great fanfare and quietly wound up just before its tenth birthday.\n\n• NPfIT per the reading: started 2002, initial budget roughly £6.2 billion (later forecasts near £10 billion), officially dismantled September 2011.\n\n• The lecture slide rounds the figure to about £12 billion; the reading's initial figure is £6.2 billion.\n\nSo the answer is: launched 2002, about £6.2 billion, dismantled September 2011.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "Reading 2 cites Campion-Awwad et al.'s three themes for why the NPfIT went wrong. Which option lists them?",
-      options: [
-        "Underfunding; weak technology; hostile media",
-        "Poor testing; poor training; poor documentation",
-        "Scope creep; gold plating; vendor lock-in",
-        "Haste; overambitious design; strategy and skills",
-      ],
-      correctIndex: 3,
-      modelAnswer:
-        "Think of a house that failed because it was thrown up too fast, drawn far too grand for the block, and run by someone with no building experience and no plan B.\n\n• The three themes: Haste (rushed, no consultation, unrealistic timetables), Overambitious design (an unwieldy centralised model), and Strategy and skills (no direction, weak project management, no exit strategy).\n\nSo the answer is: haste, overambitious design, and strategy and skills.",
-    },
-    {
-      type: "mcq",
-      prompt:
         "Reading 2 says the UK government's 2011 press release underlined a specific structural fault in the NPfIT, and the Department of Health then called for a different model. What was the fault, and the replacement?",
       options: [
         "A centralised authority making top-down decisions for local organisations; replaced by a 'connect all' rather than 'replace all' model of local, modular, incremental change",
@@ -1035,20 +629,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
     {
       type: "mcq",
       prompt:
-        "Reading 2 repeatedly argues against the phrase 'IT failure.' What is its core claim?",
-      options: [
-        "'IT failure' should be replaced by 'requirements failure', since incomplete requirements are the sole cause of every large-project collapse",
-        "Technology failures are more accurately described as management failures; calling it an 'IT failure' wrongly excuses management from responsibility",
-        "There is no such thing as failure in large IT programmes, only projects that were cancelled before their long-term benefits could appear",
-        "The phrase 'IT failure' is too narrow; most so-called IT failures are really failures of the hardware supply chain rather than the software",
-      ],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of blaming the oven when the cake flops, even though nobody measured the flour or set a timer.\n\n• The reading's claim: labelling a collapse an 'IT failure' implies the tech was the problem and lets managers off the hook; in reality these are management failures of planning, engagement and governance.\n\n• 'It is people, not technology, that make the difference between success and failure.'\n\nSo the answer is: technology failures are really management failures, and the 'IT failure' label hides that.",
-    },
-    {
-      type: "mcq",
-      prompt:
         "Reading 2 says only two factors are 'constantly associated with successful IT implementation.' What are they, and how does this line up with the lecture's NPfIT slide?",
       options: [
         "Formal change control and a signed scope statement — matching the lecture slide's point that requirements kept changing throughout",
@@ -1059,20 +639,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
       correctIndex: 1,
       modelAnswer:
         "Think of any big workplace system that actually stuck: the boss genuinely backed it and the people who use it daily had a real say.\n\n• The reading's two constants: top-management support and user involvement.\n\n• The lecture slide's NPfIT lesson is the mirror image: senior leaders talked among themselves while clinicians, nurses and admin staff were shut out of both risk communication and engagement.\n\nSo the answer is: top-management support and user involvement, matching the 'frontline staff were left out' point.",
-    },
-    {
-      type: "mcq",
-      prompt:
-        "The lecture's NPfIT slide describes how risks were communicated. Which behaviour does it specifically call out as damaging?",
-      options: [
-        "Risks were published in full to the national press before they had been assessed, causing panic among NHS patients",
-        "The project team over-reported minor risks so often that senior leaders stopped reading the risk register altogether",
-        "Every risk was escalated straight to Parliament, so the project team never had authority to act on any of them",
-        "Vendors and project managers downplayed risks to avoid political fallout, which delayed decisions and let unaddressed risks snowball",
-      ],
-      correctIndex: 3,
-      modelAnswer:
-        "Think of a mechanic who keeps telling you the car is 'basically fine' because they do not want an argument, right up until the engine seizes.\n\n• The slide's point: suppliers and PMs softened or hid risks to dodge political heat, so decisions were delayed and small problems compounded into big ones.\n\nSo the answer is: risks were downplayed to avoid political fallout, and they snowballed.",
     },
     {
       type: "mcq",
@@ -1149,70 +715,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
     {
       type: "multi",
       prompt:
-        "Which of the following are strategies the lecture lists for responding to POSITIVE risks (opportunities)? Select all that apply.",
-      options: [
-        "Exploit",
-        "Enhance",
-        "Share",
-        "Accept",
-        "Mitigate",
-        "Transfer",
-      ],
-      correctIndices: [0, 1, 2, 3],
-      modelAnswer:
-        "Think of a shortcut opening up: make sure you take it, widen it, tell a friend and split the work, or just use it if you reach it.\n\n• Opportunity strategies: exploit, enhance, share, accept (with escalate as a fifth).\n\n• Mitigate and transfer belong to threats.\n\nSo the answer is: exploit, enhance, share, accept.",
-    },
-    {
-      type: "multi",
-      prompt:
-        "Which of the following are the risk categories named in the lecture? Select all that apply.",
-      options: [
-        "Market risk",
-        "Financial risk",
-        "Technology risk",
-        "People risk",
-        "Structure/Process risk",
-        "Weather risk",
-      ],
-      correctIndices: [0, 1, 2, 3, 4],
-      modelAnswer:
-        "Think of five labelled drawers for sorting every worry the project has.\n\n• The deck's five: Market, Financial, Technology, People, and Structure/Process.\n\n• 'Weather risk' is not one of the deck's categories (a weather event would sit under Market or an external category).\n\nSo the answer is: Market, Financial, Technology, People, Structure/Process.",
-    },
-    {
-      type: "multi",
-      prompt:
-        "According to the lecture, what are the main goals of risk management? Select all that apply.",
-      options: [
-        "Identify potential risks early",
-        "Assess each risk's probability and impact",
-        "Develop strategies to minimise threats and maximise opportunities",
-        "Monitor risks throughout the project lifecycle",
-        "Guarantee that no identified risk will ever occur",
-        "Eliminate the need for any contingency reserve",
-      ],
-      correctIndices: [0, 1, 2, 3],
-      modelAnswer:
-        "Think of a lifeguard's job: spot trouble early, judge how bad it is, have a plan for each case, and keep watching the water.\n\n• Real goals: identify early, assess probability and impact, plan responses for threats and opportunities, monitor across the lifecycle, and support informed decisions.\n\n• Not goals: risk management cannot guarantee zero risk events, and it justifies reserves rather than removing the need for them.\n\nSo the answer is: identify early, assess, plan responses, and monitor throughout.",
-    },
-    {
-      type: "multi",
-      prompt:
-        "Which of the following does the lecture list as benefits of risk management? Select all that apply.",
-      options: [
-        "Improved project success rate",
-        "Better decision making",
-        "Cost and time savings",
-        "Increased stakeholder confidence",
-        "Compliance and governance",
-        "A guaranteed reduction in project scope",
-      ],
-      correctIndices: [0, 1, 2, 3, 4],
-      modelAnswer:
-        "Think of a household that plans for emergencies: fewer nasty surprises, calmer decisions, money saved, and everyone trusts the plan.\n\n• Listed benefits: higher success rate, better decisions, cost and time savings, more stakeholder confidence, competitive advantage, and compliance and governance.\n\n• Cutting scope is not a benefit the deck claims.\n\nSo the answer is: all of the listed items except the guaranteed scope reduction.",
-    },
-    {
-      type: "multi",
-      prompt:
         "Which of the following are risk IDENTIFICATION tools and techniques in the lecture (as opposed to analysis techniques)? Select all that apply.",
       options: [
         "Brainstorming",
@@ -1277,22 +779,6 @@ const LECTURE_PAPER: ExamPaperSeed = {
     {
       type: "multi",
       prompt:
-        "Per the lecture, why is engaging stakeholders throughout the risk management cycle valuable? Select all that apply.",
-      options: [
-        "Stakeholders may identify risks the project team did not know about",
-        "Their input improves the accuracy of probability and impact assessments",
-        "It builds shared ownership of risks and their responses",
-        "Early involvement reduces later resistance to change",
-        "It removes the need to keep a risk register at all",
-        "It lets the project manager transfer every risk to the stakeholders",
-      ],
-      correctIndices: [0, 1, 2, 3],
-      modelAnswer:
-        "Think of asking the people who actually live on a street where it floods — they know things the council survey missed, and they will back a fix they helped design.\n\n• Value: they surface unknown risks, sharpen probability and impact judgements, share ownership of responses, and are less likely to fight the change later.\n\n• It does not replace the register or shift the risks onto them.\n\nSo the answer is: the first four.",
-    },
-    {
-      type: "multi",
-      prompt:
         "Which of the following are Agile or Hybrid risk-management practices the lecture describes? Select all that apply.",
       options: [
         "Iterative risk reviews at each sprint retrospective",
@@ -1341,47 +827,11 @@ const LECTURE_PAPER: ExamPaperSeed = {
     {
       type: "truefalse",
       prompt:
-        "True or False: by the lecture's definition, a project risk always has a negative effect on the project.",
-      options: ["True", "False"],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of an uncertain weather change that could bring rain or could bring a cool, pleasant breeze on a scorching day.\n\n• Why it is false: the definition says 'positive or negative effect' — opportunities are risks too, and they get their own response strategies (exploit, enhance, share, accept).\n\nSo the answer is: false.",
-    },
-    {
-      type: "truefalse",
-      prompt:
         "True or False: qualitative risk analysis produces a numerical probability distribution of the project's total cost.",
       options: ["True", "False"],
       correctIndex: 1,
       modelAnswer:
         "Think of a quick 'looks bad / looks minor' sort at triage versus the MRI that puts numbers on the injury.\n\n• Why it is false: qualitative analysis is a subjective High/Medium/Low prioritisation. Producing a numerical distribution of total cost is quantitative analysis, using tools like Monte Carlo simulation.\n\nSo the answer is: false.",
-    },
-    {
-      type: "truefalse",
-      prompt:
-        "True or False: Reading 2 concludes that the NPfIT failed mainly because the required technology was impossible to build.",
-      options: ["True", "False"],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of blaming the oven when nobody measured the ingredients or set a timer.\n\n• Why it is false: the reading argues the opposite — technological competence was necessary but not the cause of failure. The causes were management ones: haste, overambitious centralism, weak governance, and poor stakeholder engagement.\n\nSo the answer is: false.",
-    },
-    {
-      type: "truefalse",
-      prompt:
-        "True or False: per the lecture, risk management is completed during project planning and does not continue into execution.",
-      options: ["True", "False"],
-      correctIndex: 1,
-      modelAnswer:
-        "Think of checking your mirrors constantly while driving, not just once as you pull out.\n\n• Why it is false: the deck is explicit that risk management is a continuous process across the whole lifecycle — identify, analyse, respond and monitor keep running during execution.\n\nSo the answer is: false.",
-    },
-    {
-      type: "truefalse",
-      prompt:
-        "True or False: in Reading 1, a 'challenged' project is one that was completed and is operational, but came in over budget, over time, and with fewer features than originally specified.",
-      options: ["True", "False"],
-      correctIndex: 0,
-      modelAnswer:
-        "Think of a student who passes the year but late, resitting papers, and dropping two electives.\n\n• Why it is true: that is exactly CHAOS's Resolution Type 2 (challenged) — delivered and working, but over budget, over time and with reduced scope. Type 1 is clean success; Type 3 is cancelled.\n\nSo the answer is: true.",
     },
     {
       type: "truefalse",
