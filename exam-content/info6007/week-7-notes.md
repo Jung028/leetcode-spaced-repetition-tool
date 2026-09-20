@@ -321,28 +321,29 @@ questions (see list below).
 **Lecture deck — "End of Lecture Questions" slide:**
 
 - Difference between a positive and a negative risk, with an IT example of each
-  → Paper 2 MCQ + multi on threat vs opportunity and response strategies.
-- Difference between qualitative and quantitative risk analysis → Paper 2 MCQ
-  contrasting the two, plus a Monte Carlo / probability-impact-matrix MCQ.
+  → Paper 2 MCQs on avoid vs mitigate, transfer vs escalation, exploit vs enhance, plus a threat-strategies multi.
+- Difference between qualitative and quantitative risk analysis → Paper 2 true/false
+  on qualitative vs quantitative, plus Monte Carlo, decision-tree/EMV and NSW
+  probability-impact-matrix MCQs.
 - The four main strategies for responding to negative risks → Paper 2 multi
   (avoid / mitigate / transfer / accept) and an "escalation is not one of the
   four" distractor MCQ.
-- How a risk register helps project decision-making → Paper 2 MCQ on the
-  register as a living decision-making / accountability tool.
+- How a risk register helps project decision-making → Paper 2 multi on what a well-maintained
+  register records against each risk.
 - How risk escalation differs from risk transfer → Paper 2 MCQ directly
   contrasting escalation (out of scope → program/portfolio) with transfer
   (third party keeps the risk, e.g. insurance/SLA).
 
 **Lecture deck — in-deck cloud-migration case study slide:**
 
-- Classify each of the five listed risks as positive or negative → Paper 2 MCQ
-  (AI monitoring tool = opportunity; the other four = threats).
+- Classify each of the five listed risks as positive or negative → folded into the Paper 2
+  case-study MCQ (AI monitoring tool = opportunity; the other four = threats).
 - Assign each risk to a category (Market/Financial/Technology/People/
-  Structure-Process) → Paper 2 multi matching risks to categories.
-- EMV of a 25% chance of data loss costing $200,000 → Paper 2 MCQ (EMV =
-  0.25 × 200,000 = $50,000).
-- Contingency/fallback plan for the senior developer who might leave → Paper 2
-  MCQ on people-risk contingency (knowledge transfer / cross-training /
+  Structure-Process) → folded into the same Paper 2 case-study MCQ.
+- EMV of a 25% chance of data loss costing $200,000 → folded into the same Paper 2
+  case-study MCQ (EMV = 0.25 × 200,000 = $50,000).
+- Contingency/fallback plan for the senior developer who might leave → folded into the same
+  Paper 2 case-study MCQ (people risk: knowledge transfer / cross-training /
   documentation / retention).
 
 **Lecture deck — "Muddy Card" Mentimeter slide:**

@@ -19,8 +19,9 @@ const BASE_SECONDS: Record<ExamQuestionType, number> = {
   scenario: 180,
 };
 
-// Suggested seconds to spend on one question — a pacing nudge shown in the
-// quiz header, never an enforced limit. Base time for the type, plus 10s for
+// Seconds allowed for one question — shown in the quiz header; once it runs
+// out the timer goes red and the question is auto-marked wrong (see
+// isOvertime). Base time for the type, plus 10s for
 // every option past the fourth, plus 15s when there's an image or diagram to
 // read before answering.
 export function questionTimeBudget(q: TimeBudgetQuestion): number {
@@ -29,6 +30,13 @@ export function questionTimeBudget(q: TimeBudgetQuestion): number {
   seconds += extraOptions * 10;
   if (q.promptImage || q.promptDiagram) seconds += 15;
   return seconds;
+}
+
+// True once the timer has gone red — the first second past the budget. The
+// header styles itself off this and the quiz auto-marks the question wrong
+// and moves on when it flips, so both must share one definition of "red".
+export function isOvertime(elapsedSeconds: number, budgetSeconds: number): boolean {
+  return elapsedSeconds > budgetSeconds;
 }
 
 // Formats a remaining-seconds count as `m:ss`. Once it goes negative (over
