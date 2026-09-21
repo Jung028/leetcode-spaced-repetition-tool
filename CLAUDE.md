@@ -242,8 +242,9 @@ blocks).
 
 ### Question count per paper
 
-**Hard cap: 30 questions per paper** (set by the user 2026-09-20 — earlier
-papers ran 70–125 questions and were unusable in the time they have).
+**Hard cap: ~50 questions per paper** (raised from 30 by the user 2026-09-21 —
+30 was fine, now wants roughly 50; earlier papers ran 70–125 questions and
+were unusable in the time they have).
 Include only the **core questions essential to understanding the week**, and
 make about **90% of them exam-style**: application / scenario-based `mcq` and
 multiple-answer (select-all-that-apply) questions that distinguish similar
@@ -251,8 +252,8 @@ concepts or spot subtle errors. Keep plain recall / definition questions to
 a handful at most. Reason about what's actually important in the source
 material first, pick the strongest questions per concept with minimal
 overlap, and drop near-duplicates and filler rather than padding or
-covering every slide. Aim for roughly 20 `mcq`, 8 multiple-answer and 2
-`truefalse` in a lecture paper; a tutorial paper can be smaller (~20–25).
+covering every slide. Aim for roughly 33 `mcq`, 14 multiple-answer and 3
+`truefalse` in a lecture paper; a tutorial paper can be smaller (~30–35).
 
 **Outstanding gap:** `ExamQuestionType` (`exam-content/types.ts:1`) is
 currently `"mcq" | "truefalse" | "short" | "scenario"` — there is no
