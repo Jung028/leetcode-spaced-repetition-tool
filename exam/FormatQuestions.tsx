@@ -3,7 +3,7 @@ import type { ExamQuestionView } from "./api";
 import type { ExamReadingSeed } from "../exam-content/types";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { PromptText, DrawingLink } from "./shared-ui";
-import { isFillBlankCorrect, isMatchCorrect, isOrderCorrect, isSortCorrect } from "./grading";
+import { isBlankCorrect, isFillBlankCorrect, isMatchCorrect, isOrderCorrect, isSortCorrect } from "./grading";
 import { seedFor, shuffledNotIdentity, matchChoiceOrder, moveItem, parseNumberArray, parseStringArray } from "./formats";
 
 // Grades the question and persists the student's answer. App.tsx supplies the
@@ -18,11 +18,14 @@ interface FormatProps {
   onGrade: GradeFn;
 }
 
-function QuestionShell({ question, children }: { question: ExamQuestionView; children: React.ReactNode }) {
+// `lead` replaces the default prompt paragraph (fill-in-the-blank renders its
+// prompt inline with the inputs). Order is always prompt -> image -> diagram -> body.
+function QuestionShell({ question, lead, children }: { question: ExamQuestionView; lead?: React.ReactNode; children: React.ReactNode }) {
   const graded = question.correct !== null;
   return (
     <div className="exam-question">
-      {question.type !== "fillblank" && <PromptText text={question.prompt} className="exam-prompt" />}
+      {lead ?? <PromptText text={question.prompt} className="exam-prompt" />}
+      {question.promptImage && <img className="exam-prompt-image" src={question.promptImage} alt="Question reference" />}
       {question.promptDiagram && <MermaidDiagram chart={question.promptDiagram} />}
       {children}
       {graded && <PromptText text={question.modelAnswer} className="exam-explanation" />}
@@ -49,25 +52,32 @@ export function FillBlankQuestion({ question, onGrade }: FormatProps) {
   const overrule = () => onGrade(true, JSON.stringify(shown));
 
   const parts = question.prompt.split("___");
+  const blankClass = (i: number) => {
+    if (!graded) return "exam-blank-input";
+    const ok = question.correct === 1 || isBlankCorrect(shown[i] ?? "", blanks[i] ?? []);
+    return `exam-blank-input ${ok ? "exam-blank-correct" : "exam-blank-wrong"}`;
+  };
+  const lead = (
+    <p className="exam-prompt exam-fill-line">
+      {parts.map((part, i) => (
+        <React.Fragment key={i}>
+          {part}
+          {i < blanks.length && (
+            <input
+              className={blankClass(i)}
+              type="text"
+              aria-label={`Blank ${i + 1}`}
+              value={shown[i] ?? ""}
+              disabled={graded}
+              onChange={(e) => setTyped((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))}
+            />
+          )}
+        </React.Fragment>
+      ))}
+    </p>
+  );
   return (
-    <QuestionShell question={question}>
-      <p className="exam-prompt exam-fill-line">
-        {parts.map((part, i) => (
-          <React.Fragment key={i}>
-            {part}
-            {i < blanks.length && (
-              <input
-                className="exam-blank-input"
-                type="text"
-                aria-label={`Blank ${i + 1}`}
-                value={shown[i] ?? ""}
-                disabled={graded}
-                onChange={(e) => setTyped((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))}
-              />
-            )}
-          </React.Fragment>
-        ))}
-      </p>
+    <QuestionShell question={question} lead={lead}>
       {graded && question.correct === 0 && (
         <div className="exam-format-reveal">
           <p className="exam-multi-hint">Accepted: {blanks.map((b) => b.join(" / ")).join("  ·  ")}</p>

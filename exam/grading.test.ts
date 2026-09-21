@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { isMultiCorrect, normaliseBlank, isFillBlankCorrect, isMatchCorrect, isOrderCorrect, isSortCorrect } from "./grading";
+import { isMultiCorrect, normaliseBlank, isBlankCorrect, isFillBlankCorrect, isMatchCorrect, isOrderCorrect, isSortCorrect } from "./grading";
 
 test("isMultiCorrect: exact set match (order-independent) grades correct", () => {
   expect(isMultiCorrect([2, 0], [0, 2])).toBe(true);
@@ -64,4 +64,16 @@ test("isFillBlankCorrect ignores punctuation and spacing inside answers", () => 
   expect(isFillBlankCorrect(["e-mail"], [["email"]])).toBe(true);
   expect(isFillBlankCorrect(["TCP/IP"], [["tcp ip"]])).toBe(true);
   expect(isFillBlankCorrect(["..."], [["..."]])).toBe(false);
+});
+
+test("isBlankCorrect matches one blank against its accepted answers, normalised", () => {
+  expect(isBlankCorrect("M.A.C.", ["mac", "message authentication code"])).toBe(true);
+  expect(isBlankCorrect("Message Authentication Code", ["mac", "message authentication code"])).toBe(true);
+  expect(isBlankCorrect("hmac", ["mac"])).toBe(false);
+});
+
+test("isBlankCorrect never accepts an empty or punctuation-only answer", () => {
+  expect(isBlankCorrect("", ["mac"])).toBe(false);
+  expect(isBlankCorrect("   ", [""])).toBe(false);
+  expect(isBlankCorrect("...", ["..."])).toBe(false);
 });

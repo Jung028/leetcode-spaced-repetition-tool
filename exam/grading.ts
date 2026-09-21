@@ -24,13 +24,17 @@ export function normaliseBlank(s: string): string {
     .replace(/[^\p{L}\p{N}]/gu, "");
 }
 
+// One blank: typed text must match one accepted answer once normalised; an
+// empty (or all-punctuation) answer is never correct.
+export function isBlankCorrect(typed: string, accepted: string[]): boolean {
+  const t = normaliseBlank(typed);
+  return t !== "" && accepted.some((a) => normaliseBlank(a) === t);
+}
+
 // Every blank must match one of its accepted answers; all-or-nothing.
 export function isFillBlankCorrect(typed: string[], blanks: string[][]): boolean {
   if (typed.length !== blanks.length) return false;
-  return blanks.every((accepted, i) => {
-    const t = normaliseBlank(typed[i] ?? "");
-    return t !== "" && accepted.some((a) => normaliseBlank(a) === t);
-  });
+  return blanks.every((accepted, i) => isBlankCorrect(typed[i] ?? "", accepted));
 }
 
 // match: row i's correct partner is canonical right index i.
