@@ -623,6 +623,64 @@ button.stat:hover {
   background: color-mix(in srgb, var(--red) 12%, transparent);
 }
 
+/* Floating countdown pinned to the bottom of the viewport while a question is
+   being answered, so it stays visible however far the page is scrolled. It
+   never intercepts clicks on whatever it overlaps. */
+.exam-timer-float {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-5);
+  transform: translateX(-50%);
+  z-index: 60;
+  pointer-events: none;
+  font-family: var(--mono);
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: var(--panel-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: var(--space-2) var(--space-4);
+  box-shadow: var(--shadow-panel);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* The pill itself lets clicks through; only the pause button takes them. */
+.exam-timer-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.exam-timer-btn:hover {
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.exam-timer-paused {
+  color: var(--dim);
+  border-style: dashed;
+}
+
+/* Opaque tint (not transparent) so page text never shows through the pill. */
+.exam-timer-float.exam-timer-over {
+  color: var(--red);
+  border-color: var(--red);
+  background: color-mix(in srgb, var(--red) 14%, var(--panel-raised));
+}
+
 /* Calendar — embedded Google Calendar */
 .gcal-frame {
   background: var(--panel);

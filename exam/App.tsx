@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ExamPaperView, ExamQuestionView, ExamHistoryWeek } from "./api";
 import type { ExamWeekView } from "./content";
 import type { JobStatus } from "./generate";
@@ -851,6 +852,19 @@ function QuestionTimer({
   // a stale count from the previous question must never look like overtime.
   const [tick, setTick] = useState({ key: questionKey, seconds: 0 });
   const elapsed = tick.key === questionKey ? tick.seconds : 0;
+  // Paused is remembered per question too, so moving to another question always
+  // starts its clock running rather than inheriting a pause.
+  const [pausedFor, setPausedFor] = useState<number | null>(null);
+  const paused = pausedFor === questionKey;
+  // Switching to another browser tab also stops the clock — the time spent
+  // elsewhere shouldn't count against the question — and it picks back up
+  // by itself when the tab is visible again.
+  const [tabHidden, setTabHidden] = useState(() => document.visibilityState === "hidden");
+  useEffect(() => {
+    const onChange = () => setTabHidden(document.visibilityState === "hidden");
+    document.addEventListener("visibilitychange", onChange);
+    return () => document.removeEventListener("visibilitychange", onChange);
+  }, []);
   // Always call the latest onExpire (it closes over the current question),
   // and remember which question it already fired for so it's once per question.
   const onExpireRef = useRef(onExpire);
@@ -858,13 +872,13 @@ function QuestionTimer({
   const expiredForRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (frozen) return;
+    if (frozen || paused || tabHidden) return;
     const id = setInterval(
       () => setTick((t) => ({ key: questionKey, seconds: t.key === questionKey ? t.seconds + 1 : 1 })),
       1000,
     );
     return () => clearInterval(id);
-  }, [questionKey, frozen]);
+  }, [questionKey, frozen, paused, tabHidden]);
 
   useEffect(() => {
     if (frozen || expiredForRef.current === questionKey || !isOvertime(elapsed, budgetSeconds)) return;
@@ -881,13 +895,52 @@ function QuestionTimer({
   }
 
   const remaining = budgetSeconds - elapsed;
+  const over = remaining < 0;
+  const label = paused ? "Resume timer" : "Pause timer";
   return (
-    <span
-      className={remaining < 0 ? "exam-timer exam-timer-over" : "exam-timer"}
-      title="Time left — when it runs out the correct answer is shown and the question is marked wrong"
-    >
-      ⏱ {formatCountdown(remaining)}
-    </span>
+    <>
+      <span
+        className={over ? "exam-timer exam-timer-over" : paused ? "exam-timer exam-timer-paused" : "exam-timer"}
+        title="Time left — when it runs out the correct answer is shown and the question is marked wrong"
+      >
+        ⏱ {formatCountdown(remaining)}
+        {paused && " paused"}
+      </span>
+      {/* Floating copy pinned to the bottom of the screen so the countdown stays
+          visible while scrolling a long question, with the pause/resume button.
+          Portalled to <body> so no transformed ancestor can turn
+          `position: fixed` into something else. */}
+      {createPortal(
+        <div
+          className={
+            "exam-timer-float" + (over ? " exam-timer-over" : "") + (paused ? " exam-timer-paused" : "")
+          }
+          role="timer"
+          aria-label="Time left for this question"
+        >
+          <span>⏱ {formatCountdown(remaining)}</span>
+          <button
+            type="button"
+            className="exam-timer-btn"
+            aria-label={label}
+            title={label}
+            onClick={() => setPausedFor(paused ? null : questionKey)}
+          >
+            {paused ? (
+              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                <path d="M2.5 1.5 L10.5 6 L2.5 10.5 Z" fill="currentColor" />
+              </svg>
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                <rect x="2" y="1.5" width="3" height="9" rx="0.6" fill="currentColor" />
+                <rect x="7" y="1.5" width="3" height="9" rx="0.6" fill="currentColor" />
+              </svg>
+            )}
+          </button>
+        </div>,
+        document.body,
+      )}
+    </>
   );
 }
 
