@@ -413,9 +413,9 @@ test("buildGeneratePrompt asks for about 50 questions per lecture paper, not the
 test("ALLOWED_TOOLS covers every bun/git command the stage prompts tell the agent to run", () => {
   // Bash(<prefix>*) patterns from the allowlist, as literal prefixes.
   const prefixes = [...ALLOWED_TOOLS.matchAll(/Bash\(([^)]*?)\*\)/g)].map((m) => m[1]!);
-  // A bare "git diff" in a prompt means "git diff" plus arguments, which the
-  // trailing-space pattern "git diff *" covers.
-  const covered = (cmd: string) => prefixes.some((p) => cmd.startsWith(p) || `${cmd} `.startsWith(p));
+  // Strict prefix match: a bare "git diff" (no arguments) must NOT count as covered
+  // by "Bash(git diff *)", so the prompt has to name the command with its path.
+  const covered = (cmd: string) => prefixes.some((p) => cmd.startsWith(p));
   for (const mode of ["generate", "update"] as const) {
     const ctx: StageContext = { course: "INFO5995", week: 3, weekDir: "/fake/week/dir", mode };
     const base = mode === "update" ? buildUpdatePrompt("INFO5995", 3, "/fake/week/dir") : buildGeneratePrompt("INFO5995", 3, "/fake/week/dir");
@@ -428,7 +428,7 @@ test("ALLOWED_TOOLS covers every bun/git command the stage prompts tell the agen
   }
   // Sanity: the checks above are not vacuous.
   const checker = buildStagePrompt("check", { course: "INFO5995", week: 3, weekDir: "/w", mode: "update" });
-  expect(checker).toContain('"git diff"');
+  expect(checker).toContain('"git diff -- exam-content/info5995/week-3.ts"');
   expect(checker).toContain("bun scripts/check-mcq-lengths.ts");
 });
 
@@ -774,4 +774,34 @@ test("a checker failure reason is appended to the recorded failure note", async 
   const status = await readJobStatus("INFO5995", 50, root);
   expect(status.state).toBe("failed");
   expect(status.logTail).toContain("Cannot find module './nowhere'");
+});
+
+test("the allowlist does not cover a bare `git diff`, so the prompt must name the command with a path", () => {
+  const prefixes = [...ALLOWED_TOOLS.matchAll(/Bash\(([^)]*?)\*\)/g)].map((m) => m[1]!);
+  expect(prefixes.some((p) => "git diff".startsWith(p))).toBe(false);
+  expect(prefixes.some((p) => "git diff -- exam-content/x/week-1.ts".startsWith(p))).toBe(true);
+});
+
+test("a failed write-stage output check tells the student how to reset by hand", async () => {
+  const root = makeTempDir();
+  const repo = makeRepo();
+  const fake: RunClaude = async () => ({ stdout: "ok", stderr: "", exitCode: 0 });
+  const result = await startGenerateJob("INFO5995", 7, "/fake", {
+    runClaude: fake,
+    root,
+    repoRoot: repo,
+    checkStageOutput: async (stage) => stage !== "write",
+  });
+  if (result.ok) await result.done;
+  const status = await readJobStatus("INFO5995", 7, root);
+  expect(status.failedStage).toBe("write");
+  expect(status.logTail).toContain("git checkout -- exam-content/info5995/week-7.ts exam/content.ts");
+});
+
+test("an earlier-stage output check failure does not print the git checkout hint", async () => {
+  const root = makeTempDir();
+  const fake: RunClaude = async () => ({ stdout: "ok", stderr: "", exitCode: 0 });
+  const result = await startGenerateJob("INFO5995", 8, "/fake", { runClaude: fake, root, checkStageOutput: async () => false });
+  if (result.ok) await result.done;
+  expect((await readJobStatus("INFO5995", 8, root)).logTail).not.toContain("git checkout");
 });

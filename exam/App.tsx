@@ -981,10 +981,11 @@ function PaperView({
         week={paper.week}
         paperNumber={paper.paperNumber}
         onGrade={gradeQuestion(q.index)}
+        reviewing={reviewing}
       />
     );
   };
-  const isNewFormat = (q: ExamQuestionView) => q.type in NEW_FORMATS;
+  const isNewFormat = (q: ExamQuestionView) => Object.hasOwn(NEW_FORMATS, q.type);
 
   // A card is shown when the student first lands on the first question of its round.
   const pendingCard = readings.findIndex((r, i) => r.beforeQuestion === index && !seenCards.has(i));
@@ -1168,7 +1169,7 @@ function PaperView({
               Next
             </button>
             <span className="btn-spacer" />
-            {index === current.questions.length - 1 && (
+            {!showingCard && index === current.questions.length - 1 && (
               <button className="btn btn-primary" disabled={!allGraded} onClick={submit}>
                 Submit paper
               </button>

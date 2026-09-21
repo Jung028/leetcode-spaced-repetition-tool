@@ -4,7 +4,7 @@ import type { ExamReadingSeed } from "../exam-content/types";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { PromptText, DrawingLink } from "./shared-ui";
 import { isBlankCorrect, isFillBlankCorrect, isMatchCorrect, isOrderCorrect, isSortCorrect } from "./grading";
-import { seedFor, shuffledNotIdentity, matchChoiceOrder, moveItem, parseNumberArray, parseStringArray } from "./formats";
+import { seedFor, canOverrule, shuffledNotIdentity, matchChoiceOrder, moveItem, parseNumberArray, parseStringArray } from "./formats";
 
 // Grades the question and persists the student's answer. App.tsx supplies the
 // real implementation (api.grade + error handling); components stay API-free.
@@ -16,6 +16,8 @@ interface FormatProps {
   week: number;
   paperNumber: number;
   onGrade: GradeFn;
+  // True while looking at a submitted paper: grades are frozen, so nothing may re-grade.
+  reviewing?: boolean;
 }
 
 // `lead` replaces the default prompt paragraph (fill-in-the-blank renders its
@@ -39,7 +41,7 @@ const rowClass = (graded: boolean, ok: boolean) =>
   !graded ? "exam-format-row" : ok ? "exam-format-row exam-option-correct" : "exam-format-row exam-option-wrong";
 
 // ---------- fill in the blank ----------
-export function FillBlankQuestion({ question, onGrade }: FormatProps) {
+export function FillBlankQuestion({ question, onGrade, reviewing = false }: FormatProps) {
   const blanks = question.blanks ?? [];
   const graded = question.correct !== null;
   const saved = parseStringArray(question.yourAnswer);
@@ -58,7 +60,7 @@ export function FillBlankQuestion({ question, onGrade }: FormatProps) {
     return `exam-blank-input ${ok ? "exam-blank-correct" : "exam-blank-wrong"}`;
   };
   const lead = (
-    <p className="exam-prompt exam-fill-line">
+    <p className="exam-prompt exam-fill-line" style={{ whiteSpace: "pre-wrap" }}>
       {parts.map((part, i) => (
         <React.Fragment key={i}>
           {part}
@@ -81,7 +83,9 @@ export function FillBlankQuestion({ question, onGrade }: FormatProps) {
       {graded && question.correct === 0 && (
         <div className="exam-format-reveal">
           <p className="exam-multi-hint">Accepted: {blanks.map((b) => b.join(" / ")).join("  ·  ")}</p>
-          <button className="btn" onClick={overrule}>Mark me correct</button>
+          {canOverrule(graded, question.correct, reviewing) && (
+            <button className="btn" onClick={overrule}>Mark me correct</button>
+          )}
         </div>
       )}
       {!graded && (

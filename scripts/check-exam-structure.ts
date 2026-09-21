@@ -2,6 +2,7 @@
 // the whole schedule inside `bun test` (see check-exam-structure.test.ts), so a
 // malformed authored question fails the suite — same idea as check-mcq-lengths.
 import type { ExamPaperSeed, ExamQuestionSeed } from "../exam-content/types";
+import { normaliseBlank } from "../exam/grading";
 
 export interface StructureIssue {
   course: string;
@@ -25,8 +26,8 @@ function questionProblems(q: ExamQuestionSeed): string[] {
     if (!q.blanks || q.blanks.length === 0) return ["fillblank needs blanks"];
     if (gaps !== q.blanks.length) out.push(`prompt has ${gaps} "___" but blanks has ${q.blanks.length}`);
     q.blanks.forEach((accepted, i) => {
-      if (accepted.length === 0 || accepted.some((a) => a.trim() === "")) {
-        out.push(`blank ${i} needs at least one non-empty accepted answer and no empty ones`);
+      if (accepted.length === 0 || accepted.some((a) => normaliseBlank(a) === "")) {
+        out.push(`blank ${i} needs at least one accepted answer and none that is empty once case, spacing and punctuation are ignored`);
       }
     });
   } else if (q.type === "match") {

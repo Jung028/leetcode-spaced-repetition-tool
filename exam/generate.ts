@@ -442,7 +442,13 @@ async function runGeneration(
           ? `The ${stage} stage finished but did not write a fresh, valid ${target}.`
           : `The ${stage} stage finished but left a week file that is missing or does not parse.`;
         const reason = typeof checked === "object" ? `\n${checked.reason}` : "";
-        await fail({ exitCode, logTail: msg + reason + restoreNote() });
+        // The rollback above should leave the repo clean, but if a retry keeps
+        // failing the student can reset by hand.
+        const hint =
+          stage === "write" || stage === "check"
+            ? `\nIf this keeps failing, run \`git checkout -- ${weekFileRel(course, week)} exam/content.ts\` and retry.`
+            : "";
+        await fail({ exitCode, logTail: msg + reason + restoreNote() + hint });
         return;
       }
     }

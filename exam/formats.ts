@@ -6,10 +6,17 @@
 export function seedFor(...parts: (string | number)[]): number {
   let h = 2166136261;
   for (const ch of parts.join("|")) {
-    h ^= ch.charCodeAt(0);
+    h ^= ch.codePointAt(0)!;
     h = Math.imul(h, 16777619);
   }
   return h >>> 0;
+}
+
+// Whether the fill-in-the-blank "Mark me correct" overrule button shows: only
+// after a wrong grade, and never while reviewing a submitted paper (the frozen
+// paper score would not change when the question flipped).
+export function canOverrule(graded: boolean, correct: number | null, reviewing: boolean): boolean {
+  return graded && correct === 0 && !reviewing;
 }
 
 // mulberry32 PRNG.

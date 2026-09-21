@@ -131,7 +131,7 @@ PIPELINE ADDENDUM — you are the WRITER stage. The reader, explainer and planne
 • every modelAnswer is traceable to the source material and follows the teenager-style shape;
 • readings are attached at the right beforeQuestion indices and each body is ≤ 200 words;
 • every question obeys the SELF-CONTAINED QUESTIONS rule below: treat any violation as a failure and fix it (rewrite the question to state the facts, or add them to a reading card);
-• run "bun scripts/check-exam-structure.ts", "bun scripts/check-mcq-lengths.ts ${ctx.course}", and "bun test" and fix every failure until all pass.${ctx.mode === "update" ? `\n• run "git diff" on exam-content/${lc}/week-${ctx.week}.ts and confirm every pre-existing question is unchanged and in its original position; only appended questions and cards are allowed.` : ""}
+• run "bun scripts/check-exam-structure.ts", "bun scripts/check-mcq-lengths.ts ${ctx.course}", and "bun test" and fix every failure until all pass.${ctx.mode === "update" ? `\n• run "git diff -- exam-content/${lc}/week-${ctx.week}.ts" and confirm every pre-existing question is unchanged and in its original position; only appended questions and cards are allowed.` : ""}
 
 ${SELF_CONTAINED_RULE}${modeNote(ctx)}
 

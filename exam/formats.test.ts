@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { seedFor, seededShuffle, shuffledNotIdentity, matchChoiceOrder, moveItem, parseNumberArray, parseStringArray } from "./formats";
+import { canOverrule, seedFor, seededShuffle, shuffledNotIdentity, matchChoiceOrder, moveItem, parseNumberArray, parseStringArray } from "./formats";
 
 test("seedFor is stable and sensitive to every part", () => {
   expect(seedFor("A", 1, 2, 3)).toBe(seedFor("A", 1, 2, 3));
@@ -42,4 +42,16 @@ test("parsers return null for bad or wrong-shaped JSON", () => {
   expect(parseNumberArray('["a"]')).toBeNull();
   expect(parseStringArray('["mac","hash"]')).toEqual(["mac", "hash"]);
   expect(parseStringArray("[1]")).toBeNull();
+});
+
+test("canOverrule: only after a wrong grade, never while reviewing a submitted paper", () => {
+  expect(canOverrule(true, 0, false)).toBe(true);
+  expect(canOverrule(true, 0, true)).toBe(false);
+  expect(canOverrule(true, 1, false)).toBe(false);
+  expect(canOverrule(false, null, false)).toBe(false);
+});
+
+test("seedFor hashes astral characters by code point and is still stable", () => {
+  expect(seedFor("😀", 1)).toBe(seedFor("😀", 1));
+  expect(seedFor("😀", 1)).not.toBe(seedFor("😁", 1));
 });

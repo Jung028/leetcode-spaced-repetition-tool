@@ -35,7 +35,7 @@ export interface ExamQuestionSeed {
   // fillblank — accepted answers per blank. `prompt` holds one "___" per blank,
   // in order. Case, spacing and punctuation are ignored when marking.
   blanks?: string[][];
-  // match — 3-6 rows; `left` order is the display order, `right` is its partner.
+  // match — 3-6 rows; `left` order is the display order, `right` is its partner. Left texts must be unique.
   pairs?: { left: string; right: string }[];
   // match — up to 2 extra wrong right-hand choices, so it can't be finished by elimination.
   decoys?: string[];

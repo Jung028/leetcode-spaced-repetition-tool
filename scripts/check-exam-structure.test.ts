@@ -75,3 +75,8 @@ test("all existing authored content passes untouched", async () => {
   const { buildExamSchedule } = await import("../exam/content");
   expect(findStructureIssues(buildExamSchedule())).toEqual([]);
 });
+
+test("fillblank: an accepted answer that is empty once normalised (punctuation only) is rejected", () => {
+  const issues = findStructureIssues([paperWith([{ ...goodFill, blanks: [["MAC", "?!"]] }])]);
+  expect(issues.map((i) => i.message).join()).toContain("empty");
+});
