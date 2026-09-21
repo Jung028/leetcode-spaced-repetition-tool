@@ -100,15 +100,41 @@ the Modules tab's Sync button, or found by hand).
   - If a week genuinely has no separate tutorial material (lecture-only
     week), a single lecture-only paper (`paperNumber: 1`) is fine — don't
     invent a tutorial paper from nothing.
-- Each paper's `questions` array holds every question for that half of the
-  week — roughly 20-25 questions per paper is typical (down from ~40-50
-  for a single combined paper, since it's now split in two).
-- Each paper's question types follow the mix `buildScaffold()` in
-  `scripts/generate-exam-week.ts` seeds by default: 8 `mcq`, 4 `short`, 2
-  `scenario`. `truefalse` is also available (see
-  `exam-content/types.ts`'s `ExamQuestionType`) where it genuinely fits a
-  question better than mcq — it isn't part of the default scaffold ratio,
-  so add it deliberately rather than as a default choice.
+- A lecture paper is about 50 questions (a tutorial paper ~30–35). Reading cards
+  do not count toward that and are not scored. Per ~50: about 26 `mcq`, 10 `multi`,
+  2 `truefalse`, and about 12 new-format questions (about 3 each of `fillblank`,
+  `match`, `order`, `sort`). `short` / `scenario` are Phase 2 and are not authored yet.
+  A paper that uses the new formats or reading cards is capped at 55 questions by
+  `scripts/check-exam-structure.ts` (older papers are exempt).
+- **New formats** (see `exam-content/types.ts`): `fillblank` (`blanks` = accepted
+  answers per blank, one `___` per blank in `prompt`; single word/term only),
+  `match` (`pairs`, optional `decoys`), `order` (`steps` authored in the correct
+  order), `sort` (`groups` + `items`). Choose by the idea: definitions → match,
+  processes → order, classifications → sort, key terms → fillblank, distinguish/apply
+  → mcq or multi.
+- **Reading cards** (`readings` on the paper): one short card (100–150 words, hard
+  cap 200) before each round of 3–6 related questions, in the teenager style —
+  analogy first, a worked example, jargon decoded, a Mermaid `diagram` when the idea
+  is a process or structure. `beforeQuestion` is the index of the round's first
+  question. Cards teach; the questions apply the idea to a new example and never
+  repeat a card sentence as the answer.
+- **Mixed-review round**: the last round of a paper has no card — about 6–8
+  questions, at least 3 on earlier weeks' concepts (written as new questions), the
+  rest jumbled topics from this week; no more than 2 consecutive on one subtopic.
+  Week 1 has no earlier weeks.
+- At least ~10 "why / what happens if" questions per paper.
+- **Self-contained questions (hard rule):** every question must be answerable from
+  the question text itself, any reading card in the paper, and the student's
+  knowledge. A question must never say "the deck", "the slides", "the lecture", "the
+  worksheet", "the tutorial sheet", "the video", "as the lecturer said", or "the
+  diagram on slide N" says / matches / shows / explained something unless it either
+  states the actual numbers or facts in the question itself, or points the student
+  to a reading card that contains them. The student cannot see the deck, slides,
+  worksheet, tutorial sheet, video or diagrams. (Real failure this rule prevents: a
+  Week 7 question about EMV figures was unanswerable because it referred to numbers
+  the student could not see.) This mirrors `SELF_CONTAINED_RULE` in
+  `exam/pipeline.ts`, which the Planner, Writer and Checker prompts all include.
+- Run `bun scripts/check-exam-structure.ts` after authoring; it must report 0 issues.
 - Match the exact shape of `exam-content/types.ts`'s `ExamPaperSeed` /
   `ExamQuestionSeed` — see any existing `exam-content/<course>/week-N.ts`
   for a worked example.
@@ -157,6 +183,33 @@ coverage without reading the `.ts`, and to keep the `.ts` itself lean.
   into an `exam-content/<course>/week-N-slides/` folder and reference them
   with relative paths. The point is that scrolling this one file surfaces
   anything important on a slide that no question ended up covering.
+
+## The five-agent process
+
+Generate and Update run five sequential stages (`STAGES` in `exam/pipeline.ts`), each
+handing a file to the next:
+
+- **Reader** → `week-N-notes.md`
+- **Explainer** → `week-N-learning.md` (the cards and a standalone study guide)
+- **Planner** → `week-N-plan.md` (rounds, which ideas need a card, a format per idea,
+  quotas, where every lecture-quiz question lands)
+- **Writer** → `week-N.ts`
+- **Checker** — an independent audit that fixes problems in place (no output file of
+  its own; the week file it leaves behind must still parse and the app must still
+  import)
+
+All of these live in the week's `exam-content/<course>/` folder. In Update mode the
+Writer only appends and the Checker confirms with `git diff` that no existing question
+moved.
+
+Job status (`status.json`) records the current `stage`, the job `mode`
+(`generate` / `update`), an `updatedAt` heartbeat, and, on failure, the `failedStage`.
+A failed stage is retried from that stage (same mode only) rather than from the top.
+Before the Writer and the Checker run, `exam/generate.ts` snapshots the week file and
+`exam/content.ts`; if either stage fails, both files are restored so a half-written
+week can never break the app. Each stage runs headless with a narrow tool allowlist
+(`ALLOWED_TOOLS`: Read, Write, Edit, Glob, Grep, `bun test`, `bun scripts/check-*`,
+`git diff`).
 
 ## Verification
 
