@@ -8,6 +8,7 @@ import { WEEK_4_PAPERS as INFO5995_WEEK_4_PAPERS } from "../exam-content/info599
 import { WEEK_5_PAPERS as INFO5995_WEEK_5_PAPERS } from "../exam-content/info5995/week-5";
 import { WEEK_6_PAPERS as INFO5995_WEEK_6_PAPERS } from "../exam-content/info5995/week-6";
 import { WEEK_7_PAPERS as INFO5995_WEEK_7_PAPERS } from "../exam-content/info5995/week-7";
+import { WEEK_8_PAPERS as INFO5995_WEEK_8_PAPERS } from "../exam-content/info5995/week-8";
 import { WEEK_1_PAPERS as COMP5348_WEEK_1_PAPERS } from "../exam-content/comp5348/week-1";
 import { WEEK_2_PAPERS as COMP5348_WEEK_2_PAPERS } from "../exam-content/comp5348/week-2";
 import { WEEK_3_PAPERS as COMP5348_WEEK_3_PAPERS } from "../exam-content/comp5348/week-3";
@@ -41,6 +42,7 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO5995_WEEK_5_PAPERS,
   ...INFO5995_WEEK_6_PAPERS,
   ...INFO5995_WEEK_7_PAPERS,
+  ...INFO5995_WEEK_8_PAPERS,
   ...COMP5348_WEEK_1_PAPERS,
   ...COMP5348_WEEK_2_PAPERS,
   ...COMP5348_WEEK_3_PAPERS,
