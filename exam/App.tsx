@@ -942,7 +942,21 @@ function PaperView({
   const wrongCount = current.questions.filter((q) => q.correct === 0).length;
   const remaining = current.questions.filter((q) => q.correct === null).length;
 
-  const reload = () => api.paper(course, paper.week, paper.paperNumber).then(setCurrent);
+  const reload = async () => {
+    const p = await api.paper(course, paper.week, paper.paperNumber);
+    setCurrent(p);
+    return p;
+  };
+
+  // After a retake the stored answers are cleared: rebuild the card/question
+  // flow state from the reloaded paper exactly as it is initialised at mount.
+  const resetFlow = (p: ExamPaperView) => {
+    const graded = p.questions.map((q) => q.correct);
+    const firstUngraded = graded.findIndex((c) => c === null);
+    const newIndex = firstUngraded === -1 ? p.questions.length - 1 : firstUngraded;
+    setIndex(newIndex);
+    setSeenCards(initialSeenCards(p.readings, graded, newIndex));
+  };
 
   // Adapter handed to the new-format components: they report (correct, answer);
   // this persists it through the API and refreshes the paper.
@@ -995,7 +1009,7 @@ function PaperView({
     try {
       await api.retakeWrong(course, paper.week, paper.paperNumber);
       onChanged();
-      await reload();
+      resetFlow(await reload());
     } catch (err) {
       onError(errorMessage(err));
     }
@@ -1006,7 +1020,7 @@ function PaperView({
     try {
       await api.retake(course, paper.week, paper.paperNumber);
       onChanged();
-      await reload();
+      resetFlow(await reload());
     } catch (err) {
       onError(errorMessage(err));
     }
