@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { STAGES, STAGE_LABELS, stageOutputPath, buildStagePrompt, type StageContext } from "./pipeline";
+import { STAGES, STAGE_LABELS, SELF_CONTAINED_RULE, stageOutputPath, buildStagePrompt, type StageContext } from "./pipeline";
 
 const ctx: StageContext = { course: "COMP5348", week: 5, weekDir: "/w/dir", mode: "generate" };
 
@@ -63,18 +63,51 @@ test("update mode tells every stage the week is ALREADY-AUTHORED and forbids tou
   expect(buildStagePrompt("write", { ...ctx, mode: "update" }, "BASE")).toContain("append");
 });
 
-test("planner, writer and checker all carry the same self-contained-questions rule", () => {
+test("planner, writer and checker all embed the identical shared self-contained rule", () => {
   for (const stage of ["plan", "write", "check"] as const) {
-    const p = buildStagePrompt(stage, ctx, "BASE");
-    expect(p).toContain("SELF-CONTAINED QUESTIONS");
-    expect(p).toContain("self-contained");
-    expect(p).toContain("the deck");
-    expect(p).toContain("reading card");
+    expect(buildStagePrompt(stage, ctx, "BASE")).toContain(SELF_CONTAINED_RULE);
   }
-  expect(buildStagePrompt("check", ctx)).toMatch(/self-contained[\s\S]*fail/i);
+  for (const s of ["the deck", "the worksheet", "the tutorial sheet", "the video", "as the lecturer said", "the diagram on slide N", "reading card"]) {
+    expect(SELF_CONTAINED_RULE).toContain(s);
+  }
+  expect(buildStagePrompt("check", ctx)).toMatch(/self-contained[\s\S]*failure/i);
 });
 
 test("reader and explainer do not carry the question-writing rule", () => {
   expect(buildStagePrompt("read", ctx)).not.toContain("SELF-CONTAINED QUESTIONS");
   expect(buildStagePrompt("explain", ctx)).not.toContain("SELF-CONTAINED QUESTIONS");
+});
+
+test("reader copies the facts a slide-referring quiz question depends on", () => {
+  expect(buildStagePrompt("read", ctx)).toContain("refers to a slide, figure or table");
+});
+
+test("generate mode demands the ~50 total and mix; update mode only constrains appended questions", () => {
+  const gen = buildStagePrompt("plan", ctx);
+  expect(gen).toContain("about 26 mcq");
+  expect(gen).toContain("about 10 multi");
+  expect(gen).toContain("about 2 truefalse");
+  expect(gen).toContain("no earlier weeks");
+  expect(buildStagePrompt("check", ctx)).toContain("about 50");
+
+  const up = { ...ctx, mode: "update" as const };
+  for (const stage of ["plan", "write", "check"] as const) {
+    const p = buildStagePrompt(stage, up, "BASE");
+    expect(p).not.toMatch(/~50|about 50/);
+    expect(p).not.toContain("about 12");
+  }
+  expect(buildStagePrompt("plan", up)).not.toContain("mixed review round with no card");
+  expect(buildStagePrompt("plan", up)).toContain("Do not add a new mixed-review round");
+  expect(buildStagePrompt("check", up)).toContain("do not require a fixed paper total");
+});
+
+test("writer says the plan quotas override the base prompt's smaller count, and states card format rules", () => {
+  const p = buildStagePrompt("write", ctx, "BASE");
+  expect(p).toContain("override any smaller count in the base prompt");
+  expect(p).toContain("~50-question total");
+  expect(p).toContain("about 12 new-format, 26 mcq, 10 multi, 2 truefalse");
+  expect(p).toContain("≤ 200 words");
+  expect(p).toContain('starts with "• "');
+  expect(p).toContain("no markdown bold");
+  expect(buildStagePrompt("check", ctx)).toContain("≤ 200 words");
 });
