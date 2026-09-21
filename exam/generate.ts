@@ -8,7 +8,7 @@
 // and this job's whole purpose is to write files (the week's content,
 // exam/content.ts) while it runs — an in-memory Map would risk getting
 // wiped mid-job by the very save it triggers.
-import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, dirname, basename, extname } from "node:path";
 import { COURSE_DIRS, findWeekFolder } from "./sync";
 import { scanWeekFolder } from "../scripts/generate-exam-week";
@@ -50,6 +50,8 @@ function withStaleness(status: JobStatus): JobStatus {
     ...status,
     state: "failed",
     finishedAt: status.finishedAt ?? new Date().toISOString(),
+    // Retry resumes at the stage that was running when the job went quiet.
+    failedStage: status.stage,
     logTail: "Timed out: no update in over 1 hour (server likely restarted or the process hung). Click Retry.",
   };
 }
@@ -78,10 +80,10 @@ export function resolveWeekDir(
 
 // Auto-approves file writes but pre-authorizes only the Bash commands the
 // pipeline's stage prompts tell the agent to run (bun test, the bun scripts/
-// checkers, and git diff for the update-mode checker) — deliberately narrower
+// check-* validators, and git diff for the update-mode checker) — deliberately narrower
 // than --dangerously-skip-permissions, which Anthropic's own --help text calls
 // "recommended only for sandboxes with no internet access."
-export const ALLOWED_TOOLS = "Read Write Edit Glob Grep Bash(bun test*) Bash(bun scripts/*) Bash(git diff*)";
+export const ALLOWED_TOOLS = "Read Write Edit Glob Grep Bash(bun test*) Bash(bun scripts/check-*) Bash(git diff *)";
 
 export function buildGeneratePrompt(course: string, week: number, weekDir: string): string {
   const courseLower = course.toLowerCase();
@@ -137,7 +139,9 @@ export const defaultRunClaude: RunClaude = async (args, cwd) => {
 
 export type TranscribeFn = (input: string, model: string, outPath: string) => Promise<void>;
 
-export type CheckStageOutput = (stage: StageName, ctx: StageContext) => Promise<boolean>;
+// `since` is the epoch-ms time just before the stage's claude call started; a
+// stage's output only counts if it was (re)written at or after that moment.
+export type CheckStageOutput = (stage: StageName, ctx: StageContext, since?: number) => Promise<boolean>;
 
 export interface StartJobDeps {
   runClaude: RunClaude;
@@ -146,18 +150,59 @@ export interface StartJobDeps {
   whisperModel?: string;
   mode?: GenerateMode;
   checkStageOutput?: CheckStageOutput;
+  // Repo checkout the agent runs in and whose files are snapshotted/restored.
+  // Defaults to the real repo; tests point it at a temp dir.
+  repoRoot?: string;
 }
 
-const REPO_ROOT = import.meta.dir;
+// import.meta.dir is exam/, so the repo root is one level up.
+const REPO_ROOT = join(import.meta.dir, "..");
 
-// Real check: the stage's output file exists and is non-empty. Tests inject their
-// own (or omit it, which skips the check).
-export const defaultCheckStageOutput: CheckStageOutput = async (stage, ctx) => {
-  const rel = stageOutputPath(stage, ctx.course, ctx.week);
-  if (rel === null) return true;
-  const file = Bun.file(join(REPO_ROOT, rel));
-  return (await file.exists()) && file.size > 0;
-};
+const MTIME_SLACK_MS = 1000;
+
+function weekFileRel(course: string, week: number): string {
+  return `exam-content/${course.toLowerCase()}/week-${week}.ts`;
+}
+
+// True if the file parses as TypeScript. Uses Bun's in-process transpiler (no
+// spawn), which throws on syntax errors.
+function parsesAsTypeScript(path: string): boolean {
+  try {
+    new Bun.Transpiler({ loader: "ts" }).transformSync(readFileSync(path, "utf8"));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Real check for a stage's output. A file only counts if it exists, is
+// non-empty, and was modified at or after `since` — otherwise a stage that
+// wrote nothing would pass on the previous run's file (in update mode the week
+// file ALWAYS pre-exists, so the agent must genuinely have edited it). The
+// write stage's week file, and the week file left behind by the check stage,
+// must also still parse, so a half-written file is caught here. Tests inject
+// their own checker (or omit it, which skips the check) so none of this spawns
+// or touches the real repo.
+export function makeCheckStageOutput(repoRoot: string): CheckStageOutput {
+  return async (stage, ctx, since) => {
+    const rel = stageOutputPath(stage, ctx.course, ctx.week);
+    if (rel === null) {
+      // The checker edits in place: no fresh-write requirement, but what it
+      // leaves behind must still parse.
+      const weekFile = join(repoRoot, weekFileRel(ctx.course, ctx.week));
+      return existsSync(weekFile) && parsesAsTypeScript(weekFile);
+    }
+    const path = join(repoRoot, rel);
+    if (!existsSync(path)) return false;
+    const st = statSync(path);
+    if (st.size === 0) return false;
+    if (since !== undefined && st.mtimeMs < since - MTIME_SLACK_MS) return false;
+    if (stage === "write" && !parsesAsTypeScript(path)) return false;
+    return true;
+  };
+}
+
+export const defaultCheckStageOutput: CheckStageOutput = makeCheckStageOutput(REPO_ROOT);
 
 export const defaultGenerateDeps: StartJobDeps = {
   runClaude: defaultRunClaude,
@@ -166,6 +211,43 @@ export const defaultGenerateDeps: StartJobDeps = {
   whisperModel: DEFAULT_WHISPER_MODEL,
   checkStageOutput: defaultCheckStageOutput,
 };
+
+// RISK: the write and check stages edit the shared week file and exam/content.ts
+// in place. A stage that fails midway can leave a half-written week file or an
+// import in content.ts pointing at one, which would break the whole app at the
+// next reload (and a retry in update mode would then append onto the broken
+// file). So before the write and check stages we snapshot both files and put
+// them back if that stage fails. "Did not exist" is recorded too, so a failed
+// first-time write deletes the new file instead of leaving it behind.
+interface FileSnapshot {
+  path: string;
+  content: Buffer | null;
+}
+
+function snapshotFiles(repoRoot: string, course: string, week: number): FileSnapshot[] {
+  return [join(repoRoot, weekFileRel(course, week)), join(repoRoot, "exam", "content.ts")].map((path) => ({
+    path,
+    content: existsSync(path) ? readFileSync(path) : null,
+  }));
+}
+
+function restoreSnapshot(snapshot: FileSnapshot[]): void {
+  for (const { path, content } of snapshot) {
+    if (content === null) {
+      rmSync(path, { force: true });
+    } else if (!existsSync(path) || !readFileSync(path).equals(content)) {
+      writeFileSync(path, content);
+    }
+  }
+}
+
+// Atomic (write a temp file, then rename over it) so a status poll never reads
+// a truncated status.json.
+async function writeStatus(statusPath: string, status: JobStatus): Promise<void> {
+  const tmp = `${statusPath}.tmp`;
+  await Bun.write(tmp, JSON.stringify(status));
+  renameSync(tmp, statusPath);
+}
 
 // Transcribes every video in weekDir that doesn't already have a
 // "<name>.transcript.md" sitting next to it, so buildGeneratePrompt's
@@ -247,10 +329,7 @@ export async function startGenerateJob(
     // else starts from the top.
     const resumeFrom: StageName =
       existing.state === "failed" && existing.failedStage && existing.mode === mode ? existing.failedStage : "read";
-    await Bun.write(
-      statusPath,
-      JSON.stringify({ state: "running", startedAt, updatedAt: startedAt, stage: resumeFrom, mode } satisfies JobStatus),
-    );
+    await writeStatus(statusPath, { state: "running", startedAt, updatedAt: startedAt, stage: resumeFrom, mode });
 
     // Fire-and-forget from the caller's point of view (an HTTP route handler
     // returns as soon as this function resolves, well before generation
@@ -267,6 +346,7 @@ export async function startGenerateJob(
       mode,
       resumeFrom,
       deps.checkStageOutput,
+      deps.repoRoot ?? REPO_ROOT,
     ).catch(() => {});
     return { ok: true, done };
   } finally {
@@ -285,57 +365,64 @@ async function runGeneration(
   whisperModel: string,
   mode: GenerateMode,
   resumeFrom: StageName,
-  checkStageOutput?: CheckStageOutput,
+  checkStageOutput: CheckStageOutput | undefined,
+  repoRoot: string,
 ): Promise<void> {
   const ctx: StageContext = { course, week, weekDir, mode };
   const writerBase = mode === "update" ? buildUpdatePrompt(course, week, weekDir) : buildGeneratePrompt(course, week, weekDir);
   let lastLog = "";
   let currentStage: StageName = resumeFrom;
+  // Set for the write and check stages only; restored if that stage fails.
+  let restoreTo: FileSnapshot[] | undefined;
+  const restoreNote = (): string => {
+    if (!restoreTo) return "";
+    try {
+      restoreSnapshot(restoreTo);
+      return "\n(Restored the week file and exam/content.ts to their state before this stage.)";
+    } catch (e) {
+      return `\n(Could NOT restore the week file / exam/content.ts: ${e instanceof Error ? e.message : String(e)})`;
+    }
+  };
+  const fail = async (failure: Partial<JobStatus>): Promise<void> =>
+    writeStatus(statusPath, { state: "failed", startedAt, finishedAt: new Date().toISOString(), failedStage: currentStage, mode, ...failure });
   try {
-    // Any video in weekDir without a transcript yet gets one now, before the
-    // reader runs — the stage prompts tell the agent to read "*.transcript.md"
-    // files, which only exist once this step has run.
-    if (resumeFrom === "read") await transcribeWeekVideos(weekDir, transcribe, whisperModel);
+    if (resumeFrom === "read") {
+      // Transcription can take a long time; keep updatedAt fresh so it does not
+      // count against staleness, and (via the stage write below) so it does not
+      // eat into the first stage's clock afterwards.
+      await writeStatus(statusPath, { state: "running", startedAt, updatedAt: new Date().toISOString(), stage: "read", mode });
+      // Any video in weekDir without a transcript yet gets one now, before the
+      // reader runs — the stage prompts tell the agent to read "*.transcript.md"
+      // files, which only exist once this step has run.
+      await transcribeWeekVideos(weekDir, transcribe, whisperModel);
+    }
     for (const stage of STAGES.slice(STAGES.indexOf(resumeFrom))) {
       currentStage = stage;
-      await Bun.write(
-        statusPath,
-        JSON.stringify({ state: "running", startedAt, updatedAt: new Date().toISOString(), stage, mode } satisfies JobStatus),
-      );
+      restoreTo = undefined;
+      await writeStatus(statusPath, { state: "running", startedAt, updatedAt: new Date().toISOString(), stage, mode });
+      // Snapshot before write (undo a half-written week) and before check (the
+      // post-write state, which is what a failed check must fall back to).
+      if (stage === "write" || stage === "check") restoreTo = snapshotFiles(repoRoot, course, week);
+      const stageStart = Date.now();
       const args = buildClaudeArgs(buildStagePrompt(stage, ctx, writerBase));
-      const { stdout, stderr, exitCode } = await runClaude(args, REPO_ROOT);
+      const { stdout, stderr, exitCode } = await runClaude(args, repoRoot);
       lastLog = summarizeOutput(stdout, stderr);
       if (exitCode !== 0) {
-        await Bun.write(
-          statusPath,
-          JSON.stringify({ state: "failed", startedAt, finishedAt: new Date().toISOString(), exitCode, logTail: lastLog, failedStage: stage, mode } satisfies JobStatus),
-        );
+        await fail({ exitCode, logTail: lastLog + restoreNote() });
         return;
       }
-      if (checkStageOutput && !(await checkStageOutput(stage, ctx))) {
-        await Bun.write(
-          statusPath,
-          JSON.stringify({
-            state: "failed", startedAt, finishedAt: new Date().toISOString(), exitCode,
-            logTail: `The ${stage} stage finished but did not write ${stageOutputPath(stage, course, week)}.`,
-            failedStage: stage, mode,
-          } satisfies JobStatus),
-        );
+      if (checkStageOutput && !(await checkStageOutput(stage, ctx, stageStart))) {
+        const target = stageOutputPath(stage, course, week);
+        const msg = target
+          ? `The ${stage} stage finished but did not write a fresh, valid ${target}.`
+          : `The ${stage} stage finished but left a week file that is missing or does not parse.`;
+        await fail({ exitCode, logTail: msg + restoreNote() });
         return;
       }
     }
-    await Bun.write(
-      statusPath,
-      JSON.stringify({ state: "done", startedAt, finishedAt: new Date().toISOString(), exitCode: 0, logTail: lastLog, mode } satisfies JobStatus),
-    );
+    await writeStatus(statusPath, { state: "done", startedAt, finishedAt: new Date().toISOString(), exitCode: 0, logTail: lastLog, mode });
   } catch (err) {
-    await Bun.write(
-      statusPath,
-      JSON.stringify({
-        state: "failed", startedAt, finishedAt: new Date().toISOString(),
-        logTail: err instanceof Error ? err.message : String(err), failedStage: currentStage, mode,
-      } satisfies JobStatus),
-    );
+    await fail({ logTail: (err instanceof Error ? err.message : String(err)) + restoreNote() });
   }
 }
 

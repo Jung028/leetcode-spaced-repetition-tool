@@ -1,5 +1,5 @@
 import { test, expect, afterEach } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -12,6 +12,7 @@ import {
   ALLOWED_TOOLS,
   startGenerateJob,
   transcribeWeekVideos,
+  makeCheckStageOutput,
   type RunClaude,
   type TranscribeFn,
 } from "./generate";
@@ -110,8 +111,8 @@ test("buildUpdatePrompt does not assume every week has two papers, and forbids c
   expect(prompt).toContain("Never create a new paperNumber, under any circumstances");
 });
 
-test("buildClaudeArgs scopes permissions to Read/Write/Edit/Glob/Grep plus scoped Bash(bun test*, bun scripts/*, git diff*)", () => {
-  expect(ALLOWED_TOOLS).toBe("Read Write Edit Glob Grep Bash(bun test*) Bash(bun scripts/*) Bash(git diff*)");
+test("buildClaudeArgs scopes permissions to Read/Write/Edit/Glob/Grep plus scoped Bash(bun test*, bun scripts/check-*, git diff *)", () => {
+  expect(ALLOWED_TOOLS).toBe("Read Write Edit Glob Grep Bash(bun test*) Bash(bun scripts/check-*) Bash(git diff *)");
   expect(buildClaudeArgs("do the thing")).toEqual([
     "-p",
     "--permission-mode",
@@ -412,7 +413,9 @@ test("buildGeneratePrompt asks for about 50 questions per lecture paper, not the
 test("ALLOWED_TOOLS covers every bun/git command the stage prompts tell the agent to run", () => {
   // Bash(<prefix>*) patterns from the allowlist, as literal prefixes.
   const prefixes = [...ALLOWED_TOOLS.matchAll(/Bash\(([^)]*?)\*\)/g)].map((m) => m[1]!);
-  const covered = (cmd: string) => prefixes.some((p) => cmd.startsWith(p));
+  // A bare "git diff" in a prompt means "git diff" plus arguments, which the
+  // trailing-space pattern "git diff *" covers.
+  const covered = (cmd: string) => prefixes.some((p) => cmd.startsWith(p) || `${cmd} `.startsWith(p));
   for (const mode of ["generate", "update"] as const) {
     const ctx: StageContext = { course: "INFO5995", week: 3, weekDir: "/fake/week/dir", mode };
     const base = mode === "update" ? buildUpdatePrompt("INFO5995", 3, "/fake/week/dir") : buildGeneratePrompt("INFO5995", 3, "/fake/week/dir");
@@ -520,4 +523,224 @@ test("staleness is measured from the last stage update, not from the job start",
   const updatedAt = new Date().toISOString();
   writeFileSync(join(dir, "status.json"), JSON.stringify({ state: "running", startedAt, updatedAt, stage: "write" }));
   expect((await readJobStatus("INFO5995", 45, root)).state).toBe("running");
+});
+
+test("staleness downgrade records the running stage as failedStage so retry resumes there", async () => {
+  const root = makeTempDir();
+  const dir = join(root, "INFO5995-46");
+  mkdirSync(dir, { recursive: true });
+  const old = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  writeFileSync(join(dir, "status.json"), JSON.stringify({ state: "running", startedAt: old, updatedAt: old, stage: "plan", mode: "generate" }));
+  const status = await readJobStatus("INFO5995", 46, root);
+  expect(status.state).toBe("failed");
+  expect(status.failedStage).toBe("plan");
+});
+
+test("an old updatedAt makes a job stale even when startedAt is recent", async () => {
+  const root = makeTempDir();
+  const dir = join(root, "INFO5995-47");
+  mkdirSync(dir, { recursive: true });
+  const startedAt = new Date().toISOString();
+  const updatedAt = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  writeFileSync(join(dir, "status.json"), JSON.stringify({ state: "running", startedAt, updatedAt, stage: "write" }));
+  expect((await readJobStatus("INFO5995", 47, root)).state).toBe("failed");
+});
+
+test("status.json is written atomically: no .tmp file is left behind", async () => {
+  const root = makeTempDir();
+  const fake: RunClaude = async () => ({ stdout: "ok", stderr: "", exitCode: 0 });
+  const result = await startGenerateJob("INFO5995", 48, "/fake", { runClaude: fake, root });
+  if (result.ok) await result.done;
+  expect(existsSync(join(root, "INFO5995-48", "status.json"))).toBe(true);
+  expect(existsSync(join(root, "INFO5995-48", "status.json.tmp"))).toBe(false);
+});
+
+test("transcription time does not count against the first stage: updatedAt is refreshed once it ends", async () => {
+  const root = makeTempDir();
+  const weekDir = makeTempDir();
+  writeFileSync(join(weekDir, "lecture.mp4"), "");
+  const slowTranscribe: TranscribeFn = async (_i, _m, outPath) => {
+    await Bun.sleep(30);
+    writeFileSync(outPath, "# transcript");
+  };
+  let gap = -1;
+  const fake: RunClaude = async () => {
+    const st = await readJobStatus("INFO5995", 49, root);
+    if (gap < 0) gap = new Date(st.updatedAt!).getTime() - new Date(st.startedAt!).getTime();
+    return { stdout: "ok", stderr: "", exitCode: 0 };
+  };
+  const result = await startGenerateJob("INFO5995", 49, weekDir, { runClaude: fake, root, transcribe: slowTranscribe });
+  if (result.ok) await result.done;
+  expect(gap).toBeGreaterThanOrEqual(25);
+});
+
+// ---- real output checker: stale files and syntax ----
+
+function makeRepo(): string {
+  const repo = makeTempDir();
+  mkdirSync(join(repo, "exam-content", "info5995"), { recursive: true });
+  mkdirSync(join(repo, "exam"), { recursive: true });
+  writeFileSync(join(repo, "exam", "content.ts"), "// content v0\n");
+  return repo;
+}
+const CTX: StageContext = { course: "INFO5995", week: 3, weekDir: "/fake", mode: "update" };
+const hoursAgo = (h: number) => new Date(Date.now() - h * 60 * 60 * 1000);
+
+test("checker rejects a stale output file left by a previous run, even though it exists and is non-empty", async () => {
+  const repo = makeRepo();
+  const notes = join(repo, "exam-content", "info5995", "week-3-notes.md");
+  writeFileSync(notes, "old notes");
+  utimesSync(notes, hoursAgo(5), hoursAgo(5));
+  const check = makeCheckStageOutput(repo);
+  expect(await check("read", CTX, Date.now())).toBe(false);
+  writeFileSync(notes, "fresh notes");
+  expect(await check("read", CTX, Date.now() - 500)).toBe(true);
+});
+
+test("in update mode the pre-existing week file only passes the write stage if it was edited during the stage", async () => {
+  const repo = makeRepo();
+  const weekFile = join(repo, "exam-content", "info5995", "week-3.ts");
+  writeFileSync(weekFile, "export const A = 1;\n");
+  utimesSync(weekFile, hoursAgo(24), hoursAgo(24));
+  const check = makeCheckStageOutput(repo);
+  expect(await check("write", CTX, Date.now())).toBe(false);
+  writeFileSync(weekFile, "export const A = 1;\nexport const B = 2;\n");
+  expect(await check("write", CTX, Date.now() - 500)).toBe(true);
+});
+
+test("checker rejects a write-stage week file with a syntax error, and a check stage that leaves one", async () => {
+  const repo = makeRepo();
+  const weekFile = join(repo, "exam-content", "info5995", "week-3.ts");
+  writeFileSync(weekFile, "export const A = [1, 2;\n");
+  const check = makeCheckStageOutput(repo);
+  expect(await check("write", CTX, Date.now() - 500)).toBe(false);
+  expect(await check("check", CTX, Date.now() - 500)).toBe(false);
+  writeFileSync(weekFile, "export const A = [1, 2];\n");
+  expect(await check("check", CTX, Date.now() - 500)).toBe(true);
+});
+
+// ---- snapshot / restore around the write and check stages ----
+
+const stagePrompt = (args: string[], name: string) => (args.at(-1) ?? "").includes(name);
+
+test("a failed write stage restores the previous week file and exam/content.ts bytes", async () => {
+  const repo = makeRepo();
+  const root = makeTempDir();
+  const weekFile = join(repo, "exam-content", "info5995", "week-3.ts");
+  const contentFile = join(repo, "exam", "content.ts");
+  writeFileSync(weekFile, "export const ORIGINAL = 1;\n");
+  const fake: RunClaude = async (args) => {
+    if (stagePrompt(args, "WRITER")) {
+      writeFileSync(weekFile, "export const HALF_WRIT");
+      writeFileSync(contentFile, "// content v0\nimport broken from './nowhere';\n");
+      return { stdout: "", stderr: "crashed", exitCode: 1 };
+    }
+    return { stdout: "ok", stderr: "", exitCode: 0 };
+  };
+  const result = await startGenerateJob("INFO5995", 3, "/fake", { runClaude: fake, root, repoRoot: repo, mode: "update" });
+  if (result.ok) await result.done;
+  expect(readFileSync(weekFile, "utf8")).toBe("export const ORIGINAL = 1;\n");
+  expect(readFileSync(contentFile, "utf8")).toBe("// content v0\n");
+  const status = await readJobStatus("INFO5995", 3, root);
+  expect(status.state).toBe("failed");
+  expect(status.failedStage).toBe("write");
+});
+
+test("a write stage that throws, or whose output check fails, is also rolled back", async () => {
+  const repo = makeRepo();
+  const weekFile = join(repo, "exam-content", "info5995", "week-3.ts");
+  writeFileSync(weekFile, "export const ORIGINAL = 1;\n");
+
+  const root1 = makeTempDir();
+  const throwing: RunClaude = async (args) => {
+    if (stagePrompt(args, "WRITER")) {
+      writeFileSync(weekFile, "garbage");
+      throw new Error("claude died");
+    }
+    return { stdout: "ok", stderr: "", exitCode: 0 };
+  };
+  let r = await startGenerateJob("INFO5995", 3, "/fake", { runClaude: throwing, root: root1, repoRoot: repo, mode: "update" });
+  if (r.ok) await r.done;
+  expect(readFileSync(weekFile, "utf8")).toBe("export const ORIGINAL = 1;\n");
+
+  const root2 = makeTempDir();
+  const badOutput: RunClaude = async (args) => {
+    if (stagePrompt(args, "WRITER")) writeFileSync(weekFile, "garbage");
+    return { stdout: "ok", stderr: "", exitCode: 0 };
+  };
+  r = await startGenerateJob("INFO5995", 3, "/fake", {
+    runClaude: badOutput,
+    root: root2,
+    repoRoot: repo,
+    mode: "update",
+    checkStageOutput: async (stage) => stage !== "write",
+  });
+  if (r.ok) await r.done;
+  expect(readFileSync(weekFile, "utf8")).toBe("export const ORIGINAL = 1;\n");
+  expect((await readJobStatus("INFO5995", 3, root2)).failedStage).toBe("write");
+});
+
+test("a failed write of a brand-new week removes the half-written file", async () => {
+  const repo = makeRepo();
+  const root = makeTempDir();
+  const weekFile = join(repo, "exam-content", "info5995", "week-4.ts");
+  const fake: RunClaude = async (args) => {
+    if (stagePrompt(args, "WRITER")) {
+      writeFileSync(weekFile, "export const HALF");
+      return { stdout: "", stderr: "crashed", exitCode: 1 };
+    }
+    return { stdout: "ok", stderr: "", exitCode: 0 };
+  };
+  const result = await startGenerateJob("INFO5995", 4, "/fake", { runClaude: fake, root, repoRoot: repo });
+  if (result.ok) await result.done;
+  expect(existsSync(weekFile)).toBe(false);
+  expect((await readJobStatus("INFO5995", 4, root)).failedStage).toBe("write");
+});
+
+test("a failed check stage restores the post-write snapshot, and the retry resumes at check", async () => {
+  const repo = makeRepo();
+  const root = makeTempDir();
+  const weekFile = join(repo, "exam-content", "info5995", "week-5.ts");
+  const contentFile = join(repo, "exam", "content.ts");
+  let failCheck = true;
+  const seen: string[] = [];
+  const fake: RunClaude = async (args) => {
+    seen.push(args.at(-1) ?? "");
+    if (stagePrompt(args, "WRITER")) {
+      writeFileSync(weekFile, "export const WRITTEN = 1;\n");
+      writeFileSync(contentFile, "// content v0\nimport w5 from '../exam-content/info5995/week-5';\n");
+    } else if (stagePrompt(args, "CHECKER") && failCheck) {
+      writeFileSync(weekFile, "export const BROKEN");
+      writeFileSync(contentFile, "// checker scribbled here\n");
+      return { stdout: "", stderr: "checker crashed", exitCode: 1 };
+    }
+    return { stdout: "ok", stderr: "", exitCode: 0 };
+  };
+  let result = await startGenerateJob("INFO5995", 5, "/fake", { runClaude: fake, root, repoRoot: repo });
+  if (result.ok) await result.done;
+  expect(readFileSync(weekFile, "utf8")).toBe("export const WRITTEN = 1;\n");
+  expect(readFileSync(contentFile, "utf8")).toContain("import w5");
+  expect((await readJobStatus("INFO5995", 5, root)).failedStage).toBe("check");
+
+  failCheck = false;
+  seen.length = 0;
+  result = await startGenerateJob("INFO5995", 5, "/fake", { runClaude: fake, root, repoRoot: repo });
+  if (result.ok) await result.done;
+  expect(seen.length).toBe(1);
+  expect(seen[0]).toContain("CHECKER");
+  expect((await readJobStatus("INFO5995", 5, root)).state).toBe("done");
+});
+
+test("a successful write stage leaves the new week file and content.ts edits in place", async () => {
+  const repo = makeRepo();
+  const root = makeTempDir();
+  const weekFile = join(repo, "exam-content", "info5995", "week-6.ts");
+  const fake: RunClaude = async (args) => {
+    if (stagePrompt(args, "WRITER")) writeFileSync(weekFile, "export const OK = 1;\n");
+    return { stdout: "ok", stderr: "", exitCode: 0 };
+  };
+  const result = await startGenerateJob("INFO5995", 6, "/fake", { runClaude: fake, root, repoRoot: repo });
+  if (result.ok) await result.done;
+  expect(readFileSync(weekFile, "utf8")).toBe("export const OK = 1;\n");
+  expect((await readJobStatus("INFO5995", 6, root)).state).toBe("done");
 });
