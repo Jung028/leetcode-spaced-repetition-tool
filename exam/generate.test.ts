@@ -619,6 +619,23 @@ test("checker rejects a write-stage week file with a syntax error, and a check s
   expect(await check("check", CTX, Date.now() - 500)).toBe(true);
 });
 
+test("real checker also requires exam/content.ts to still import: an unresolvable import fails, a valid one passes", async () => {
+  const repo = makeRepo();
+  const weekFile = join(repo, "exam-content", "info5995", "week-3.ts");
+  writeFileSync(weekFile, "export const A = 1;\n");
+  const check = makeCheckStageOutput(repo);
+
+  // Syntactically valid, but the import cannot be resolved.
+  writeFileSync(join(repo, "exam", "content.ts"), 'import "./does-not-exist";\nexport const X = 1;\n');
+  const bad = await check("write", CTX, Date.now() - 500);
+  expect(typeof bad === "object" && bad !== null && !bad.ok).toBe(true);
+  expect(await check("check", CTX, Date.now() - 500)).not.toBe(true);
+
+  writeFileSync(join(repo, "exam", "content.ts"), 'import { A } from "../exam-content/info5995/week-3";\nexport const X = A;\n');
+  expect(await check("write", CTX, Date.now() - 500)).toBe(true);
+  expect(await check("check", CTX, Date.now() - 500)).toBe(true);
+});
+
 // ---- snapshot / restore around the write and check stages ----
 
 const stagePrompt = (args: string[], name: string) => (args.at(-1) ?? "").includes(name);
@@ -743,4 +760,18 @@ test("a successful write stage leaves the new week file and content.ts edits in 
   if (result.ok) await result.done;
   expect(readFileSync(weekFile, "utf8")).toBe("export const OK = 1;\n");
   expect((await readJobStatus("INFO5995", 6, root)).state).toBe("done");
+});
+
+test("a checker failure reason is appended to the recorded failure note", async () => {
+  const root = makeTempDir();
+  const fake: RunClaude = async () => ({ stdout: "ok", stderr: "", exitCode: 0 });
+  const result = await startGenerateJob("INFO5995", 50, "/fake", {
+    runClaude: fake,
+    root,
+    checkStageOutput: async () => ({ ok: false, reason: "Cannot find module './nowhere'" }),
+  });
+  if (result.ok) await result.done;
+  const status = await readJobStatus("INFO5995", 50, root);
+  expect(status.state).toBe("failed");
+  expect(status.logTail).toContain("Cannot find module './nowhere'");
 });

@@ -141,7 +141,10 @@ export type TranscribeFn = (input: string, model: string, outPath: string) => Pr
 
 // `since` is the epoch-ms time just before the stage's claude call started; a
 // stage's output only counts if it was (re)written at or after that moment.
-export type CheckStageOutput = (stage: StageName, ctx: StageContext, since?: number) => Promise<boolean>;
+// A failing result may carry a reason (e.g. the first lines of an import error),
+// which the runner appends to the failure note.
+export type CheckResult = boolean | { ok: false; reason: string };
+export type CheckStageOutput = (stage: StageName, ctx: StageContext, since?: number) => Promise<CheckResult>;
 
 export interface StartJobDeps {
   runClaude: RunClaude;
@@ -178,28 +181,49 @@ function parsesAsTypeScript(path: string): boolean {
 // Real check for a stage's output. A file only counts if it exists, is
 // non-empty, and was modified at or after `since` — otherwise a stage that
 // wrote nothing would pass on the previous run's file (in update mode the week
-// file ALWAYS pre-exists, so the agent must genuinely have edited it). The
+// file ALWAYS pre-exists, so the agent must genuinely have edited it). For the
 // write stage's week file, and the week file left behind by the check stage,
-// must also still parse, so a half-written file is caught here. Tests inject
-// their own checker (or omit it, which skips the check) so none of this spawns
-// or touches the real repo.
+// syntax is checked first (cheap), then the app's real import graph is loaded
+// in a subprocess (exam/content.ts), which catches an unresolvable import in
+// content.ts or a week file that parses but cannot load. That spawn lives only
+// here: tests inject their own checker (or omit it, which skips the check) so
+// nothing spawns or touches the real repo.
 export function makeCheckStageOutput(repoRoot: string): CheckStageOutput {
   return async (stage, ctx, since) => {
     const rel = stageOutputPath(stage, ctx.course, ctx.week);
+    let weekFile: string;
     if (rel === null) {
       // The checker edits in place: no fresh-write requirement, but what it
-      // leaves behind must still parse.
-      const weekFile = join(repoRoot, weekFileRel(ctx.course, ctx.week));
-      return existsSync(weekFile) && parsesAsTypeScript(weekFile);
+      // leaves behind must still parse and load.
+      weekFile = join(repoRoot, weekFileRel(ctx.course, ctx.week));
+      if (!existsSync(weekFile)) return false;
+    } else {
+      const path = join(repoRoot, rel);
+      if (!existsSync(path)) return false;
+      const st = statSync(path);
+      if (st.size === 0) return false;
+      if (since !== undefined && st.mtimeMs < since - MTIME_SLACK_MS) return false;
+      if (stage !== "write") return true;
+      weekFile = path;
     }
-    const path = join(repoRoot, rel);
-    if (!existsSync(path)) return false;
-    const st = statSync(path);
-    if (st.size === 0) return false;
-    if (since !== undefined && st.mtimeMs < since - MTIME_SLACK_MS) return false;
-    if (stage === "write" && !parsesAsTypeScript(path)) return false;
-    return true;
+    if (!parsesAsTypeScript(weekFile)) return false;
+    return appStillImports(repoRoot);
   };
+}
+
+// Loads exam/content.ts (which pulls in every week file) in a fresh bun
+// process, so an unresolvable import or a module that throws at load time fails.
+async function appStillImports(repoRoot: string): Promise<CheckResult> {
+  const target = join(repoRoot, "exam/content.ts");
+  const proc = Bun.spawn(["bun", "-e", `await import(${JSON.stringify(target)})`], {
+    cwd: repoRoot,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [stderr, exitCode] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
+  if (exitCode === 0) return true;
+  const firstLines = stderr.trim().split("\n").slice(0, 8).join("\n");
+  return { ok: false, reason: `exam/content.ts no longer imports cleanly:\n${firstLines}` };
 }
 
 export const defaultCheckStageOutput: CheckStageOutput = makeCheckStageOutput(REPO_ROOT);
@@ -411,12 +435,14 @@ async function runGeneration(
         await fail({ exitCode, logTail: lastLog + restoreNote() });
         return;
       }
-      if (checkStageOutput && !(await checkStageOutput(stage, ctx, stageStart))) {
+      const checked = checkStageOutput ? await checkStageOutput(stage, ctx, stageStart) : true;
+      if (checked !== true) {
         const target = stageOutputPath(stage, course, week);
         const msg = target
           ? `The ${stage} stage finished but did not write a fresh, valid ${target}.`
           : `The ${stage} stage finished but left a week file that is missing or does not parse.`;
-        await fail({ exitCode, logTail: msg + restoreNote() });
+        const reason = typeof checked === "object" ? `\n${checked.reason}` : "";
+        await fail({ exitCode, logTail: msg + reason + restoreNote() });
         return;
       }
     }
