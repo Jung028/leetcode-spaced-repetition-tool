@@ -15,6 +15,7 @@ import {
   type RunClaude,
   type TranscribeFn,
 } from "./generate";
+import { STAGES, buildStagePrompt, type StageContext } from "./pipeline";
 
 const tempDirs: string[] = [];
 function makeTempDir(): string {
@@ -25,6 +26,22 @@ function makeTempDir(): string {
 afterEach(() => {
   while (tempDirs.length) rmSync(tempDirs.pop()!, { recursive: true, force: true });
 });
+
+// A RunClaude that blocks until release() is called, then lets this stage and
+// every later stage of the pipeline finish immediately (a job now makes one
+// claude call per stage, so a single resolver would only free the first stage).
+function makeStuckRunClaude(): { runClaude: RunClaude; release: () => void } {
+  let released = false;
+  const waiting: Array<() => void> = [];
+  const done = { stdout: "", stderr: "", exitCode: 0 };
+  return {
+    runClaude: () => (released ? Promise.resolve(done) : new Promise((resolve) => waiting.push(() => resolve(done)))),
+    release: () => {
+      released = true;
+      waiting.splice(0).forEach((fn) => fn());
+    },
+  };
+}
 
 test("jobDir joins the root, course, and week into one directory name", () => {
   expect(jobDir("INFO5995", 2, "/tmp/root")).toBe("/tmp/root/INFO5995-2");
@@ -93,8 +110,8 @@ test("buildUpdatePrompt does not assume every week has two papers, and forbids c
   expect(prompt).toContain("Never create a new paperNumber, under any circumstances");
 });
 
-test("buildClaudeArgs scopes permissions to Read/Write/Edit/Glob/Grep/Bash(bun test*)", () => {
-  expect(ALLOWED_TOOLS).toBe("Read Write Edit Glob Grep Bash(bun test*)");
+test("buildClaudeArgs scopes permissions to Read/Write/Edit/Glob/Grep plus scoped Bash(bun test*, bun scripts/*, git diff*)", () => {
+  expect(ALLOWED_TOOLS).toBe("Read Write Edit Glob Grep Bash(bun test*) Bash(bun scripts/*) Bash(git diff*)");
   expect(buildClaudeArgs("do the thing")).toEqual([
     "-p",
     "--permission-mode",
@@ -143,11 +160,7 @@ test("startGenerateJob marks the job failed when runClaude exits non-zero", asyn
 
 test("startGenerateJob refuses to spawn a second job while one is already running", async () => {
   const root = makeTempDir();
-  let resolveClaude: (() => void) | undefined;
-  const stuckRunClaude: RunClaude = () =>
-    new Promise((resolve) => {
-      resolveClaude = () => resolve({ stdout: "", stderr: "", exitCode: 0 });
-    });
+  const { runClaude: stuckRunClaude, release: resolveClaude } = makeStuckRunClaude();
 
   const first = await startGenerateJob("INFO5995", 6, "/fake/week/dir", { runClaude: stuckRunClaude, root });
   expect(first.ok).toBe(true);
@@ -155,17 +168,13 @@ test("startGenerateJob refuses to spawn a second job while one is already runnin
   const second = await startGenerateJob("INFO5995", 6, "/fake/week/dir", { runClaude: stuckRunClaude, root });
   expect(second).toEqual({ ok: false, reason: "already generating" });
 
-  resolveClaude?.();
+  resolveClaude();
   if (first.ok) await first.done;
 });
 
 test("startGenerateJob closes the dispatch-time race: two back-to-back calls without awaiting the first only start one job", async () => {
   const root = makeTempDir();
-  let resolveClaude: (() => void) | undefined;
-  const stuckRunClaude: RunClaude = () =>
-    new Promise((resolve) => {
-      resolveClaude = () => resolve({ stdout: "", stderr: "", exitCode: 0 });
-    });
+  const { runClaude: stuckRunClaude, release: resolveClaude } = makeStuckRunClaude();
 
   // Deliberately NOT awaited — both calls race before either has a chance
   // to write status.json. The in-memory lock must still let only one win.
@@ -177,7 +186,7 @@ test("startGenerateJob closes the dispatch-time race: two back-to-back calls wit
   expect(first.ok).toBe(true);
   expect(second).toEqual({ ok: false, reason: "another generation is already running" });
 
-  resolveClaude?.();
+  resolveClaude();
   if (first.ok) await first.done;
 });
 
@@ -229,11 +238,7 @@ test("startGenerateJob marks the job failed when runClaude rejects instead of re
 
 test("startGenerateJob's global lock blocks a different week's job (not just the same week) while one is already running on disk", async () => {
   const root = makeTempDir();
-  let resolveClaude: (() => void) | undefined;
-  const stuckRunClaude: RunClaude = () =>
-    new Promise((resolve) => {
-      resolveClaude = () => resolve({ stdout: "", stderr: "", exitCode: 0 });
-    });
+  const { runClaude: stuckRunClaude, release: resolveClaude } = makeStuckRunClaude();
 
   // Awaited, so the in-memory startingJobs guard is released by the time
   // this returns — only the disk-based scan (anyOtherJobRunning) is left to
@@ -244,7 +249,7 @@ test("startGenerateJob's global lock blocks a different week's job (not just the
   const second = await startGenerateJob("INFO5990", 2, "/fake/week/dir", { runClaude: stuckRunClaude, root });
   expect(second).toEqual({ ok: false, reason: "another generation is already running" });
 
-  resolveClaude?.();
+  resolveClaude();
   if (first.ok) await first.done;
 });
 
@@ -349,11 +354,7 @@ test("startGenerateJob marks the job failed when transcription itself fails", as
 
 test("startGenerateJob's global in-memory lock blocks a different week's job fired concurrently before either writes status.json", async () => {
   const root = makeTempDir();
-  let resolveClaude: (() => void) | undefined;
-  const stuckRunClaude: RunClaude = () =>
-    new Promise((resolve) => {
-      resolveClaude = () => resolve({ stdout: "", stderr: "", exitCode: 0 });
-    });
+  const { runClaude: stuckRunClaude, release: resolveClaude } = makeStuckRunClaude();
 
   // Deliberately NOT awaited, and deliberately *different* course/week keys —
   // the global lock must block a second week's job just as it would the
@@ -366,15 +367,15 @@ test("startGenerateJob's global in-memory lock blocks a different week's job fir
   expect(first.ok).toBe(true);
   expect(second).toEqual({ ok: false, reason: "another generation is already running" });
 
-  resolveClaude?.();
+  resolveClaude();
   if (first.ok) await first.done;
 });
 
 test("startGenerateJob passes the update prompt to runClaude when deps.mode is 'update'", async () => {
   const root = makeTempDir();
-  let seenPrompt = "";
+  const prompts: string[] = [];
   const fakeRunClaude: RunClaude = async (args) => {
-    seenPrompt = args.at(-1) ?? "";
+    prompts.push(args.at(-1) ?? "");
     return { stdout: "enriched", stderr: "", exitCode: 0 };
   };
 
@@ -385,19 +386,138 @@ test("startGenerateJob passes the update prompt to runClaude when deps.mode is '
   });
   if (result.ok) await result.done;
 
-  expect(seenPrompt).toContain("ALREADY-AUTHORED");
+  expect(prompts.some((p) => p.includes("ALREADY-AUTHORED"))).toBe(true);
 });
 
 test("startGenerateJob defaults to the generate prompt when deps.mode is omitted", async () => {
   const root = makeTempDir();
-  let seenPrompt = "";
+  const prompts: string[] = [];
   const fakeRunClaude: RunClaude = async (args) => {
-    seenPrompt = args.at(-1) ?? "";
+    prompts.push(args.at(-1) ?? "");
     return { stdout: "wrote it", stderr: "", exitCode: 0 };
   };
 
   const result = await startGenerateJob("INFO5995", 31, "/fake/week/dir", { runClaude: fakeRunClaude, root });
   if (result.ok) await result.done;
 
-  expect(seenPrompt).toContain("Author exam-content");
+  expect(prompts.some((p) => p.includes("Author exam-content"))).toBe(true);
+});
+
+test("buildGeneratePrompt asks for about 50 questions per lecture paper, not the old 20-25", () => {
+  const prompt = buildGeneratePrompt("INFO5995", 3, "/fake/week/dir");
+  expect(prompt).toContain("About 50 questions per lecture paper");
+  expect(prompt).not.toContain("20-25");
+});
+
+test("ALLOWED_TOOLS covers every bun/git command the stage prompts tell the agent to run", () => {
+  // Bash(<prefix>*) patterns from the allowlist, as literal prefixes.
+  const prefixes = [...ALLOWED_TOOLS.matchAll(/Bash\(([^)]*?)\*\)/g)].map((m) => m[1]!);
+  const covered = (cmd: string) => prefixes.some((p) => cmd.startsWith(p));
+  for (const mode of ["generate", "update"] as const) {
+    const ctx: StageContext = { course: "INFO5995", week: 3, weekDir: "/fake/week/dir", mode };
+    const base = mode === "update" ? buildUpdatePrompt("INFO5995", 3, "/fake/week/dir") : buildGeneratePrompt("INFO5995", 3, "/fake/week/dir");
+    for (const stage of STAGES) {
+      const prompt = buildStagePrompt(stage, ctx, base);
+      // Commands are quoted ("bun ...") or backticked (`bun test`) in the prompts.
+      const cmds = [...prompt.matchAll(/["`]((?:bun|git) [^"`]*)["`]/g)].map((m) => m[1]!);
+      for (const cmd of cmds) expect({ stage, mode, cmd, covered: covered(cmd) }).toEqual({ stage, mode, cmd, covered: true });
+    }
+  }
+  // Sanity: the checks above are not vacuous.
+  const checker = buildStagePrompt("check", { course: "INFO5995", week: 3, weekDir: "/w", mode: "update" });
+  expect(checker).toContain('"git diff"');
+  expect(checker).toContain("bun scripts/check-mcq-lengths.ts");
+});
+
+test("startGenerateJob runs the five stages in order, one claude call each", async () => {
+  const root = makeTempDir();
+  const seen: string[] = [];
+  const fake: RunClaude = async (args) => {
+    seen.push(args.at(-1) ?? "");
+    return { stdout: "ok", stderr: "", exitCode: 0 };
+  };
+  const result = await startGenerateJob("INFO5995", 40, "/fake", { runClaude: fake, root });
+  if (result.ok) await result.done;
+  expect(seen.length).toBe(STAGES.length);
+  expect(seen[0]).toContain("READER");
+  expect(seen[1]).toContain("EXPLAINER");
+  expect(seen[2]).toContain("PLANNER");
+  expect(seen[3]).toContain("WRITER");
+  expect(seen[4]).toContain("CHECKER");
+  expect((await readJobStatus("INFO5995", 40, root)).state).toBe("done");
+});
+
+test("status records the running stage while it runs", async () => {
+  const root = makeTempDir();
+  const stagesSeen: (string | undefined)[] = [];
+  const fake: RunClaude = async () => {
+    stagesSeen.push((await readJobStatus("INFO5995", 41, root)).stage);
+    return { stdout: "ok", stderr: "", exitCode: 0 };
+  };
+  const result = await startGenerateJob("INFO5995", 41, "/fake", { runClaude: fake, root });
+  if (result.ok) await result.done;
+  expect(stagesSeen).toEqual(["read", "explain", "plan", "write", "check"]);
+});
+
+test("a failing stage stops the pipeline and records failedStage", async () => {
+  const root = makeTempDir();
+  let calls = 0;
+  const fake: RunClaude = async () => {
+    calls++;
+    return calls === 3 ? { stdout: "", stderr: "boom", exitCode: 1 } : { stdout: "ok", stderr: "", exitCode: 0 };
+  };
+  const result = await startGenerateJob("INFO5995", 42, "/fake", { runClaude: fake, root });
+  if (result.ok) await result.done;
+  const status = await readJobStatus("INFO5995", 42, root);
+  expect(calls).toBe(3);
+  expect(status.state).toBe("failed");
+  expect(status.failedStage).toBe("plan");
+  expect(status.exitCode).toBe(1);
+});
+
+test("retry after a failure resumes from the failed stage", async () => {
+  const root = makeTempDir();
+  let first = true;
+  const failPlan: RunClaude = async (args) => {
+    const p = args.at(-1) ?? "";
+    return first && p.includes("PLANNER") ? { stdout: "", stderr: "x", exitCode: 1 } : { stdout: "ok", stderr: "", exitCode: 0 };
+  };
+  let r = await startGenerateJob("INFO5995", 43, "/fake", { runClaude: failPlan, root });
+  if (r.ok) await r.done;
+  first = false;
+  const seen: string[] = [];
+  const ok: RunClaude = async (args) => {
+    seen.push(args.at(-1) ?? "");
+    return { stdout: "ok", stderr: "", exitCode: 0 };
+  };
+  r = await startGenerateJob("INFO5995", 43, "/fake", { runClaude: ok, root });
+  if (r.ok) await r.done;
+  expect(seen.length).toBe(3); // plan, write, check
+  expect(seen[0]).toContain("PLANNER");
+  expect((await readJobStatus("INFO5995", 43, root)).state).toBe("done");
+});
+
+test("a stage that exits 0 but did not write its output file fails the job", async () => {
+  const root = makeTempDir();
+  const fake: RunClaude = async () => ({ stdout: "ok", stderr: "", exitCode: 0 });
+  const result = await startGenerateJob("INFO5995", 44, "/fake", {
+    runClaude: fake,
+    root,
+    checkStageOutput: async () => false,
+  });
+  if (result.ok) await result.done;
+  const status = await readJobStatus("INFO5995", 44, root);
+  expect(status.state).toBe("failed");
+  expect(status.failedStage).toBe("read");
+  expect(status.logTail).toContain("did not write");
+});
+
+test("staleness is measured from the last stage update, not from the job start", async () => {
+  const root = makeTempDir();
+  const dir = join(root, "INFO5995-45");
+  mkdirSync(dir, { recursive: true });
+  const startedAt = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+  const updatedAt = new Date().toISOString();
+  writeFileSync(join(dir, "status.json"), JSON.stringify({ state: "running", startedAt, updatedAt, stage: "write" }));
+  expect((await readJobStatus("INFO5995", 45, root)).state).toBe("running");
 });

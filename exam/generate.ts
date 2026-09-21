@@ -13,13 +13,19 @@ import { join, dirname, basename, extname } from "node:path";
 import { COURSE_DIRS, findWeekFolder } from "./sync";
 import { scanWeekFolder } from "../scripts/generate-exam-week";
 import { transcribeVideo, DEFAULT_MODEL as DEFAULT_WHISPER_MODEL } from "../scripts/transcribe-lecture";
+import { STAGES, buildStagePrompt, stageOutputPath, type StageName, type StageContext, type GenerateMode } from "./pipeline";
+export type { GenerateMode } from "./pipeline";
 
 export interface JobStatus {
   state: "idle" | "running" | "done" | "failed";
   startedAt?: string;
+  updatedAt?: string;
   finishedAt?: string;
   exitCode?: number;
   logTail?: string;
+  stage?: StageName;
+  mode?: GenerateMode;
+  failedStage?: StageName;
 }
 
 export const DEFAULT_JOB_ROOT = join(import.meta.dir, ".exam-generate");
@@ -36,8 +42,9 @@ export function jobDir(course: string, week: number, root: string = DEFAULT_JOB_
 const RUNNING_STALE_MS = 60 * 60 * 1000;
 
 function withStaleness(status: JobStatus): JobStatus {
-  if (status.state !== "running" || !status.startedAt) return status;
-  const age = Date.now() - new Date(status.startedAt).getTime();
+  const since = status.updatedAt ?? status.startedAt;
+  if (status.state !== "running" || !since) return status;
+  const age = Date.now() - new Date(since).getTime();
   if (age <= RUNNING_STALE_MS) return status;
   return {
     ...status,
@@ -69,13 +76,12 @@ export function resolveWeekDir(
   return findWeekFolder(courseDir, week);
 }
 
-// Auto-approves file writes but pre-authorizes only the one Bash command
-// the authoring workflow actually needs — deliberately narrower than
-// --dangerously-skip-permissions, which Anthropic's own --help text calls
+// Auto-approves file writes but pre-authorizes only the Bash commands the
+// pipeline's stage prompts tell the agent to run (bun test, the bun scripts/
+// checkers, and git diff for the update-mode checker) — deliberately narrower
+// than --dangerously-skip-permissions, which Anthropic's own --help text calls
 // "recommended only for sandboxes with no internet access."
-export const ALLOWED_TOOLS = "Read Write Edit Glob Grep Bash(bun test*)";
-
-export type GenerateMode = "generate" | "update";
+export const ALLOWED_TOOLS = "Read Write Edit Glob Grep Bash(bun test*) Bash(bun scripts/*) Bash(git diff*)";
 
 export function buildGeneratePrompt(course: string, week: number, weekDir: string): string {
   const courseLower = course.toLowerCase();
@@ -83,7 +89,7 @@ export function buildGeneratePrompt(course: string, week: number, weekDir: strin
 
 Read the real material in "${weekDir}", including any "*.transcript.md" file — that's an auto-generated transcript of a lecture/tutorial recording (the video itself is transcribed automatically before this step and can't be opened directly, so the transcript is how its content reaches you). Per the authoring guide, use the transcript specifically to catch what the slides alone wouldn't — verbal asides, emphasis, examples worked through out loud, in-class questions — not just a prose re-read of the slide content. Read exam-content/${courseLower}/unit_outline.md and exam-content/${courseLower}/assessment_overview.md if they exist, for the unit's learning outcomes and final-exam format. Skim exam-content/${courseLower}/week-${week - 1}.ts if it exists, for continuity with the prior week.
 
-Write two separate papers matching exam-content/types.ts's ExamPaperSeed/ExamQuestionSeed shape, exported together as WEEK_${week}_PAPERS: paperNumber 1 is a tutorial-only paper (questions written only from the week's tutorial material — worksheets, tutorial slides, in-class exercises), and paperNumber 2 is a lecture-only paper (questions written only from the week's lecture material). List the tutorial paper first — it's the one to practice first. Roughly 20-25 questions per paper. If this week genuinely has no separate tutorial material, a single lecture-only paperNumber-1 paper is fine. Then wire it into exam/content.ts: add the import and append it to the ALL_PAPERS array, exactly the way every prior week is already wired in there.
+Write two separate papers matching exam-content/types.ts's ExamPaperSeed/ExamQuestionSeed shape, exported together as WEEK_${week}_PAPERS: paperNumber 1 is a tutorial-only paper (questions written only from the week's tutorial material — worksheets, tutorial slides, in-class exercises), and paperNumber 2 is a lecture-only paper (questions written only from the week's lecture material). List the tutorial paper first — it's the one to practice first. About 50 questions per lecture paper (see the authoring guide's "Question count per paper"); a tutorial paper can be smaller. If this week genuinely has no separate tutorial material, a single lecture-only paperNumber-1 paper is fine. Then wire it into exam/content.ts: add the import and append it to the ALL_PAPERS array, exactly the way every prior week is already wired in there.
 
 Finally, run \`bun test\` and fix any failures until the full suite passes with no failures — including fixing any existing test elsewhere in the repo that turns out to hardcode an assumption your new week's content invalidates (for example, a test assuming a specific course still has only one week of content).
 
@@ -131,19 +137,34 @@ export const defaultRunClaude: RunClaude = async (args, cwd) => {
 
 export type TranscribeFn = (input: string, model: string, outPath: string) => Promise<void>;
 
+export type CheckStageOutput = (stage: StageName, ctx: StageContext) => Promise<boolean>;
+
 export interface StartJobDeps {
   runClaude: RunClaude;
   root: string;
   transcribe?: TranscribeFn;
   whisperModel?: string;
   mode?: GenerateMode;
+  checkStageOutput?: CheckStageOutput;
 }
+
+const REPO_ROOT = import.meta.dir;
+
+// Real check: the stage's output file exists and is non-empty. Tests inject their
+// own (or omit it, which skips the check).
+export const defaultCheckStageOutput: CheckStageOutput = async (stage, ctx) => {
+  const rel = stageOutputPath(stage, ctx.course, ctx.week);
+  if (rel === null) return true;
+  const file = Bun.file(join(REPO_ROOT, rel));
+  return (await file.exists()) && file.size > 0;
+};
 
 export const defaultGenerateDeps: StartJobDeps = {
   runClaude: defaultRunClaude,
   root: DEFAULT_JOB_ROOT,
   transcribe: transcribeVideo,
   whisperModel: DEFAULT_WHISPER_MODEL,
+  checkStageOutput: defaultCheckStageOutput,
 };
 
 // Transcribes every video in weekDir that doesn't already have a
@@ -168,8 +189,6 @@ export async function transcribeWeekVideos(weekDir: string, transcribe: Transcri
 }
 
 export type StartResult = { ok: true; done: Promise<void> } | { ok: false; reason: string };
-
-const REPO_ROOT = import.meta.dir;
 
 // Closes the narrow dispatch-time race where two near-simultaneous calls
 // (e.g. a double-click) both pass the disk-based "not already running"
@@ -223,7 +242,15 @@ export async function startGenerateJob(
     mkdirSync(dir, { recursive: true });
     const statusPath = join(dir, "status.json");
     const startedAt = new Date().toISOString();
-    await Bun.write(statusPath, JSON.stringify({ state: "running", startedAt } satisfies JobStatus));
+    const mode = deps.mode ?? "generate";
+    // A failed job resumes from the stage that failed (same mode only); anything
+    // else starts from the top.
+    const resumeFrom: StageName =
+      existing.state === "failed" && existing.failedStage && existing.mode === mode ? existing.failedStage : "read";
+    await Bun.write(
+      statusPath,
+      JSON.stringify({ state: "running", startedAt, updatedAt: startedAt, stage: resumeFrom, mode } satisfies JobStatus),
+    );
 
     // Fire-and-forget from the caller's point of view (an HTTP route handler
     // returns as soon as this function resolves, well before generation
@@ -237,7 +264,9 @@ export async function startGenerateJob(
       deps.runClaude,
       deps.transcribe ?? transcribeVideo,
       deps.whisperModel ?? DEFAULT_WHISPER_MODEL,
-      deps.mode ?? "generate",
+      mode,
+      resumeFrom,
+      deps.checkStageOutput,
     ).catch(() => {});
     return { ok: true, done };
   } finally {
@@ -255,32 +284,58 @@ async function runGeneration(
   transcribe: TranscribeFn,
   whisperModel: string,
   mode: GenerateMode,
+  resumeFrom: StageName,
+  checkStageOutput?: CheckStageOutput,
 ): Promise<void> {
+  const ctx: StageContext = { course, week, weekDir, mode };
+  const writerBase = mode === "update" ? buildUpdatePrompt(course, week, weekDir) : buildGeneratePrompt(course, week, weekDir);
+  let lastLog = "";
+  let currentStage: StageName = resumeFrom;
   try {
-    // Any video in weekDir without a transcript yet gets one now, before
-    // Claude ever runs — both prompt builders tell it to read
-    // "*.transcript.md" files, which only exist once this step has run.
-    await transcribeWeekVideos(weekDir, transcribe, whisperModel);
-    const buildPrompt = mode === "update" ? buildUpdatePrompt : buildGeneratePrompt;
-    const prompt = buildPrompt(course, week, weekDir);
-    const args = buildClaudeArgs(prompt);
-    const { stdout, stderr, exitCode } = await runClaude(args, REPO_ROOT);
-    const status: JobStatus = {
-      state: exitCode === 0 ? "done" : "failed",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      exitCode,
-      logTail: summarizeOutput(stdout, stderr),
-    };
-    await Bun.write(statusPath, JSON.stringify(status));
+    // Any video in weekDir without a transcript yet gets one now, before the
+    // reader runs — the stage prompts tell the agent to read "*.transcript.md"
+    // files, which only exist once this step has run.
+    if (resumeFrom === "read") await transcribeWeekVideos(weekDir, transcribe, whisperModel);
+    for (const stage of STAGES.slice(STAGES.indexOf(resumeFrom))) {
+      currentStage = stage;
+      await Bun.write(
+        statusPath,
+        JSON.stringify({ state: "running", startedAt, updatedAt: new Date().toISOString(), stage, mode } satisfies JobStatus),
+      );
+      const args = buildClaudeArgs(buildStagePrompt(stage, ctx, writerBase));
+      const { stdout, stderr, exitCode } = await runClaude(args, REPO_ROOT);
+      lastLog = summarizeOutput(stdout, stderr);
+      if (exitCode !== 0) {
+        await Bun.write(
+          statusPath,
+          JSON.stringify({ state: "failed", startedAt, finishedAt: new Date().toISOString(), exitCode, logTail: lastLog, failedStage: stage, mode } satisfies JobStatus),
+        );
+        return;
+      }
+      if (checkStageOutput && !(await checkStageOutput(stage, ctx))) {
+        await Bun.write(
+          statusPath,
+          JSON.stringify({
+            state: "failed", startedAt, finishedAt: new Date().toISOString(), exitCode,
+            logTail: `The ${stage} stage finished but did not write ${stageOutputPath(stage, course, week)}.`,
+            failedStage: stage, mode,
+          } satisfies JobStatus),
+        );
+        return;
+      }
+    }
+    await Bun.write(
+      statusPath,
+      JSON.stringify({ state: "done", startedAt, finishedAt: new Date().toISOString(), exitCode: 0, logTail: lastLog, mode } satisfies JobStatus),
+    );
   } catch (err) {
-    const status: JobStatus = {
-      state: "failed",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      logTail: err instanceof Error ? err.message : String(err),
-    };
-    await Bun.write(statusPath, JSON.stringify(status));
+    await Bun.write(
+      statusPath,
+      JSON.stringify({
+        state: "failed", startedAt, finishedAt: new Date().toISOString(),
+        logTail: err instanceof Error ? err.message : String(err), failedStage: currentStage, mode,
+      } satisfies JobStatus),
+    );
   }
 }
 

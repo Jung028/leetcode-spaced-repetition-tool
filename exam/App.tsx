@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { ExamPaperView, ExamQuestionView, ExamHistoryWeek } from "./api";
 import type { ExamWeekView } from "./content";
 import type { JobStatus } from "./generate";
+import { STAGE_LABELS, STAGES } from "./pipeline";
 import { TIMELINE_URL, TIMELINE_ANCHORS } from "../shared/timeline-link";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { isMultiCorrect } from "./grading";
@@ -262,7 +263,7 @@ function SyncBanner({
             const queuePosition = queue.indexOf(key);
             const queued = queuePosition !== -1;
             const label = running
-              ? `Generating… ${formatElapsed(job!.startedAt!, tick)}`
+              ? `Generating… ${job!.stage ? `${STAGE_LABELS[job!.stage]} ${STAGES.indexOf(job!.stage) + 1}/${STAGES.length} ` : ""}${formatElapsed(job!.startedAt!, tick)}`
               : queued
                 ? `Queued · #${queuePosition + 1}`
                 : failed
