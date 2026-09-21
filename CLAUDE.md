@@ -255,6 +255,14 @@ overlap, and drop near-duplicates and filler rather than padding or
 covering every slide. Aim for roughly 33 `mcq`, 14 multiple-answer and 3
 `truefalse` in a lecture paper; a tutorial paper can be smaller (~30–35).
 
+**Lecture quiz questions are mandatory (user, 2026-09-21):** when the
+lecture material contains its own quiz (in-lecture quiz / Mentimeter / poll
+questions), **every one of those questions must be included in the week's
+paper** — none dropped, none merged away. They count toward the ~50; if
+they alone push a paper slightly past ~50, keep them all and trim the
+other questions instead. Fill the remaining slots with the strongest
+additional questions per the rules above.
+
 **Outstanding gap:** `ExamQuestionType` (`exam-content/types.ts:1`) is
 currently `"mcq" | "truefalse" | "short" | "scenario"` — there is no
 select-all-that-apply type yet, `correctIndex` is a single index (not a set
