@@ -24,8 +24,8 @@ test("isMultiCorrect: duplicate selections don't inflate the match", () => {
 });
 
 test("normaliseBlank ignores case, spacing and punctuation", () => {
-  expect(normaliseBlank("  Message-Authentication   CODE. ")).toBe("message authentication code");
-  expect(normaliseBlank("M.A.C.")).toBe("m a c");
+  expect(normaliseBlank("  Message-Authentication   CODE. ")).toBe("messageauthenticationcode");
+  expect(normaliseBlank("M.A.C.")).toBe("mac");
 });
 
 test("isFillBlankCorrect accepts any listed spelling per blank, ignoring case/punctuation", () => {
@@ -57,4 +57,11 @@ test("isSortCorrect requires every item in its own group", () => {
   expect(isSortCorrect([0, 1, 1, 0], [0, 1, 1, 0])).toBe(true);
   expect(isSortCorrect([0, 1, 0, 0], [0, 1, 1, 0])).toBe(false);
   expect(isSortCorrect([0, 1], [0, 1, 1, 0])).toBe(false);
+});
+
+test("isFillBlankCorrect ignores punctuation and spacing inside answers", () => {
+  expect(isFillBlankCorrect(["M.A.C."], [["mac"]])).toBe(true);
+  expect(isFillBlankCorrect(["e-mail"], [["email"]])).toBe(true);
+  expect(isFillBlankCorrect(["TCP/IP"], [["tcp ip"]])).toBe(true);
+  expect(isFillBlankCorrect(["..."], [["..."]])).toBe(false);
 });

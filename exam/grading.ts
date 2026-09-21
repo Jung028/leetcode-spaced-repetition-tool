@@ -13,16 +13,15 @@ export function isMultiCorrect(selected: number[], correct: number[]): boolean {
   return true;
 }
 
-// Lowercase, turn punctuation into spaces, collapse runs of whitespace. Both the
-// typed text and every accepted answer go through this, so "M.A.C." == "mac"
-// only if the accepted list says so — spelling still has to match.
+// Returns a comparison KEY with case, spacing and punctuation all removed:
+// NFKC-normalise, lowercase, then drop every character that is not a letter or
+// number. Both the typed text and every accepted answer go through this, so
+// "M.A.C.", "e-mail" and "TCP/IP" match "mac", "email" and "tcp ip".
 export function normaliseBlank(s: string): string {
   return s
     .normalize("NFKC")
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/[^\p{L}\p{N}]/gu, "");
 }
 
 // Every blank must match one of its accepted answers; all-or-nothing.
