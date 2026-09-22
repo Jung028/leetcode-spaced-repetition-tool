@@ -29,6 +29,7 @@ import { WEEK_2_PAPERS as INFO5990_WEEK_2_PAPERS } from "../exam-content/info599
 import { WEEK_3_PAPERS as INFO5990_WEEK_3_PAPERS } from "../exam-content/info5990/week-3";
 import { WEEK_4_PAPERS as INFO5990_WEEK_4_PAPERS } from "../exam-content/info5990/week-4";
 import { WEEK_5_PAPERS as INFO5990_WEEK_5_PAPERS } from "../exam-content/info5990/week-5";
+import { WEEK_6_PAPERS as INFO5990_WEEK_6_PAPERS } from "../exam-content/info5990/week-6";
 import { WEEK_7_PAPERS as INFO5990_WEEK_7_PAPERS } from "../exam-content/info5990/week-7";
 import { WEEK_1_PAPERS as TRACELY_WEEK_1_PAPERS } from "../exam-content/tracely/week-1";
 import type { ExamPaperSeed } from "../exam-content/types";
@@ -63,6 +64,7 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO5990_WEEK_3_PAPERS,
   ...INFO5990_WEEK_4_PAPERS,
   ...INFO5990_WEEK_5_PAPERS,
+  ...INFO5990_WEEK_6_PAPERS,
   ...INFO5990_WEEK_7_PAPERS,
   ...TRACELY_WEEK_1_PAPERS,
 ];
