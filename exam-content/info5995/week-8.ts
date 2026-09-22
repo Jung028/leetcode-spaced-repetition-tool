@@ -761,4 +761,384 @@ const LECTURE_PAPER: ExamPaperSeed = {
   ],
 };
 
-export const WEEK_8_PAPERS: ExamPaperSeed[] = [LECTURE_PAPER];
+const TUTORIAL_PAPER: ExamPaperSeed = {
+  course: "INFO5995",
+  week: 8,
+  paperNumber: 2,
+  title: "Week 8 Tutorial: Password Storage, SQL Injection, IDS/IPS and Common Vulnerabilities",
+  topics:
+    "Week 8 tutorial (Ed Lessons — Securing Software and Running Systems). Modern password storage as a which-component-does-what exercise: the backend/application server generates the per-user salt and runs the password hashing function (PHF, e.g. Argon2id/bcrypt/scrypt/PBKDF2), the database stores username+salt+password_hash+parameters but never the plaintext, an optional pepper is kept outside the password database in a secret manager/KMS/HSM; the registration and login flows step by step; why a stolen database plus a live-page lockout still allows offline guessing. SQL injection tutorial example: the alice' OR '1'='1' -- - bypass, why the `-- -` comment matters, parameterised/prepared queries sending data separately from SQL syntax, why input validation (e.g. a username regex) is not a substitute. XSS reframed as a which-component-does-what bug (server stores/reflects content, browser interprets it, missing output encoding for context is the flaw). IDS or IPS decision table: five failed logins, 10,000 login attempts from one IP, a known malware signature, and unusual outbound data at 3am, each needing an IDS-alert vs IPS-block call with a reason; why a poorly tuned IPS causes operational problems. Other common vulnerability categories: broken access control, IDOR, CSRF, SSRF, command injection, RCE, path traversal, unsafe file upload, insecure deserialisation, vulnerable third-party components, security misconfiguration, sensitive data exposure, broken session management, race conditions, missing logging and monitoring.",
+  sourceFiles: [
+    "Ed Lessons — INFO5995 Week 08 Tutorial: Securing Software and Running Systems (slides 817524/781149/781150/781151/781152/791058/781153)",
+  ],
+  questions: [
+    // ---------- Round 1: modern password storage (0-9) ----------
+    {
+      type: "mcq",
+      prompt:
+        "A website handles its own logins. During registration, which component should normally generate the per-user salt and compute the password hash?",
+      options: [
+        "The database, after storing the plaintext password",
+        "The browser, then the server stores only the user's typed password",
+        "The DNS server, before the browser connects to the website",
+        "The application server, before storing the password record",
+      ],
+      correctIndex: 3,
+      modelAnswer:
+        "Picture a nightclub where the bouncer, not the guests and not the cloakroom, is the one who stamps each visitor's hand with a unique pattern. The stamping has to happen at one trusted checkpoint, not wherever is convenient.\n\n• The trusted checkpoint: the backend application server, or a trusted authentication service it calls, is the one place that should turn a typed password into something safe to store.\n\n• Why not the browser: the browser is on the user's own machine, outside your control, so trusting it to hash the password means trusting an attacker's machine too if that machine is compromised.\n\n• Why not the database: a database stores records, it does not run application logic like a hashing function.\n\n• Why not DNS: DNS only turns a website name into an address, it never touches passwords at all.\n\nSo the answer is: the application server or trusted authentication service generates the salt and computes the hash, before anything is stored.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "Which set of values should normally be stored in the password database for a user account?",
+      options: [
+        "Username, plaintext password, and pepper",
+        "Username, password, private TLS key, and session cookies",
+        "Username, salt, password-hash output, and hashing parameters",
+        "Username only, because salts must never be stored",
+      ],
+      correctIndex: 2,
+      modelAnswer:
+        "Think of a locked diary where you write down the recipe you used to bake a cake, and a sample slice, but never the actual recipe card someone could steal and reuse elsewhere.\n\n• What is stored: the username, that user's random salt, the output of the hashing function (the password hash), and which hashing function and settings were used (the parameters), so the same check can be repeated at login.\n\n• What is never stored: the plaintext password. If you can read it back out, so can an attacker who steals the database.\n\n• Why not a private TLS key or session cookies: those belong to a completely different part of the system, encrypting the connection and tracking a logged-in session, not to how a password is checked.\n\n• Why salts must be stored: a salt only works if the server can look it up again next time the user logs in, so it has to sit right next to the hash, out in the open.\n\nSo the answer is: username, salt, password-hash output, and the hashing parameters.",
+    },
+    {
+      type: "mcq",
+      prompt: "What is the main purpose of a random per-user salt in password storage?",
+      options: [
+        "It encrypts the password so the server can decrypt it during login",
+        "It replaces the need for a password hashing function",
+        "It makes the same password produce different stored hashes for different users",
+        "It must stay secret or the password immediately becomes plaintext",
+      ],
+      correctIndex: 2,
+      modelAnswer:
+        "Imagine two students who both pick the password sunshine123. If the teacher stamps each answer sheet with a different random watermark before marking it, the two sheets end up looking nothing alike, even though the underlying answer was the same.\n\n• Without a salt: two users with the same password get the exact same stored hash, and an attacker with a precomputed table of common password hashes can crack both accounts in one lookup.\n\n• With a salt: it gets mixed in before hashing, so identical passwords produce completely different stored hashes, which defeats precomputed lookup tables and forces the attacker to guess each account separately.\n\n• Why the other options are wrong: hashing is one-way, so nothing is ever decrypted back to the password, a salt does not replace the hashing function, and unlike a pepper, a salt is fine to store openly because its whole job is done once it is mixed in.\n\nSo the answer is: it makes the same password produce a different stored hash for every user.",
+    },
+    {
+      type: "mcq",
+      prompt: "If a pepper is used alongside password hashing, where should it be stored?",
+      options: [
+        "In the same database table as every user's salt",
+        "In the user's browser so the user can prove identity",
+        "Separately from the password database, such as in a secret manager",
+        "In the public source code repository for reproducibility",
+      ],
+      correctIndex: 2,
+      modelAnswer:
+        "A pepper is like the one master ingredient a bakery keeps locked in the manager's office, while every other ingredient sits out on the open shelf for any baker to use.\n\n• Why separate: a pepper is a single high-value secret shared across accounts, so if it sat in the same table as the salts, stealing the database would hand the attacker everything they need.\n\n• Where it belongs: a secret manager, a key-management service, an HSM-backed service, or protected environment configuration that is not part of the password database backup.\n\n• Why not the browser: the pepper must never leave the trusted backend, the same reasoning that keeps password hashing off the browser applies here too.\n\n• Why not a public repository: publishing it defeats the entire point of keeping it secret.\n\nSo the answer is: separately from the password database, such as in a secret manager.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "A company's password database is stolen, but its live login page locks an account out after five failed attempts. Which statement about this is most accurate?",
+      options: [
+        "Account lockout stops all offline guessing because the attacker must use the login page",
+        "Account lockout decrypts the stored hashes after five failed attempts",
+        "Account lockout means salts and password hashing are no longer needed",
+        "Account lockout does not stop offline guessing against the stolen hashes",
+      ],
+      correctIndex: 3,
+      modelAnswer:
+        "A shop's till only lets a cashier try five wrong PIN guesses before it locks. That rule is completely useless once the safe itself has been carried out the back door, because nobody needs the till anymore.\n\n• The key distinction: account lockout only limits guesses made through the live login page. Once the database is stolen, the attacker guesses offline, on their own hardware, with no login page and no lockout in the way.\n\n• What still protects the stolen hashes: the strength of the hashing function and how expensive it is to compute, which is exactly why slow, tunable functions like Argon2id are chosen over fast ones.\n\n• Why the other options are wrong: hashes are not decrypted by anything, lockout is a front-door control, and the theft changes nothing about needing salts and hashing in the first place, if anything it proves why they matter.\n\nSo the answer is: account lockout does not stop offline guessing against the stolen hashes.",
+    },
+    {
+      type: "order",
+      prompt: "Put the steps of the registration flow for a self-managed password system in the correct order.",
+      steps: [
+        "The browser sends the username and password to the backend over HTTPS",
+        "The backend generates a fresh random salt for this user",
+        "The backend runs the password hashing function on the password, salt, parameters, and optional pepper",
+        "The backend stores the username, salt, password-hash output, and hashing parameters in the database",
+        "If a pepper is used, it is fetched from a separate secret store and never saved into the password database",
+      ],
+      modelAnswer:
+        "Think of enrolling at a new gym. You hand over your details at the front desk, the desk issues you a unique membership number, that number gets combined with your details to print your card, the file goes into the cabinet, and the one master key to the safe stays with the manager, not filed with your paperwork.\n\n• Step 1: the credentials travel from browser to backend, protected in transit by HTTPS.\n\n• Step 2: a fresh, random salt is generated for this specific user, never reused from someone else.\n\n• Step 3: the hashing function combines the password, that salt, the chosen parameters, and the pepper if one is used.\n\n• Step 4: only the non-secret pieces, username, salt, hash output, and parameters, get written to the database.\n\n• Step 5: the pepper itself is pulled from its own secret store each time, and it is deliberately kept out of the password database.\n\nSo the answer is: send credentials over HTTPS, generate the salt, run the hashing function, store username/salt/hash/parameters, and keep any pepper in a separate secret store.",
+    },
+    {
+      type: "order",
+      prompt: "Put the steps of the login flow for a self-managed password system in the correct order.",
+      steps: [
+        "The browser sends the username and the password attempt to the backend over HTTPS",
+        "The backend fetches that user's stored salt, password hash, and hashing parameters from the database",
+        "The backend recomputes a candidate hash from the password attempt, salt, parameters, and optional pepper",
+        "The backend compares the candidate hash with the stored password hash",
+        "Authentication succeeds only if the two hashes match",
+      ],
+      modelAnswer:
+        "It is like checking a wax seal on a returned parcel. You do not reopen and compare the original letter, you press a fresh seal with the same stamp and see whether the new wax pattern matches the one already on file.\n\n• Step 1: the attempt travels from browser to backend over HTTPS, just like at registration.\n\n• Step 2: the backend looks up that specific user's stored salt, hash, and parameters, nothing about the login can proceed without these.\n\n• Step 3: the backend redoes the exact same hashing recipe on the new attempt, using the same salt and parameters so the comparison is fair.\n\n• Step 4: it lines the freshly computed hash up against the one saved back at registration.\n\n• Step 5: only a match lets the user in, since hashing is one-way there is no other way to check.\n\nSo the answer is: send the attempt, fetch the stored salt/hash/parameters, recompute the candidate hash, compare it, and succeed only on a match.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "An attacker steals the password database, which holds usernames, salts, hashes and parameters, but the pepper is kept in a separate secret manager the attacker cannot reach. What can the attacker do next?",
+      options: [
+        "Nothing at all, because without the pepper the stolen hashes are completely useless to them",
+        "Recover every plaintext password instantly, since the salt alone is enough to reverse a hash",
+        "Try offline guesses through the same hashing function, but each guess is missing the correct pepper so it produces the wrong hash",
+        "Log in directly using the stolen hash in place of a password, since the login page accepts hashes as well",
+      ],
+      correctIndex: 2,
+      modelAnswer:
+        "Imagine a recipe card is stolen but one secret ingredient is locked in a safe the thief cannot open. The thief can still bake test batches all day long, they just cannot know it is right until they happen to guess the missing ingredient too.\n\n• What the attacker still has: usernames, salts, hashes and parameters, which is enough to attempt an offline dictionary or brute-force attack, recomputing the hash for each guessed password.\n\n• What blocks them: without the pepper, every one of those guesses is computed with the wrong ingredient, so a guess that matches the real password still will not produce a matching hash, unless they also guess the pepper.\n\n• Why not fully useless: the pepper adds a real extra hurdle, it does not make the stolen data worthless, a weak, common, or reused password can still eventually be found if the pepper itself is somehow guessed or leaked separately.\n\n• Why the last option is wrong: a login page checks a typed password, not a raw hash value, so a stolen hash cannot simply be typed in as if it were the password.\n\nSo the answer is: they can attempt offline guesses, but each one is missing the correct pepper, so a correct password guess still will not produce a matching hash.",
+    },
+    {
+      type: "multi",
+      prompt: "Select all true statements about the difference between a salt and a pepper.",
+      options: [
+        "A salt is unique per user and is stored openly alongside that user's hash",
+        "A pepper is typically one secret value shared across many users and kept outside the password database",
+        "A salt must be kept just as secret as a pepper, or the whole scheme fails",
+        "Both a salt and a pepper are combined into the password before hashing",
+        "A pepper is generated fresh for every single login attempt, unlike a salt",
+      ],
+      correctIndices: [0, 1, 3],
+      modelAnswer:
+        "A salt is like a name tag everyone can see at a conference, unique to each person but not secret. A pepper is like the one shared staff passcode that only the organisers know, and it stays the same across the whole event.\n\n• Salt: unique per user, stored openly right next to the hash, its job is to stop identical passwords from producing identical hashes.\n\n• Pepper: usually one value shared across the whole system, kept secret and stored well away from the password database.\n\n• Why the secrecy option is wrong: a salt does not need to be secret to do its job, that is exactly what makes a pepper different from it.\n\n• Both get combined: the hashing function mixes in the password, the salt, and the pepper if one is used, before producing the stored hash.\n\n• Why the last option is wrong: neither a salt nor a pepper is regenerated per login attempt, they are set once, at registration, and reused every time that same account is checked.\n\nSo the answer is: a salt is unique and stored openly, a pepper is a shared secret kept separately, and both feed into the hashing function.",
+    },
+    {
+      type: "fillblank",
+      prompt:
+        "A ___ is generated fresh for each user and is stored in plain view next to their password hash, unlike a pepper, which stays secret and is stored separately from the password database.",
+      blanks: [["salt"]],
+      modelAnswer:
+        "One of these two ingredients is a name tag anyone can read, the other is a locked-away shared passcode.\n\n• Salt: unique per user, and openly stored right alongside the hash, since its job does not depend on being secret.\n\n• Pepper: the secret one, deliberately kept apart from the password database.\n\nSo the answer is: salt.",
+    },
+    // ---------- Round 2: SQL injection (10-14) ----------
+    {
+      type: "mcq",
+      prompt:
+        "In the injected login attempt alice' OR '1'='1' -- -, what does the trailing -- - mainly do?",
+      options: [
+        "It hashes the password before comparison",
+        "It tells the browser to block JavaScript",
+        "It encrypts the SQL query before it reaches the database",
+        "It starts a SQL comment so the remaining password check can be ignored",
+      ],
+      correctIndex: 3,
+      modelAnswer:
+        "It is like scribbling out the rest of a sentence on a form with a thick black marker, so whoever reads it afterwards never sees what came next.\n\n• What -- - does: in SQL it marks the start of a comment, so the database engine ignores everything written after it on that line.\n\n• Why it matters here: the original query still has an AND password = '...' check waiting after the username. The comment marker erases that check from the database's point of view, so it never runs.\n\n• Combined with OR '1'='1': the username condition becomes always true, and the password condition never even gets evaluated, so the login can succeed with no correct password at all.\n\n• Why the other options are wrong: nothing here touches hashing, the browser, or encryption, this is purely about how the database engine parses SQL text.\n\nSo the answer is: it starts a SQL comment, so the remaining password check is never evaluated.",
+    },
+    {
+      type: "mcq",
+      prompt: "Why do prepared statements or parameterized queries help defend against SQL injection?",
+      options: [
+        "They send user input as data instead of letting it become SQL syntax",
+        "They make the database run over HTTPS",
+        "They remove the need for authentication",
+        "They store every password in plaintext for easier comparison",
+      ],
+      correctIndex: 0,
+      modelAnswer:
+        "A fill-in-the-blank form with fixed printed wording around each blank cannot be rewritten by whatever the visitor scribbles in the blank, no matter how cleverly worded it is.\n\n• The fix: the SQL structure, such as SELECT id FROM users WHERE username = ? AND password = ?, is fixed first, and the actual values are sent to the database separately, as pure data.\n\n• Why that stops injection: even a value like alice' OR '1'='1' -- - is just treated as a literal string to search for in the username column, it can never break out and become part of the SQL command itself.\n\n• Why the other options are wrong: prepared statements are about how a query is built, they have nothing to do with the transport protocol, whether authentication happens, or how passwords are stored.\n\nSo the answer is: they send user input as data, never letting it become part of the SQL syntax.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "A login uses a parameterized query SELECT id FROM users WHERE username = ? AND password = ?, with the two typed values sent to the database separately as data. An attacker types alice' OR '1'='1' -- - as the username. What happens?",
+      options: [
+        "The always-true OR condition still applies, so the login succeeds without a correct password",
+        "The database splits the text at the apostrophe and runs the first part as a separate SQL command",
+        "The comment marker deletes the users table before the query can run",
+        "The database treats the whole typed text as one literal username value to search for, so the lookup fails",
+      ],
+      correctIndex: 3,
+      modelAnswer:
+        "Writing a strange sentence full of punctuation on a name tag does not turn the tag into a real instruction, security guards still just read it as a (weird) name and check it against the guest list.\n\n• What changes with parameters: the value alice' OR '1'='1' -- - never gets pasted into the SQL text at all, it travels to the database as a separate piece of data, tagged as the value for the username parameter.\n\n• The result: the database looks for a username that is literally the whole string, apostrophes, OR, dashes and all, and since no such account exists, the lookup simply fails.\n\n• Why the string-joining flaw is now gone: the vulnerable version from the reading built the SQL text by joining strings together, which let the apostrophe close the intended quote early. A parameterized query never joins anything, so there is no quote for the attacker's apostrophe to close.\n\n• Why the other options are wrong: nothing splits the value into separate commands, and no comment marker can delete a table, that danger only existed in the vulnerable string-joining version.\n\nSo the answer is: the database treats the whole attacker string as one literal username, so the login attempt fails.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "A tutorial example restricts usernames to the pattern ^[A-Za-z0-9_]{3,32}$, letters, digits and underscores only, 3 to 32 characters. Why is this input validation not a substitute for parameterized queries?",
+      options: [
+        "Validation rules like this one can be incomplete, and other input fields may need to allow much richer text that a simple pattern cannot safely cover",
+        "Regular expressions cannot be run on a web server, so this kind of check is never actually usable in practice",
+        "Validation makes the application slower than a parameterized query, so it is worse purely for performance reasons",
+        "Parameterized queries and validation do the exact same job, so using both at once is simply redundant",
+      ],
+      correctIndex: 0,
+      modelAnswer:
+        "A doorman who only ever checks for exactly one kind of fake ID will still get fooled by a fake he has never seen before. A locked door that nobody without the real key can open at all works regardless of what trick they try.\n\n• Why validation alone is fragile: a pattern like this one only manages the username field, and other fields, like a comment box or a full name, may need to allow apostrophes, spaces or punctuation that a strict pattern would wrongly reject.\n\n• The deeper reason it is not a substitute: SQL safety should not depend on manually blocking every dangerous character across every field, that is an easy list to get wrong or forget to update, whereas a parameterized query removes the danger structurally, no matter what characters arrive.\n\n• Why they are not redundant together: validation is still genuinely useful, catching obviously malformed input early and improving data quality, it just is not the layer that is responsible for stopping injection.\n\n• Why the other two options are wrong: regular expressions run perfectly well on a web server, and this is not fundamentally a performance argument.\n\nSo the answer is: validators can be incomplete and other fields may need richer text, so SQL safety should not depend on manually blocking dangerous characters instead of using parameterized queries.",
+    },
+    {
+      type: "order",
+      prompt: "Put the steps of the vulnerable SQL injection flow described in the tutorial into the correct order.",
+      steps: [
+        "The application reads a username and password from an HTTP form",
+        "The application builds a SQL string by joining fixed SQL text with the user's typed input",
+        "The attacker enters alice' OR '1'='1' -- - as the username, with any text as the password",
+        "The final SQL string becomes one command that the database cannot tell apart from a legitimate query",
+        "Because '1'='1' is true and the rest of the line is commented out, the password check may be bypassed",
+      ],
+      modelAnswer:
+        "It is like a form letter assembled by literally gluing strips of paper together, including whatever the sender wrote on their reply slip, then reading the whole glued-together mess aloud as if every word were the office's own wording.\n\n• Step 1: ordinary input arrives from a form, nothing suspicious yet on its own.\n\n• Step 2: the flaw is introduced here, joining fixed SQL text with untrusted input turns that input into part of the command.\n\n• Step 3: the attacker supplies text specifically crafted to exploit that joining.\n\n• Step 4: the database receives a single SQL string and has no way to know which parts were meant as code and which were meant as data.\n\n• Step 5: the always-true condition plus the comment together let the login succeed without a valid password.\n\nSo the answer is: read the form input, join it into the SQL string, the attacker enters the crafted username, the final string becomes one command, and the always-true condition plus the comment bypass the password check.",
+    },
+    // ---------- Round 3: IDS or IPS decision table (15-19) ----------
+    {
+      type: "mcq",
+      prompt:
+        "A monitoring system logs five failed login attempts on one account within a minute, from what looks like the account owner's usual location. Which is the better call: an IDS alert, or an automatic IPS block, and why?",
+      options: [
+        "An automatic IPS block, because any failed login at all should be treated as a confirmed attack",
+        "An IDS alert, because five failed attempts is a weak, low-confidence signal that could just be the real user mistyping their password",
+        "An automatic IPS block, because blocking is always safer than alerting no matter how weak the signal is",
+        "Neither, because failed logins are too common to ever be worth recording",
+      ],
+      correctIndex: 1,
+      modelAnswer:
+        "A parent who calls the police the instant their teenager is five minutes late home will burn out that relationship fast. A parent who quietly starts keeping an eye on the clock does not.\n\n• Why this is a weak signal: five failed logins from what looks like the usual location very often just means the real account owner fumbled their password, which is an everyday, low-stakes event.\n\n• Why alert rather than block: an IDS alert lets a person, or a smarter automated check, look closer before anyone is punished. Automatically locking the account out after a handful of typos would frustrate genuine users far more often than it stops real attackers.\n\n• The general rule this follows: reserve automatic blocking for higher-confidence signals, and use alerting for signals that are common enough to include a lot of innocent explanations.\n\nSo the answer is: an IDS alert, because five failed attempts is a weak signal that is very often just the real user, not a confirmed attacker.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "A monitoring system logs 10,000 login attempts against many different accounts, all arriving from a single IP address within a few minutes. Which is the better call: an IDS alert, or an automatic IPS block, and why?",
+      options: [
+        "An automatic IPS block, because a volume and pattern this extreme is a high-confidence sign of an automated brute-force attack",
+        "An IDS alert only, because volume alone is never enough evidence to justify blocking anything automatically",
+        "Neither, because the traffic is still valid login traffic and must always be allowed through",
+        "An automatic IPS block, purely because 10,000 is a round, easy-to-remember number",
+      ],
+      correctIndex: 0,
+      modelAnswer:
+        "One person knocking on the wrong door once is an easy mistake. One person hammering on ten thousand doors in a few minutes is not a person at all, it is a machine, and nobody reasonable needs to double-check that before shutting the door.\n\n• Why this is a high-confidence signal: no real human generates that volume of login attempts, spread across many accounts, from one address, in minutes. It has the unmistakable shape of an automated brute-force or credential-stuffing attack.\n\n• Why block rather than just alert: waiting for a person to review an alert while thousands more guesses keep firing every second gives the attacker a huge head start. Acting inline, immediately, is what actually limits the damage.\n\n• The general rule this follows: extreme, unambiguous patterns like this justify automatic action, unlike the ambiguous five-failed-logins case.\n\nSo the answer is: an automatic IPS block, because the volume and pattern are a high-confidence sign of an automated attack.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "A file arriving on the network matches a known malware signature exactly. Which is the better call: an IDS alert, or an automatic IPS block, and why?",
+      options: [
+        "An IDS alert only, because signature matches are too unreliable to ever act on automatically",
+        "An automatic IPS block, because a known-signature match is deterministic and carries very little risk of being a false positive",
+        "Neither, because signature-based tools cannot examine files at all, only network traffic patterns",
+        "An automatic IPS block, but only after a human has manually confirmed the file byte by byte",
+      ],
+      correctIndex: 1,
+      modelAnswer:
+        "A librarian comparing a returned book's barcode against a list of confirmed stolen barcodes either finds an exact match or does not, there is no fuzzy in-between to agonise over.\n\n• Why this is high confidence: a signature match means the file's known fingerprint lines up exactly with a confirmed piece of malware, this is about as close to certain as detection gets.\n\n• Why block automatically: waiting for a human to review something this clear-cut only gives a known-bad file more time to do damage, for a genuinely low risk of wrongly blocking something legitimate.\n\n• Contrast with anomaly-based detection: an anomaly flag (like unusual traffic) is a judgement call about what looks abnormal, and deserves more caution, a signature match is a direct comparison against something already confirmed malicious.\n\n• Why the other options are wrong: signature-based tools very much can inspect files, not just traffic patterns, and waiting for manual byte-by-byte review defeats the point of fast, automated protection for a clear match.\n\nSo the answer is: an automatic IPS block, because a signature match is deterministic and carries very little false-positive risk.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "A server sends an unusually large amount of outbound data at 3 a.m., a time when it normally sits idle. Which is the better call: an IDS alert, or an automatic IPS block, and why?",
+      options: [
+        "An automatic IPS block, because any activity outside business hours must always be treated as an attack",
+        "An IDS alert, because this anomaly-based signal could be a genuine backup job and deserves review before anything is cut off",
+        "Neither, because outbound traffic can never be a sign of a security problem, only inbound traffic can",
+        "An automatic IPS block, because outbound data always means credentials have already been stolen",
+      ],
+      correctIndex: 1,
+      modelAnswer:
+        "A house with its lights on at 3 a.m. might mean a burglar, or it might just mean someone is up doing laundry before an early flight. Either is plausible, so a neighbour would peek before calling anyone.\n\n• Why this is an anomaly, not a certainty: unusual timing and volume compared to a normal baseline is exactly what anomaly-based detection is built to flag, but by its nature it can also be triggered by something completely legitimate, like a scheduled backup or a batch export job.\n\n• Why alert rather than block: automatically cutting off outbound traffic the moment it looks unusual risks breaking a real, scheduled business process, at 3 a.m. specifically because that is when such jobs are often deliberately scheduled, when load is low.\n\n• Contrast with the malware-signature case: that was a deterministic match against something already confirmed bad, this is a statistical judgement about what looks abnormal, which deserves human or further automated review before anyone acts.\n\nSo the answer is: an IDS alert, because this anomaly-based signal could easily be a genuine scheduled job and needs review before anything is blocked.",
+    },
+    {
+      type: "multi",
+      prompt: "Select all true statements about why a poorly tuned IPS can cause operational problems.",
+      options: [
+        "Rules set too aggressively can block legitimate traffic, such as real users or scheduled jobs, causing a self-inflicted outage",
+        "Because an IPS sits inline, a bad rule takes effect immediately, unlike an IDS alert that a person can review first",
+        "If the device is configured fail-closed, a bug or crash in the IPS itself can stop all traffic, not just malicious traffic",
+        "A poorly tuned IPS can never cause any operational harm, because blocking more traffic is always the safer choice",
+        "Frequent false positives can push a team to loosen or disable rules out of frustration, weakening protection right when it is most needed",
+      ],
+      correctIndices: [0, 1, 2, 4],
+      modelAnswer:
+        "A smoke alarm that goes off every time someone makes toast eventually gets its battery pulled out, right before the day there is a real fire.\n\n• Blocking legitimate traffic: an over-aggressive rule cannot tell a real user or a scheduled job apart from an attacker, so it can lock out the very people and processes the system exists to serve.\n\n• Inline means instant: unlike an IDS, which only raises an alert for a person to weigh up, an IPS acts immediately, so a badly tuned rule causes harm the moment it fires, with no human in the loop to catch it first.\n\n• Fail-closed risk: if the device is set to stop all traffic when it breaks, a crash or bug in the IPS itself becomes an outage for everyone, not just for attackers.\n\n• The frustration spiral: constant false alarms push overworked teams to loosen rules or turn protections off altogether, which quietly removes the defence exactly when it is needed most.\n\n• Why the always-safer option is wrong: blocking too much has a real cost, in the two team-tuned examples above it was better to alert first rather than block automatically, so more blocking is not automatically safer.\n\nSo the answer is: blocking legitimate traffic, acting instantly with no human review, fail-closed outages, and the alert-fatigue spiral are all real operational risks of a poorly tuned IPS.",
+    },
+    // ---------- Round 4: other common vulnerabilities (20-23) ----------
+    {
+      type: "match",
+      prompt: "Match each vulnerability category to what it actually means.",
+      pairs: [
+        {
+          left: "Broken access control",
+          right: "Users can reach data or actions they should never have been allowed to access",
+        },
+        {
+          left: "IDOR (insecure direct object reference)",
+          right: "The app trusts an object ID like user_id=123 in a request without checking the current user may access it",
+        },
+        {
+          left: "CSRF (cross-site request forgery)",
+          right: "A victim's browser is tricked into sending an authenticated request the victim never intended",
+        },
+        {
+          left: "Race condition",
+          right: "The attacker exploits a timing gap between when something is checked and when it is acted on",
+        },
+        {
+          left: "Command injection",
+          right: "Attacker-supplied input becomes part of an operating-system command that then gets executed",
+        },
+        {
+          left: "RCE (remote code execution)",
+          right: "An attacker can run their own code on the target system from another machine",
+        },
+      ],
+      decoys: ["A tool inspects source code for risky patterns without ever running the program"],
+      modelAnswer:
+        "Six different ways a building's security can fail: the guest list is wrong, the room-number badge is not checked against who is holding it, a visitor is tricked into signing something on someone else's behalf, someone slips through during a shift change, a note gets treated as a staff order, and eventually an outsider is running the building's own systems remotely.\n\n• Broken access control is the umbrella problem, someone reaches something they should not.\n\n• IDOR is one specific, common way that happens, trusting a raw ID number in a request.\n\n• CSRF abuses the victim's own already-logged-in browser to fire off a request they never chose to make.\n\n• A race condition abuses the gap between checking a condition and acting on it, before the system has caught up.\n\n• Command injection smuggles attacker text into an operating-system command, the OS-level cousin of SQL injection.\n\n• RCE is the outcome, actually running attacker-chosen code on the target, which command injection is one common route into.\n\n• The decoy describes static analysis, a testing technique, not a vulnerability category at all.\n\nSo the answer is: broken access control is the general failure, IDOR is a specific ID-trusting version of it, CSRF hijacks a victim's browser, a race condition exploits a timing gap, command injection smuggles OS commands, and RCE is running code remotely.",
+    },
+    {
+      type: "sort",
+      prompt:
+        "Sort each vulnerability category into whether it is mainly about the server trusting untrustworthy input, or mainly about a gap in setup, dependencies or day-to-day operations.",
+      groups: ["Exploits the server trusting untrusted input", "A gap in setup, dependencies or operations"],
+      items: [
+        { text: "SSRF: attacker input makes the server send a request to an internal or external system", group: 0 },
+        { text: "Path traversal: input such as ../ lets an attacker reach files outside the intended directory", group: 0 },
+        { text: "Insecure deserialisation: untrusted serialised data is parsed in a way that can change program state", group: 0 },
+        { text: "Unsafe file upload: an uploaded file can be executed, overwrite important files, or store malicious content", group: 0 },
+        { text: "Security misconfiguration: unsafe defaults, exposed admin panels, or public storage buckets", group: 1 },
+        { text: "Vulnerable third-party components: libraries, frameworks, plugins or containers with known flaws", group: 1 },
+        { text: "Missing logging and monitoring: attacks happen but are not recorded, detected or investigated in time", group: 1 },
+        { text: "Broken session management: session IDs, cookies, logout or token rotation are handled incorrectly", group: 1 },
+      ],
+      modelAnswer:
+        "Imagine a building again. Some break-ins happen because a specific door was tricked into opening for a forged note. Others happen because nobody ever locked the side gate, patched the rusted hinge, checked the cameras, or made sure old keys stop working after someone leaves.\n\n• Exploits untrusted input: SSRF, path traversal, insecure deserialisation and unsafe file upload all share one shape, a specific piece of attacker-supplied input is fed to the server, and the server acts on it as if it were trustworthy, fetching a URL, opening a path, rebuilding an object, or running a file.\n\n• Setup, dependency or operational gap: security misconfiguration, vulnerable third-party components, missing logging and monitoring, and broken session management are not about one clever malicious input at all, they are standing weaknesses in how the system is configured, kept up to date, watched, or how it manages who stays logged in.\n\n• Why the distinction matters: input-trust problems are usually fixed by validating and safely handling that specific kind of input, operational gaps are usually fixed by process, configuration review, patching, and better monitoring, quite different kinds of fixes for quite different kinds of failures.\n\nSo the answer is: SSRF, path traversal, insecure deserialisation and unsafe file upload exploit trusted input, while misconfiguration, vulnerable components, missing logging and broken session management are operational gaps.",
+    },
+    {
+      type: "multi",
+      prompt: "Select all true statements about remote code execution (RCE).",
+      options: [
+        "RCE means an attacker can run their own code on the target system from another machine",
+        "Command injection, unsafe deserialisation, template injection, or a vulnerable component can each lead to RCE",
+        "RCE is itself a specific root-cause bug, separate from and unrelated to every other vulnerability category",
+        "Once RCE is achieved, an attacker typically has far more control than a single leaked record or blocked login attempt would give them",
+        "RCE can only ever happen through a web browser, never through a server-side application",
+      ],
+      correctIndices: [0, 1, 3],
+      modelAnswer:
+        "RCE is less like one specific lock being picked and more like the outcome of several very different locks all failing, a stolen master key, a forged pass, or a propped-open fire door, they are different routes that all end with the intruder standing inside the building with free run of it.\n\n• The definition: an attacker running their own chosen code on a machine they do not own, from somewhere else entirely.\n\n• Many roads lead there: command injection, insecure deserialisation, template injection, and a vulnerable third-party component are all listed as paths that can end in RCE, it is an outcome, not one single cause.\n\n• Why the unrelated option is wrong: exactly because it can be reached through so many different underlying bugs, RCE is not a separate, disconnected category, it is often the worst-case destination those other categories can lead to.\n\n• Why it is so serious: compare it to a single leaked record or one blocked login, RCE typically hands the attacker the same level of control a legitimate administrator would have, which is about as bad as it gets.\n\n• Why the browser-only option is wrong: RCE very often targets server-side applications directly, a browser is not required at all.\n\nSo the answer is: RCE means running attacker code remotely, several different bugs can lead to it, and it typically grants far more control than a single leaked record.",
+    },
+    // ---------- Round 5: XSS as a components problem (24-25) ----------
+    {
+      type: "mcq",
+      prompt:
+        "The tutorial frames XSS as also being about which component does what. Following that framing, which two components are involved, and where does the actual flaw sit?",
+      options: [
+        "The database and the network, and the flaw is a missing firewall rule between them",
+        "The server, which stores or reflects content, and the browser, which runs it; the flaw is missing output encoding",
+        "The operating system and the hard disk, and the flaw is a missing file permission setting",
+        "The DNS server and the certificate authority, and the flaw is an expired TLS certificate",
+      ],
+      correctIndex: 1,
+      modelAnswer:
+        "It is the same shape as the password-storage exercise, but with different components: one side handles some content, another side later trusts and acts on it, and the bug is a missing safety step in between.\n\n• The server's job: it stores content a user typed, like a comment, or reflects content straight back, like part of a search query.\n\n• The browser's job: it later reads that content and, because it trusts the site it came from, may interpret it as real HTML or JavaScript instead of as plain text.\n\n• Where the bug actually lives: not in the browser and not really in the database either, it is in the server placing that data into the page without the output encoding or sanitisation appropriate for where it lands.\n\n• Why the other options are wrong: none of them are the components the tutorial is actually describing, XSS has nothing to do with firewalls, file permissions, or certificates.\n\nSo the answer is: the server stores or reflects the content, the browser interprets it, and the flaw is missing output encoding or sanitisation for that context.",
+    },
+    {
+      type: "mcq",
+      prompt:
+        "Using the which-component-does-what framing from this tutorial, what is the clearest way to tell SQL injection and XSS apart?",
+      options: [
+        "SQL injection tricks the database into trusting attacker text as SQL commands, while XSS tricks a browser into trusting it as HTML or JavaScript",
+        "SQL injection and XSS are two different names for exactly the same underlying bug, just found in different products",
+        "SQL injection only ever affects the browser, while XSS only ever affects the database server",
+        "SQL injection requires no user input at all, while XSS can only happen if the database has been compromised first",
+      ],
+      correctIndex: 0,
+      modelAnswer:
+        "One is a clerk who reads a forged instruction and acts on it as if the office wrote it. The other is a visitor who reads a forged notice pinned to a trusted cafe's board and obeys it as if the cafe itself put it there.\n\n• SQL injection's target: the database, via the application, attacker text ends up read and executed as part of a SQL command.\n\n• XSS's target: the end user's own browser, attacker text ends up read and executed as HTML or JavaScript, because the browser trusts the site serving it.\n\n• Why this framing helps: both bugs share the same underlying shape, untrusted input crossing into a place that will interpret it as instructions instead of as plain data, but they hit completely different components, which is exactly why the fix for one, prepared statements, does nothing at all to stop the other, which needs output encoding instead.\n\n• Why the other options are wrong: they are not the same bug, each one clearly does involve a specific component the other option denies, and neither requires the scenario described.\n\nSo the answer is: SQL injection tricks the database into treating attacker text as SQL, while XSS tricks the browser into treating attacker text as HTML or JavaScript.",
+    },
+  ],
+};
+
+export const WEEK_8_PAPERS: ExamPaperSeed[] = [LECTURE_PAPER, TUTORIAL_PAPER];
