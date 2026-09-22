@@ -1591,6 +1591,18 @@ a.btn {
   transition: background var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease);
 }
 
+.exam-format-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
 .exam-option-correct {
   border-color: var(--green);
   background: color-mix(in srgb, var(--green) 12%, transparent);
@@ -1610,6 +1622,63 @@ a.btn {
 .exam-multi-hint {
   margin: 0.25rem 0 0.5rem;
   font-size: var(--text-sm);
+  color: var(--dim);
+}
+
+.exam-fill-line {
+  line-height: 2.2;
+}
+
+.exam-blank-input {
+  min-width: 8rem;
+  margin: 0 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+}
+
+.exam-blank-correct {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 12%, transparent);
+}
+
+.exam-blank-wrong {
+  border-color: var(--red);
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+}
+
+.exam-format-left {
+  flex: 1 1 12rem;
+}
+
+.exam-order-controls {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.exam-format-reveal {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.exam-reading {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 1rem 1.25rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.exam-reading-title {
+  margin: 0 0 0.5rem;
+}
+
+.exam-reading-body {
   color: var(--dim);
 }
 

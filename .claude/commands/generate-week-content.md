@@ -104,28 +104,22 @@ transcription finishes, its `.transcript.md` now counts as a new source
 file — factor it into step 3 (re-run `bun scripts/find-week-updates.ts` for
 the refreshed `newSourceFiles` list if you want).
 
-## 3. Author / update the target week(s) with a subagent
+## 3. Author / update the target week(s) with five subagents
 
-Get the exact authoring prompt by reusing the same builder the app itself
-uses, so this command never drifts from what the app's buttons do:
+The app runs five sequential stages (`STAGES` in `exam/pipeline.ts`): Reader →
+Explainer → Planner → Writer → Checker. Do the same here, one `general-purpose`
+Agent per stage, **sequentially** — each stage reads the file the previous one wrote.
 
-```
-bun -e "import { buildGeneratePrompt } from './exam/generate'; console.log(buildGeneratePrompt('<COURSE>', <week>, '<weekDir>'))"
-```
-
-for a `newWeeks` target, or
+For each stage, print the exact prompt the app would use and pass it verbatim as the
+Agent's task (plus one line saying it is an in-session subagent, not the headless job):
 
 ```
-bun -e "import { buildUpdatePrompt } from './exam/generate'; console.log(buildUpdatePrompt('<COURSE>', <week>, '<weekDir>'))"
+bun -e "import { buildStagePrompt } from './exam/pipeline'; import { buildGeneratePrompt, buildUpdatePrompt } from './exam/generate'; const ctx = { course: '<COURSE>', week: <week>, weekDir: '<weekDir>', mode: '<generate|update>' as const }; const base = ctx.mode === 'update' ? buildUpdatePrompt(ctx.course, ctx.week, ctx.weekDir) : buildGeneratePrompt(ctx.course, ctx.week, ctx.weekDir); console.log(buildStagePrompt('<read|explain|plan|write|check>', ctx, base))"
 ```
 
-for an `updatableWeeks` target.
-
-Dispatch one `general-purpose` Agent per target week. Pass the printed text
-as the Agent's task prompt verbatim, plus one addition: tell the agent it's
-running as an in-session subagent (not the headless `claude -p` job the
-text describes) — same rules, same unattended judgment-call authority, just
-report back to you instead of writing `status.json`.
+Use `mode: 'generate'` for a `newWeeks` target and `'update'` for an `updatableWeeks`
+target. After each stage confirm its output file exists (`stageOutputPath` in
+`exam/pipeline.ts`) before starting the next; if a stage fails, re-run from that stage.
 
 **Multiple targets (`all`):** process them **one at a time, never in
 parallel** — `newWeeks` first (they each add an import + `ALL_PAPERS` entry

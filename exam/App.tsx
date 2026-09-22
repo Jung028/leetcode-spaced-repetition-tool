@@ -3,46 +3,14 @@ import { createPortal } from "react-dom";
 import type { ExamPaperView, ExamQuestionView, ExamHistoryWeek } from "./api";
 import type { ExamWeekView } from "./content";
 import type { JobStatus } from "./generate";
+import { STAGE_LABELS, STAGES } from "./pipeline";
 import { TIMELINE_URL, TIMELINE_ANCHORS } from "../shared/timeline-link";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { isMultiCorrect } from "./grading";
 import { questionTimeBudget, formatCountdown, isOvertime } from "./timer";
-
-const EXCALIDRAW_URL = "https://excalidraw.com";
-
-function DrawingLink() {
-  return (
-    <a className="exam-diagram-link" href={EXCALIDRAW_URL} target="_blank" rel="noreferrer">
-      Open Excalidraw to sketch this ↗
-    </a>
-  );
-}
-
-// Question prompts/model answers sometimes embed a real code/data snippet
-// (e.g. tracely's code-reading questions) as a blank-line-separated block
-// within an otherwise plain-English string — there's no markdown fence
-// convention in the content, so a multi-line block containing code-ish
-// punctuation is rendered in a monospace <pre> block; everything else stays
-// normal wrapped prose.
-function looksLikeCode(block: string): boolean {
-  return block.includes("\n") && /[{}()_]|:=|==|=>|\b(def|class|import|return)\b/.test(block);
-}
-
-function PromptText({ text, className }: { text: string; className?: string }) {
-  return (
-    <>
-      {text.split(/\n\n+/).map((block, i) =>
-        looksLikeCode(block) ? (
-          <pre key={i} className="exam-code-block">{block}</pre>
-        ) : (
-          <p key={i} className={className} style={{ whiteSpace: "pre-wrap" }}>
-            {block}
-          </p>
-        ),
-      )}
-    </>
-  );
-}
+import { PromptText, DrawingLink } from "./shared-ui";
+import { FillBlankQuestion, MatchQuestion, OrderQuestion, SortQuestion, ReadingCard, type GradeFn } from "./FormatQuestions";
+import { readingFor, roundFullyGraded, initialSeenCards } from "./reading";
 
 interface Stats {
   dueCount: number;
@@ -295,7 +263,7 @@ function SyncBanner({
             const queuePosition = queue.indexOf(key);
             const queued = queuePosition !== -1;
             const label = running
-              ? `Generating… ${formatElapsed(job!.startedAt!, tick)}`
+              ? `Generating… ${job!.stage ? `${STAGE_LABELS[job!.stage]} ${STAGES.indexOf(job!.stage) + 1}/${STAGES.length} ` : ""}${formatElapsed(job!.startedAt!, tick)}`
               : queued
                 ? `Queued · #${queuePosition + 1}`
                 : failed
@@ -965,12 +933,67 @@ function PaperView({
     const firstUngraded = paper.questions.findIndex((q) => q.correct === null);
     return firstUngraded === -1 ? paper.questions.length - 1 : firstUngraded;
   });
+  const readings = current.readings;
+  const gradedList = current.questions.map((q) => q.correct);
+  const [seenCards, setSeenCards] = useState<Set<number>>(() =>
+    initialSeenCards(paper.readings, paper.questions.map((q) => q.correct), index),
+  );
   const allGraded = current.questions.every((q) => q.correct !== null);
   const reviewing = current.submittedAt !== null;
   const wrongCount = current.questions.filter((q) => q.correct === 0).length;
   const remaining = current.questions.filter((q) => q.correct === null).length;
 
-  const reload = () => api.paper(course, paper.week, paper.paperNumber).then(setCurrent);
+  const reload = async () => {
+    const p = await api.paper(course, paper.week, paper.paperNumber);
+    setCurrent(p);
+    return p;
+  };
+
+  // After a retake the stored answers are cleared: rebuild the card/question
+  // flow state from the reloaded paper exactly as it is initialised at mount.
+  const resetFlow = (p: ExamPaperView) => {
+    const graded = p.questions.map((q) => q.correct);
+    const firstUngraded = graded.findIndex((c) => c === null);
+    const newIndex = firstUngraded === -1 ? p.questions.length - 1 : firstUngraded;
+    setIndex(newIndex);
+    setSeenCards(initialSeenCards(p.readings, graded, newIndex));
+  };
+
+  // Adapter handed to the new-format components: they report (correct, answer);
+  // this persists it through the API and refreshes the paper.
+  const gradeQuestion = (questionIndex: number): GradeFn => async (correct, yourAnswer) => {
+    onError(null);
+    try {
+      setCurrent(await api.grade(course, paper.week, paper.paperNumber, questionIndex, correct, yourAnswer));
+    } catch (err) {
+      onError(errorMessage(err));
+    }
+  };
+
+  const NEW_FORMATS = { fillblank: FillBlankQuestion, match: MatchQuestion, order: OrderQuestion, sort: SortQuestion } as const;
+  const renderNewFormat = (q: ExamQuestionView) => {
+    const Component = NEW_FORMATS[q.type as keyof typeof NEW_FORMATS];
+    return (
+      <Component
+        key={`${q.index}-${q.correct}`}
+        question={q}
+        course={course}
+        week={paper.week}
+        paperNumber={paper.paperNumber}
+        onGrade={gradeQuestion(q.index)}
+        reviewing={reviewing}
+      />
+    );
+  };
+  const isNewFormat = (q: ExamQuestionView) => Object.hasOwn(NEW_FORMATS, q.type);
+
+  // A card is shown when the student first lands on the first question of its round.
+  const pendingCard = readings.findIndex((r, i) => r.beforeQuestion === index && !seenCards.has(i));
+  const showingCard = !reviewing && pendingCard !== -1;
+  const markSeen = (i: number) => setSeenCards((prev) => new Set(prev).add(i));
+  // Once a round is fully graded its card is available again (no peeking mid-round).
+  const currentReading = readingFor(readings, index);
+  const canReread = currentReading !== -1 && roundFullyGraded(readings, currentReading, gradedList);
 
   const submit = async () => {
     onError(null);
@@ -988,7 +1011,7 @@ function PaperView({
     try {
       await api.retakeWrong(course, paper.week, paper.paperNumber);
       onChanged();
-      await reload();
+      resetFlow(await reload());
     } catch (err) {
       onError(errorMessage(err));
     }
@@ -999,7 +1022,7 @@ function PaperView({
     try {
       await api.retake(course, paper.week, paper.paperNumber);
       onChanged();
-      await reload();
+      resetFlow(await reload());
     } catch (err) {
       onError(errorMessage(err));
     }
@@ -1029,6 +1052,8 @@ function PaperView({
             <span className="tag">{current.questions.length} questions</span>
             <span className="lang-tag">{current.scoreCorrect}/{current.scoreTotal} correct</span>
           </>
+        ) : showingCard ? (
+          <span className="lang-tag">Reading — before question {index + 1} of {current.questions.length}</span>
         ) : (
           <>
             <span className="lang-tag">Question {index + 1} of {current.questions.length} — {remaining} left</span>
@@ -1042,74 +1067,95 @@ function PaperView({
         )}
       </header>
       {reviewing ? (
-        current.questions.map((q) =>
-          q.type === "mcq" || q.type === "truefalse" ? (
-            <McqQuestion
-              key={`${q.index}-${q.correct}`}
-              question={q}
-              course={course}
-              week={paper.week}
-              paperNumber={paper.paperNumber}
-              onGraded={setCurrent}
-              onError={onError}
-            />
-          ) : q.type === "multi" ? (
-            <MultiQuestion
-              key={`${q.index}-${q.correct}`}
-              question={q}
-              course={course}
-              week={paper.week}
-              paperNumber={paper.paperNumber}
-              onGraded={setCurrent}
-              onError={onError}
-            />
-          ) : (
-            <ShortOrScenarioQuestion
-              key={`${q.index}-${q.correct}`}
-              question={q}
-              course={course}
-              week={paper.week}
-              paperNumber={paper.paperNumber}
-              onGraded={setCurrent}
-              onError={onError}
-            />
-          ),
-        )
+        current.questions.map((q) => (
+          <React.Fragment key={`${q.index}-${q.correct}`}>
+            {readings.filter((r) => r.beforeQuestion === q.index).map((r) => (
+              <ReadingCard key={`r-${r.beforeQuestion}`} reading={r} />
+            ))}
+            {isNewFormat(q) ? (
+              renderNewFormat(q)
+            ) : q.type === "mcq" || q.type === "truefalse" ? (
+              <McqQuestion
+                key={`${q.index}-${q.correct}`}
+                question={q}
+                course={course}
+                week={paper.week}
+                paperNumber={paper.paperNumber}
+                onGraded={setCurrent}
+                onError={onError}
+              />
+            ) : q.type === "multi" ? (
+              <MultiQuestion
+                key={`${q.index}-${q.correct}`}
+                question={q}
+                course={course}
+                week={paper.week}
+                paperNumber={paper.paperNumber}
+                onGraded={setCurrent}
+                onError={onError}
+              />
+            ) : (
+              <ShortOrScenarioQuestion
+                key={`${q.index}-${q.correct}`}
+                question={q}
+                course={course}
+                week={paper.week}
+                paperNumber={paper.paperNumber}
+                onGraded={setCurrent}
+                onError={onError}
+              />
+            )}
+          </React.Fragment>
+        ))
       ) : (
         <>
           <div className="exam-progress-bar">
             <div className="exam-progress-fill" style={{ width: `${(index / current.questions.length) * 100}%` }} />
           </div>
-          {question.type === "mcq" || question.type === "truefalse" ? (
-            <McqQuestion
-              key={`${question.index}-${question.correct}`}
-              question={question}
-              course={course}
-              week={paper.week}
-              paperNumber={paper.paperNumber}
-              onGraded={setCurrent}
-              onError={onError}
-            />
-          ) : question.type === "multi" ? (
-            <MultiQuestion
-              key={`${question.index}-${question.correct}`}
-              question={question}
-              course={course}
-              week={paper.week}
-              paperNumber={paper.paperNumber}
-              onGraded={setCurrent}
-              onError={onError}
-            />
+          {showingCard ? (
+            <ReadingCard reading={readings[pendingCard]!} onContinue={() => markSeen(pendingCard)} />
           ) : (
-            <ShortOrScenarioQuestion
-              key={`${question.index}-${question.correct}`}
-              question={question}
-              course={course}
-              week={paper.week}
-              paperNumber={paper.paperNumber}
-              onGraded={setCurrent}
-              onError={onError}
-            />
+            <>
+              {canReread && (
+                <details className="exam-reread">
+                  <summary>Re-read this round's card</summary>
+                  <ReadingCard reading={readings[currentReading]!} />
+                </details>
+              )}
+              {isNewFormat(question) ? (
+                renderNewFormat(question)
+              ) : question.type === "mcq" || question.type === "truefalse" ? (
+                <McqQuestion
+                  key={`${question.index}-${question.correct}`}
+                  question={question}
+                  course={course}
+                  week={paper.week}
+                  paperNumber={paper.paperNumber}
+                  onGraded={setCurrent}
+                  onError={onError}
+                />
+              ) : question.type === "multi" ? (
+                <MultiQuestion
+                  key={`${question.index}-${question.correct}`}
+                  question={question}
+                  course={course}
+                  week={paper.week}
+                  paperNumber={paper.paperNumber}
+                  onGraded={setCurrent}
+                  onError={onError}
+                />
+              ) : (
+                <ShortOrScenarioQuestion
+                  key={`${question.index}-${question.correct}`}
+                  question={question}
+                  course={course}
+                  week={paper.week}
+                  paperNumber={paper.paperNumber}
+                  onGraded={setCurrent}
+                  onError={onError}
+                />
+              )}
+            </>
           )}
           <div className="btn-row">
             <button className="btn" disabled={index === 0} onClick={() => setIndex((i) => Math.max(0, i - 1))}>
@@ -1117,13 +1163,13 @@ function PaperView({
             </button>
             <button
               className="btn"
-              disabled={index === current.questions.length - 1}
+              disabled={showingCard || index === current.questions.length - 1}
               onClick={() => setIndex((i) => Math.min(current.questions.length - 1, i + 1))}
             >
               Next
             </button>
             <span className="btn-spacer" />
-            {index === current.questions.length - 1 && (
+            {!showingCard && index === current.questions.length - 1 && (
               <button className="btn btn-primary" disabled={!allGraded} onClick={submit}>
                 Submit paper
               </button>
@@ -1132,7 +1178,7 @@ function PaperView({
           </div>
           {index === current.questions.length - 1 && !allGraded && (
             <p className="board-empty">
-              Grade every question — multiple choice grades itself on selection, select-all grades on "Check answer"; reveal and mark short/scenario answers — before submitting.
+              Grade every question — multiple choice grades itself on selection; every other format grades on "Check answer"; reveal and mark short/scenario answers — before submitting.
             </p>
           )}
         </>

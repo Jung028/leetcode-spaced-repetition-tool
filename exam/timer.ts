@@ -8,6 +8,10 @@ export interface TimeBudgetQuestion {
   options?: string[] | null;
   promptImage?: string | null;
   promptDiagram?: string | null;
+  blanks?: unknown[] | null;
+  pairs?: unknown[] | null;
+  steps?: unknown[] | null;
+  items?: unknown[] | null;
 }
 
 // Base seconds per question type before any per-question adjustment.
@@ -15,6 +19,10 @@ const BASE_SECONDS: Record<ExamQuestionType, number> = {
   truefalse: 20,
   mcq: 30,
   multi: 45,
+  fillblank: 45,
+  match: 60,
+  order: 60,
+  sort: 60,
   short: 150,
   scenario: 180,
 };
@@ -28,6 +36,8 @@ export function questionTimeBudget(q: TimeBudgetQuestion): number {
   let seconds = BASE_SECONDS[q.type] ?? 30;
   const extraOptions = Math.max(0, (q.options?.length ?? 0) - 4);
   seconds += extraOptions * 10;
+  const parts = q.blanks?.length ?? q.pairs?.length ?? q.steps?.length ?? q.items?.length ?? 0;
+  seconds += Math.max(0, parts - 4) * 10;
   if (q.promptImage || q.promptDiagram) seconds += 15;
   return seconds;
 }

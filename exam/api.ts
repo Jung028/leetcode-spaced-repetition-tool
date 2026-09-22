@@ -35,7 +35,7 @@ import {
 } from "./content";
 import { findPendingWeeks } from "./sync";
 import { resolveWeekDir, startGenerateJob, readJobStatus, defaultGenerateDeps, type StartJobDeps } from "./generate";
-import type { ExamQuestionType } from "../exam-content/types";
+import type { ExamQuestionType, ExamQuestionSeed, ExamReadingSeed } from "../exam-content/types";
 import { localToday } from "../shared/scheduling";
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
@@ -85,6 +85,12 @@ export interface ExamQuestionView {
   promptDiagram: string | null;
   answerDiagram: string | null;
   requiresDrawing: boolean;
+  blanks: string[][] | null;
+  pairs: { left: string; right: string }[] | null;
+  decoys: string[] | null;
+  steps: string[] | null;
+  groups: string[] | null;
+  items: { text: string; group: number }[] | null;
   yourAnswer: string;
   correct: number | null;
 }
@@ -99,6 +105,35 @@ export interface ExamPaperView {
   scoreCorrect: number | null;
   scoreTotal: number | null;
   questions: ExamQuestionView[];
+  readings: ExamReadingSeed[];
+}
+
+export function toQuestionView(
+  q: ExamQuestionSeed,
+  index: number,
+  answer?: { your_answer: string; correct: number | null },
+): ExamQuestionView {
+  return {
+    index,
+    type: q.type,
+    prompt: q.prompt,
+    options: q.options ?? null,
+    correctIndex: q.correctIndex ?? null,
+    correctIndices: q.correctIndices ?? null,
+    modelAnswer: q.modelAnswer,
+    promptImage: q.promptImage ?? null,
+    promptDiagram: q.promptDiagram ?? null,
+    answerDiagram: q.answerDiagram ?? null,
+    requiresDrawing: q.requiresDrawing ?? false,
+    blanks: q.blanks ?? null,
+    pairs: q.pairs ?? null,
+    decoys: q.decoys ?? null,
+    steps: q.steps ?? null,
+    groups: q.groups ?? null,
+    items: q.items ?? null,
+    yourAnswer: answer?.your_answer ?? "",
+    correct: answer?.correct ?? null,
+  };
 }
 
 function paperView(db: Database, course: string, row: ExamPaperRow): ExamPaperView | null {
@@ -114,21 +149,8 @@ function paperView(db: Database, course: string, row: ExamPaperRow): ExamPaperVi
     submittedAt: row.submitted_at,
     scoreCorrect: row.score_correct,
     scoreTotal: row.score_total,
-    questions: content.questions.map((q, index) => ({
-      index,
-      type: q.type,
-      prompt: q.prompt,
-      options: q.options ?? null,
-      correctIndex: q.correctIndex ?? null,
-      correctIndices: q.correctIndices ?? null,
-      modelAnswer: q.modelAnswer,
-      promptImage: q.promptImage ?? null,
-      promptDiagram: q.promptDiagram ?? null,
-      answerDiagram: q.answerDiagram ?? null,
-      requiresDrawing: q.requiresDrawing ?? false,
-      yourAnswer: answers.get(index)?.your_answer ?? "",
-      correct: answers.get(index)?.correct ?? null,
-    })),
+    questions: content.questions.map((q, index) => toQuestionView(q, index, answers.get(index))),
+    readings: content.readings ?? [],
   };
 }
 

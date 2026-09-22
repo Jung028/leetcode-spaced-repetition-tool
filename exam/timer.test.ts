@@ -29,6 +29,20 @@ test("adjustments stack", () => {
   ).toBe(45 + 20 + 15);
 });
 
+test("base budgets for the new formats", () => {
+  expect(questionTimeBudget({ type: "fillblank", blanks: [["a"]] })).toBe(45);
+  expect(questionTimeBudget({ type: "match", pairs: [1, 2, 3] })).toBe(60);
+  expect(questionTimeBudget({ type: "order", steps: [1, 2, 3] })).toBe(60);
+  expect(questionTimeBudget({ type: "sort", items: [1, 2, 3, 4] })).toBe(60);
+});
+
+test("adds 10s per blank/row/step/item beyond the fourth", () => {
+  expect(questionTimeBudget({ type: "match", pairs: [1, 2, 3, 4, 5, 6] })).toBe(80);
+  expect(questionTimeBudget({ type: "order", steps: [1, 2, 3, 4, 5] })).toBe(70);
+  expect(questionTimeBudget({ type: "sort", items: [1, 2, 3, 4, 5, 6, 7, 8] })).toBe(100);
+  expect(questionTimeBudget({ type: "fillblank", blanks: [[], [], [], [], []] })).toBe(55);
+});
+
 test("formatCountdown renders m:ss and flips to +m:ss over budget", () => {
   expect(formatCountdown(90)).toBe("1:30");
   expect(formatCountdown(5)).toBe("0:05");

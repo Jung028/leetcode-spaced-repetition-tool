@@ -121,6 +121,7 @@ that do NOT require typing a free-text answer**:
 - `mcq` (single correct option)
 - multiple-answer / select-all-that-apply
 - `truefalse`
+- `fillblank`, `match`, `order`, `sort` (single-word typed blanks are exact-match gradable, so they are allowed now)
 - the explanatory `modelAnswer` / notes on every question (always required)
 
 **Do NOT author `short` or `scenario` questions** (or any "enter your answer"
@@ -242,8 +243,9 @@ blocks).
 
 ### Question count per paper
 
-**Hard cap: 30 questions per paper** (set by the user 2026-09-20 — earlier
-papers ran 70–125 questions and were unusable in the time they have).
+**Hard cap: ~50 questions per paper** (raised from 30 by the user 2026-09-21 —
+30 was fine, now wants roughly 50; earlier papers ran 70–125 questions and
+were unusable in the time they have).
 Include only the **core questions essential to understanding the week**, and
 make about **90% of them exam-style**: application / scenario-based `mcq` and
 multiple-answer (select-all-that-apply) questions that distinguish similar
@@ -251,21 +253,21 @@ concepts or spot subtle errors. Keep plain recall / definition questions to
 a handful at most. Reason about what's actually important in the source
 material first, pick the strongest questions per concept with minimal
 overlap, and drop near-duplicates and filler rather than padding or
-covering every slide. Aim for roughly 20 `mcq`, 8 multiple-answer and 2
-`truefalse` in a lecture paper; a tutorial paper can be smaller (~20–25).
+covering every slide. Aim for roughly 26 `mcq`, 10 multiple-answer, 2
+`truefalse` and about 12 new-format questions (`fillblank`/`match`/`order`/`sort`) in a lecture paper; a tutorial paper can be smaller (~30–35).
 
-**Outstanding gap:** `ExamQuestionType` (`exam-content/types.ts:1`) is
-currently `"mcq" | "truefalse" | "short" | "scenario"` — there is no
-select-all-that-apply type yet, `correctIndex` is a single index (not a set
-of indices), and `gradeExamAnswer`/the exam UI both assume one correct
-option. Authoring "multiple-answer" questions per this target requires
-adding that type to the schema, grading, and `ExamApp.tsx` first — treat
-this as a prerequisite task, not something to fake with `mcq` in the
-meantime.
+**Lecture quiz questions are mandatory (user, 2026-09-21):** when the
+lecture material contains its own quiz (in-lecture quiz / Mentimeter / poll
+questions), **every one of those questions must be included in the week's
+paper** — none dropped, none merged away. They count toward the ~50; if
+they alone push a paper slightly past ~50, keep them all and trim the
+other questions instead. Fill the remaining slots with the strongest
+additional questions per the rules above.
 
 Questions must be genuinely exam-hard, not easy recall:
 - Distractor options must be *close* — plausible, same-category wrong answers that require real understanding to rule out (e.g. a term from the same lecture, a common misconception, an almost-right-but-subtly-wrong mechanism) — never filler options that are obviously unrelated or absurd, since those let a student guess correctly without knowing the material.
 - Favor questions that require distinguishing between similar concepts, applying a concept to a new example, or spotting a subtle error, over questions that are answerable from the shape of the question alone (e.g. "which of these is a security term" when only one option is security-related).
+- Every question must be self-contained: never refer to "the deck / slides / lecture / worksheet / video" saying, matching or showing something without stating the actual numbers or facts in the question or pointing to a reading card that has them (see the guide's "Self-contained questions" rule).
 - Keep every option the same rough length and level of detail — never let the correct option be noticeably longer, more specific, or more hedged than the distractors. That length tell lets a student guess right without knowing the material; distractors need the same care and specificity as the correct answer, not shorter afterthoughts. **This rule has been violated repeatedly by bulk/auto-authored batches even though it was already written down** — "keep it in mind" is not enough; run `bun scripts/check-mcq-lengths.ts [COURSE]` after authoring or editing any mcq content and fix every flagged question before considering the work done (see the mandatory step in "Exam content generation workflow" below).
 
 ### Diagrams, symbols, and drawing
@@ -299,7 +301,9 @@ wasn't available when it was first authored), do it this way:
    to whichever paper the new material belongs to without touching
    existing questions' order (see `docs/exam-content-authoring-guide.md`,
    "Updating an already-authored week with new material," for why order
-   must never change). Only fall back to delegating to a `general-purpose`
+   must never change). Both Generate and Update run five sequential
+   stages (Reader, Explainer, Planner, Writer, Checker — see "The
+   five-agent process" in that guide). Only fall back to delegating to a `general-purpose`
    subagent by hand for genuinely manual cases — no dev server running, or
    a scope boundary too specific for the automated prompt to infer on its
    own (e.g. "leave TUTORIAL_PAPER untouched, only rewrite LECTURE_PAPER").
@@ -330,6 +334,43 @@ wasn't available when it was first authored), do it this way:
    genuinely more detailed; cutting detail from the right answer degrades
    the model answer's usefulness for studying.
 
+### INFO5995 (cybersecurity) — always check the Ed Lessons tutorial, not just the lecture PDF
+
+**Whenever asked to generate/update INFO5995 ("cybersecurity") exam
+content, check for a tutorial paper as well as the lecture paper before
+considering a week done.** Week 8 originally shipped lecture-only and the
+tutorial had to be added after the fact (2026-09-22) — don't repeat that
+miss. The two live in different places and neither substitutes for the
+other:
+
+- **Lecture material**: PDF slide decks + transcripts, handled by the
+  normal pipeline above (`lecture/*.pdf`, `transcribe-lecture.ts`, etc.).
+- **Tutorial material**: interactive Ed Lessons slides, one lesson per
+  week, indexed at `https://edstem.org/au/courses/37573/lessons` (course
+  id is INFO5995-specific — confirm it's still current if this stops
+  resolving). This is **not** a page a simple fetch/copy-paste can read
+  correctly: quiz options render dynamically and are missing from a
+  plain paste, and pressing the browser's **Back** button from any slide
+  returns to that lessons index, from which you can click into whatever
+  week is currently being authored. **Use the `claude-in-chrome` browser
+  tool** (`navigate` to the index or a specific slide URL, then
+  `get_page_text` per slide, clicking through the left-hand slide list)
+  to pull the real question text and options — never author tutorial
+  MCQs from a copy-pasted Ed page without verifying the options this way
+  first. If the browser tool can't reach it (not logged in, extension
+  disconnected), say so explicitly and ask the user to paste the content
+  instead, per the general browser-tool-first rule elsewhere in this
+  file.
+- Each week's Ed Lessons page holds several slides/tabs (objectives,
+  readings, quizzes) — read through all of them before authoring, the
+  same way `exam-content/info5995/week-8.ts`'s `TUTORIAL_PAPER` was
+  built from the "Modern Password Storage" / "SQL Injection" (x2) /
+  "XSS" / "IDS or IPS?" / "Other Common Vulnerabilities" slides.
+- Add the tutorial as its own `ExamPaperSeed` (`paperNumber: 2` if the
+  lecture already shipped as `paperNumber: 1` — never renumber an
+  already-shipped paper, that silently orphans any saved progress tied
+  to its old `paperNumber`).
+
 ## Spec requirement: continuous testing
 
 Every SPEC.md (or equivalent spec/plan doc) written for this project must include a section requiring the following, verbatim in intent:
@@ -338,4 +379,4 @@ Every SPEC.md (or equivalent spec/plan doc) written for this project must includ
 - **Continuous Testing**: that hook triggers the build step, the test suite (`bun test`), and the type checker (`tsc`).
 - **Autonomous Correction**: if a test fails, the AI sees the failure output immediately and attempts to fix its own mistake before the user has to intervene, so the user always returns to a green (passing) state.
 
-This repo currently has no such hook configured (no `.git/hooks/pre-commit`, no CI). Until one exists, treat this as an outstanding requirement — any SPEC.md that omits it is incomplete.
+The PostToolUse hook is configured in `.claude/settings.json` (runs `bun test` and `tsc --noEmit`); any SPEC.md must still include this section.

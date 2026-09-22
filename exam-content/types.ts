@@ -1,4 +1,6 @@
-export type ExamQuestionType = "mcq" | "truefalse" | "short" | "scenario" | "multi";
+export type ExamQuestionType =
+  | "mcq" | "truefalse" | "short" | "scenario" | "multi"
+  | "fillblank" | "match" | "order" | "sort";
 
 export interface ExamQuestionSeed {
   type: ExamQuestionType;
@@ -30,6 +32,28 @@ export interface ExamQuestionSeed {
   // True when the question expects the student to sketch something by
   // hand; the UI links out to excalidraw.com as a scratchpad.
   requiresDrawing?: boolean;
+  // fillblank — accepted answers per blank. `prompt` holds one "___" per blank,
+  // in order. Case, spacing and punctuation are ignored when marking.
+  blanks?: string[][];
+  // match — 3-6 rows; `left` order is the display order, `right` is its partner. Left texts must be unique.
+  pairs?: { left: string; right: string }[];
+  // match — up to 2 extra wrong right-hand choices, so it can't be finished by elimination.
+  decoys?: string[];
+  // order — authored in the CORRECT order (3-7 steps); the UI shuffles them.
+  steps?: string[];
+  // sort — 2-3 labelled boxes and 4-8 items, each pointing at its box by index.
+  groups?: string[];
+  items?: { text: string; group: number }[];
+}
+
+// A short "read this first" card shown before a round of questions. Attached by
+// POSITION (index of the round's first question), never numbered like a question,
+// so a student's stored answers (keyed by question index) never shift.
+export interface ExamReadingSeed {
+  beforeQuestion: number;
+  title: string;
+  body: string; // PromptText style, 100-150 words, hard cap 200
+  diagram?: string; // optional Mermaid
 }
 
 export interface ExamPaperSeed {
@@ -43,4 +67,5 @@ export interface ExamPaperSeed {
   // regenerated/expanded later without losing track of its sources.
   sourceFiles: string[];
   questions: ExamQuestionSeed[];
+  readings?: ExamReadingSeed[];
 }
