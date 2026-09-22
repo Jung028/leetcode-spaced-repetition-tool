@@ -334,6 +334,43 @@ wasn't available when it was first authored), do it this way:
    genuinely more detailed; cutting detail from the right answer degrades
    the model answer's usefulness for studying.
 
+### INFO5995 (cybersecurity) — always check the Ed Lessons tutorial, not just the lecture PDF
+
+**Whenever asked to generate/update INFO5995 ("cybersecurity") exam
+content, check for a tutorial paper as well as the lecture paper before
+considering a week done.** Week 8 originally shipped lecture-only and the
+tutorial had to be added after the fact (2026-09-22) — don't repeat that
+miss. The two live in different places and neither substitutes for the
+other:
+
+- **Lecture material**: PDF slide decks + transcripts, handled by the
+  normal pipeline above (`lecture/*.pdf`, `transcribe-lecture.ts`, etc.).
+- **Tutorial material**: interactive Ed Lessons slides, one lesson per
+  week, indexed at `https://edstem.org/au/courses/37573/lessons` (course
+  id is INFO5995-specific — confirm it's still current if this stops
+  resolving). This is **not** a page a simple fetch/copy-paste can read
+  correctly: quiz options render dynamically and are missing from a
+  plain paste, and pressing the browser's **Back** button from any slide
+  returns to that lessons index, from which you can click into whatever
+  week is currently being authored. **Use the `claude-in-chrome` browser
+  tool** (`navigate` to the index or a specific slide URL, then
+  `get_page_text` per slide, clicking through the left-hand slide list)
+  to pull the real question text and options — never author tutorial
+  MCQs from a copy-pasted Ed page without verifying the options this way
+  first. If the browser tool can't reach it (not logged in, extension
+  disconnected), say so explicitly and ask the user to paste the content
+  instead, per the general browser-tool-first rule elsewhere in this
+  file.
+- Each week's Ed Lessons page holds several slides/tabs (objectives,
+  readings, quizzes) — read through all of them before authoring, the
+  same way `exam-content/info5995/week-8.ts`'s `TUTORIAL_PAPER` was
+  built from the "Modern Password Storage" / "SQL Injection" (x2) /
+  "XSS" / "IDS or IPS?" / "Other Common Vulnerabilities" slides.
+- Add the tutorial as its own `ExamPaperSeed` (`paperNumber: 2` if the
+  lecture already shipped as `paperNumber: 1` — never renumber an
+  already-shipped paper, that silently orphans any saved progress tied
+  to its old `paperNumber`).
+
 ## Spec requirement: continuous testing
 
 Every SPEC.md (or equivalent spec/plan doc) written for this project must include a section requiring the following, verbatim in intent:
