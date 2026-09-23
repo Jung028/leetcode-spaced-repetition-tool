@@ -37,6 +37,7 @@ const SOURCE_LABEL: Record<DueSource, string> = {
   exam: "Modules",
   interview: "Interview",
   "module-item": "Deadline",
+  job: "Jobs",
 };
 
 const SOURCE_COLOR: Record<DueSource, string> = {
@@ -45,6 +46,7 @@ const SOURCE_COLOR: Record<DueSource, string> = {
   exam: "var(--cat-src-exam)",
   interview: "var(--cat-src-interview)",
   "module-item": "var(--cat-src-goals)",
+  job: "var(--green)",
 };
 
 // Same two calendars leetcode-srs already overlays elsewhere: Adam's

@@ -9,6 +9,7 @@ import type { DueItem } from "./home-api";
 import ExamApp from "./exam/App";
 import ModulePlanner from "./ModulePlanner";
 const InterviewApp = React.lazy(() => import("./interview/App"));
+const JobsApp = React.lazy(() => import("./jobs/App"));
 import "./index.css";
 
 type View =
@@ -623,13 +624,14 @@ function LeetCodeApp({
   );
 }
 
-type Tab = "home" | "deadlines" | "leetcode" | "todo" | "exam" | "interview";
+type Tab = "home" | "deadlines" | "leetcode" | "todo" | "exam" | "interview" | "jobs";
 
 type DeepLink =
   | { tab: "leetcode"; problemId: number }
   | { tab: "todo"; todoId: number }
   | { tab: "exam"; course: string; week: number }
-  | { tab: "deadlines"; moduleItemId: number };
+  | { tab: "deadlines"; moduleItemId: number }
+  | { tab: "jobs"; jobId: number };
 
 function ThemeToggle() {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -706,6 +708,12 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
       >
         Interview
       </button>
+      <button
+        className={tab === "jobs" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("jobs")}
+      >
+        Jobs
+      </button>
       <ThemeToggle />
     </nav>
   );
@@ -724,8 +732,9 @@ function App() {
     else if (item.source === "todo") setDeepLink({ tab: "todo", todoId: item.linkId });
     else if (item.source === "exam") setDeepLink({ tab: "exam", course: item.course!, week: item.linkId });
     else if (item.source === "module-item") setDeepLink({ tab: "deadlines", moduleItemId: item.linkId });
-    // Module planner items live in the Deadlines tab.
-    setTab(item.source === "module-item" ? "deadlines" : item.source);
+    else if (item.source === "job") setDeepLink({ tab: "jobs", jobId: item.linkId });
+    // Module planner items live in the Deadlines tab; job actions in the Jobs tab.
+    setTab(item.source === "module-item" ? "deadlines" : item.source === "job" ? "jobs" : item.source);
   };
 
   return (
@@ -760,6 +769,14 @@ function App() {
       {tab === "interview" && (
         <Suspense fallback={<p className="board-empty">Loading…</p>}>
           <InterviewApp />
+        </Suspense>
+      )}
+      {tab === "jobs" && (
+        <Suspense fallback={<p className="board-empty">Loading…</p>}>
+          <JobsApp
+            openJobId={deepLink?.tab === "jobs" ? deepLink.jobId : null}
+            onOpened={() => setDeepLink(null)}
+          />
         </Suspense>
       )}
     </div>

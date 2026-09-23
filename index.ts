@@ -16,6 +16,9 @@ import { migrateLeetcode150 } from "./leetcode150/db";
 import { leetcode150ApiRoutes } from "./leetcode150/api";
 import { migrateInterview } from "./interview/db";
 import { interviewApiRoutes } from "./interview/api";
+import { migrateJobs, seedJobsOnce } from "./jobs/db";
+import { jobsApiRoutes } from "./jobs/api";
+import { JOB_SEED } from "./jobs/seed";
 import { localToday } from "./shared/scheduling";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
@@ -34,6 +37,9 @@ migrateExam(db, localToday());
 migrateLeetcode150(db);
 migrateInterview(db);
 migrateModuleItems(db, localToday());
+migrateJobs(db);
+// Imports the 2026-09-23 internship tracker once; guarded by a flag in jobs_meta.
+seedJobsOnce(db, JOB_SEED, localToday());
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 
 const server = Bun.serve({
@@ -56,6 +62,7 @@ const server = Bun.serve({
     ...leetcode150ApiRoutes(db),
     ...interviewApiRoutes(db),
     ...moduleItemsApiRoutes(db),
+    ...jobsApiRoutes(db),
   },
   development: {
     hmr: true,

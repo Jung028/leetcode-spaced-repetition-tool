@@ -11,6 +11,7 @@ import { homeApiRoutes } from "./home-api";
 import { localToday, addDays } from "./shared/scheduling";
 import { migrateInterview, getOrCreateTodaySession, saveDesignAnswer, revealModelAnswer } from "./interview/db";
 import { migrateModuleItems, createModuleItem, toggleModuleItem } from "./module-items-db";
+import { migrateJobs, createJob, updateJob } from "./jobs/db";
 
 const TODAY = localToday();
 // Each course's due date per week is fixed (SEMESTER_START is a literal),
@@ -56,6 +57,7 @@ beforeEach(() => {
   migrateLeetcode150(db);
   migrateInterview(db);
   migrateModuleItems(db, TODAY);
+  migrateJobs(db);
   // migrateModuleItems now seeds the 12 legacy SEMESTER_DEADLINES rows. The
   // home stats/due assertions below are calibrated against exam/leetcode/
   // interview sources only (and tests that need a module item create their
@@ -378,4 +380,34 @@ test("completed module items are excluded from /api/home/due", async () => {
   toggleModuleItem(db, item.id, localToday());
   const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
   expect(items.some((i: { title: string }) => i.title.includes("Done one"))).toBe(false);
+});
+
+test("GET /api/home/due includes a job whose application deadline is close", async () => {
+  createJob(db, { company: "Citadel", role: "SWE Intern", status: "To apply", closes_on: addDays(TODAY, 2) }, TODAY);
+  // Too far out to show yet (lead time is 3 days before closing).
+  createJob(db, { company: "FarAway", role: "Intern", status: "To apply", closes_on: addDays(TODAY, 30) }, TODAY);
+  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  const jobs = items.filter((i) => i.source === "job");
+  expect(jobs.map((j) => j.title)).toEqual([`Citadel — Apply — closes ${addDays(TODAY, 2)}`]);
+  expect(jobs[0].subtitle).toBe("SWE Intern · To apply");
+});
+
+test("GET /api/home/due flags an application with no reply for 21 days as a follow-up", async () => {
+  createJob(db, { company: "Airwallex", status: "Applied", applied_on: addDays(TODAY, -30), last_update: addDays(TODAY, -30) }, TODAY);
+  // Ghosted long ago — stale, so it must not nag on Home.
+  createJob(db, { company: "Ghost", status: "Applied", last_update: addDays(TODAY, -120) }, TODAY);
+  const items: any[] = await (await fetch(`${base}/api/home/due`)).json();
+  const job = items.find((i) => i.source === "job");
+  expect(job.title).toBe("Airwallex — Follow up / check status");
+  expect(job.overdueDays).toBe(9);
+});
+
+test("GET /api/home/stats and completed-today count an application sent today", async () => {
+  const before: any = await (await fetch(`${base}/api/home/stats`)).json();
+  const job = createJob(db, { company: "Apple", role: "Kernel Intern", status: "To apply" }, TODAY);
+  updateJob(db, job.id, { status: "Applied" }, TODAY);
+  const after: any = await (await fetch(`${base}/api/home/stats`)).json();
+  expect(after.completedToday).toBe(before.completedToday + 1);
+  const done: any[] = await (await fetch(`${base}/api/home/completed-today`)).json();
+  expect(done.some((i) => i.source === "job" && i.title === "Apple — applied")).toBe(true);
 });

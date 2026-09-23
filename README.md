@@ -82,10 +82,45 @@ week into the schedule.
 
 The default tab when the app loads. Shows the Google Calendar embed
 (previously only on the LeetCode tab) plus one unified "Everything due"
-list merging due/overdue items from LeetCode, Todo, and Exam, sorted
+list merging due/overdue items from LeetCode, Todo, Exam and Jobs, sorted
 together by due date. Clicking an item jumps straight to its detail view
 in the right tab, so you don't have to check three tabs separately to see
 what needs attention.
+
+## Jobs tab
+
+The internship / job hunt, tracked next to everything else. One `jobs` table
+(`jobs/db.ts`) holds two kinds of row:
+
+- **Roles** — a pipeline: To apply → Applied → OA → Interview → Offer (or
+  Rejected / Skipped / Not submitted / Withdrawn).
+- **Startups** — cold outreach: Not started → Contacted → Replied →
+  Interview → Offer (or No reply / Rejected).
+
+Each active row gets one computed **next action** (`nextJobAction`), and
+those show up on Home's "Everything due" list like any other item:
+
+| Row | Next action | Shows up |
+| --- | --- | --- |
+| To apply, has a closing date | Apply — closes … | 3 days before it closes (not once closed) |
+| To apply, High priority, no date | Apply (high priority) | right away |
+| Applied | Follow up / check status | 21 days after the last update |
+| OA / Interview | Follow up | 7 days after the last update |
+| Startup Contacted | Follow up on your message | 7 days after contacting |
+| Any row with a **Next action date** | your own next action | on that date (always wins) |
+
+Computed follow-ups that go 14 days unanswered are treated as stale and stop
+nagging. Changing a status stamps "last update" (and "applied on" the first
+time a row leaves To apply / Not started), so the follow-up clock starts on
+its own. Applications sent today count toward Home's "Completed today".
+
+The tab itself has stats, a Next actions list with one-click **Applied** /
+**Messaged** buttons, searchable tables (Applications, To apply, Startups)
+with inline status changes and an editor, and a Cold email template.
+
+On first boot the table is seeded once from `jobs/seed.ts` (the 2026-09-23
+tracker: Gmail application history, open Sydney roles, startup targets). A
+flag in `jobs_meta` stops it re-seeding, even if every row is deleted later.
 
 ## LeetCode → Review Board userscript
 

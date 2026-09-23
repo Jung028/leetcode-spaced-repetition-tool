@@ -16,9 +16,10 @@ import { getCurrentLeetcode150, leetcode150CompletedCredit } from "./leetcode150
 import type { CurrentLeetcode150 } from "./leetcode150/db";
 import { leetcode150Url } from "./leetcode150/content";
 import { listModuleItems } from "./module-items-db";
+import { listJobActions, listJobsStartedToday } from "./jobs/db";
 import { isDue, localToday, overdueDays } from "./shared/scheduling";
 
-export type DueSource = "leetcode" | "todo" | "exam" | "interview" | "module-item";
+export type DueSource = "leetcode" | "todo" | "exam" | "interview" | "module-item" | "job";
 
 export interface DueItem {
   source: DueSource;
@@ -135,6 +136,34 @@ function moduleItemDue(db: Database, today: string): DueItem[] {
       linkId: m.id,
       course: m.course,
     }));
+}
+
+// Job hunt next steps (apply before a deadline, follow up on an application
+// or a cold message, or an explicit next action) — see nextJobAction.
+function jobDue(db: Database, today: string): DueItem[] {
+  return listJobActions(db, today)
+    .filter((a) => isDue(a.dueDate, today))
+    .map(({ job, action, dueDate }) => ({
+      source: "job" as const,
+      id: job.id,
+      title: `${job.company} — ${action}`,
+      subtitle: [job.role, job.status].filter(Boolean).join(" · "),
+      dueDate,
+      overdueDays: overdueDays(dueDate, today),
+      linkId: job.id,
+    }));
+}
+
+function jobCompletedToday(db: Database, today: string): DueItem[] {
+  return listJobsStartedToday(db, today).map((job) => ({
+    source: "job" as const,
+    id: job.id,
+    title: `${job.company} — ${job.kind === "startup" ? "messaged" : "applied"}`,
+    subtitle: job.role ?? "",
+    dueDate: today,
+    overdueDays: 0,
+    linkId: job.id,
+  }));
 }
 
 function interviewDue(db: Database, today: string): DueItem[] {
@@ -259,6 +288,7 @@ function homeStats(db: Database, today: string): HomeStats {
     ...examDue(db, today),
     ...interviewDue(db, today),
     ...moduleItemDue(db, today),
+    ...jobDue(db, today),
   ];
   const examSubmittedToday = listVisibleCourses(db).reduce(
     (sum, { code }) => sum + countExamPapersSubmittedToday(db, code, today),
@@ -275,7 +305,8 @@ function homeStats(db: Database, today: string): HomeStats {
       countTodosCompletedToday(db, today) +
       examSubmittedToday +
       leetcode150CompletedCount +
-      interviewCompletedToday(db, today).length,
+      interviewCompletedToday(db, today).length +
+      jobCompletedToday(db, today).length,
   };
 }
 
@@ -291,6 +322,7 @@ export function homeApiRoutes(db: Database) {
           ...examDue(db, today),
           ...interviewDue(db, today),
           ...moduleItemDue(db, today),
+          ...jobDue(db, today),
         ];
         items.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
         return Response.json(items);
@@ -308,6 +340,7 @@ export function homeApiRoutes(db: Database) {
           ...todoCompletedToday(db, today),
           ...examCompletedToday(db, today),
           ...interviewCompletedToday(db, today),
+          ...jobCompletedToday(db, today),
         ];
         items.sort((a, b) => a.source.localeCompare(b.source) || a.title.localeCompare(b.title));
         return Response.json(items);
