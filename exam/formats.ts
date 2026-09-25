@@ -64,6 +64,16 @@ export function moveItem(arr: number[], from: number, dir: -1 | 1): number[] {
   return out;
 }
 
+// Move the item at `from` to sit at `to`, shifting the items between them
+// (unlike moveItem, `to` need not be adjacent to `from`).
+export function reorderItem(arr: number[], from: number, to: number): number[] {
+  if (from === to || to < 0 || to >= arr.length) return arr;
+  const out = [...arr];
+  const [moved] = out.splice(from, 1);
+  out.splice(to, 0, moved!);
+  return out;
+}
+
 export function parseNumberArray(raw: string): number[] | null {
   try {
     const v = JSON.parse(raw);

@@ -3,17 +3,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import type { DueItem, DueSource, HomeStats } from "./home-api";
 import AnnouncementsBoard from "./AnnouncementsBoard";
 import { ED_DIGEST_URL } from "./ed-digest-link";
+import { isValidUrl } from "./shared/links";
 
 const EMPTY_STATS: HomeStats = { dueToday: 0, overdue: 0, completedToday: 0 };
-
-const isValidUrl = (value: string) => {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-};
 
 // Twice-weekly nudge to keep the exam-content pipeline fed: Wednesday and
 // Friday are when new lecture material typically lands, so those mornings

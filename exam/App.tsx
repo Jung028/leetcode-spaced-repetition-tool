@@ -942,6 +942,9 @@ function PaperView({
   const reviewing = current.submittedAt !== null;
   const wrongCount = current.questions.filter((q) => q.correct === 0).length;
   const remaining = current.questions.filter((q) => q.correct === null).length;
+  // Shown from the question right after a miss: nudge to slow down and read
+  // it out loud, since that's when a slip is most likely to repeat.
+  const justMissedPrevious = index > 0 && current.questions[index - 1]?.correct === 0;
 
   const reload = async () => {
     const p = await api.paper(course, paper.week, paper.paperNumber);
@@ -1112,6 +1115,11 @@ function PaperView({
           <div className="exam-progress-bar">
             <div className="exam-progress-fill" style={{ width: `${(index / current.questions.length) * 100}%` }} />
           </div>
+          {!showingCard && justMissedPrevious && (
+            <p className="exam-tip-banner">
+              <span className="tag">TIP</span> You got the last one wrong — try reading this question out loud before answering. Saying it slows you down enough to catch details you'd otherwise skim past.
+            </p>
+          )}
           {showingCard ? (
             <ReadingCard reading={readings[pendingCard]!} onContinue={() => markSeen(pendingCard)} />
           ) : (

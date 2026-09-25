@@ -10,8 +10,11 @@
 // and extracts every deliverable with an explicit calendar due date. A
 // `source: "manual"` row is one added by hand that the scan has not (yet)
 // found a dated equivalent for; a scanned row always wins over a manual one
-// for the same course + title. Final exams stay out of this list until their
-// timetable is published — they live in the full timeline instead.
+// for the same course + title. Final exams get a placeholder `dueDate` of
+// 2026-11-16 — the Monday of the first week of the University's published
+// formal exam period (16–28 Nov 2026; see sydney.edu.au/students/key-dates)
+// — until each unit's individual exam timetable is released, at which point
+// the weekly scan should overwrite it with the real date/time.
 export interface SemesterDeadline {
   course: string;
   title: string;
@@ -64,6 +67,10 @@ export const DEADLINE_NOTES: Record<string, string> = {
   "COMP5348|Group presentation & live challenge": "Part B: group presentation of the submitted design plus an unseen live challenge, in the Week 12–13 tutorials.",
   "INFO5990|Team Report": "Group report (teams of 4–5) analysing an organisation's IT-enabled business proposal; progressive weekly templates, one submission end of Week 12.",
   "INFO6007|Group project": "Incremental Project Management Plan (teams of 4–5); single submission end of Week 13. Weekly stand-ups in tutorials (Weeks 6–12) are marked separately.",
+  "INFO5995|Final Exam": "Closed-book hurdle exam, similar difficulty to the quizzes. Date is a placeholder (first week of the formal exam period) — individual timetable not yet published.",
+  "COMP5348|Final Exam": "Written exam covering all lectures, labs and assessments; must score ≥40% to pass the unit. Date is a placeholder (first week of the formal exam period) — individual timetable not yet published.",
+  "INFO6007|Final Exam": "Closed-book hurdle exam, restricted open-book with one A4 double-sided notes sheet, 2 hours, case-study based. Date is a placeholder (first week of the formal exam period) — individual timetable not yet published.",
+  "INFO5990|Final Exam": "Closed-book, supervised hurdle exam. Date is a placeholder (first week of the formal exam period) — individual timetable not yet published.",
 };
 
 export function noteFor(d: Pick<SemesterDeadline, "course" | "title">): string {
@@ -74,8 +81,9 @@ export function noteFor(d: Pick<SemesterDeadline, "course" | "title">): string {
 // assessment overview (the briefs under ~/Desktop/USYD/Semester 2 …) where one
 // exists; week-only tasks are dated to that teaching week using the same
 // calendar as the exam board (Week 1 Mon = 2026-08-03, one-week mid-semester
-// break after Week 8). Final exams are deliberately omitted until the formal
-// exam timetable is published — they live in the full semester timeline.
+// break after Week 8). Final exams are listed last with a placeholder date of
+// 2026-11-16 (first week of the University's formal exam period, 16–28 Nov
+// 2026) — swap in the real date once each unit's exam timetable is released.
 export const SEMESTER_DEADLINES: SemesterDeadline[] = [
   // --- Week 4 (24–30 Aug): the three early-feedback quizzes ---
   { course: "INFO5995", title: "Early feedback quiz", weight: "5%", dueDate: "2026-08-30", source: "manual" },
@@ -108,4 +116,12 @@ export const SEMESTER_DEADLINES: SemesterDeadline[] = [
   { course: "COMP5348", title: "Group presentation & live challenge", weight: "10%", dueDate: "2026-11-08", source: "manual" },
   // INFO6007 assessment overview: Group project "due 08 Nov 2026 23:59".
   { course: "INFO6007", title: "Group project", weight: "25%", dueDate: "2026-11-08", source: "manual" },
+  // --- Formal exam period (16–28 Nov 2026) — placeholder dates ---
+  // Individual unit exam timetables are not yet published. Dated to Monday
+  // 16 Nov, the first day of the University's formal exam period, per the
+  // 2026 University of Sydney student calendar (sydney.edu.au/students/key-dates).
+  { course: "INFO5995", title: "Final Exam", weight: "50%", dueDate: "2026-11-16", source: "manual" },
+  { course: "COMP5348", title: "Final Exam", weight: "60%", dueDate: "2026-11-16", source: "manual" },
+  { course: "INFO6007", title: "Final Exam", weight: "60%", dueDate: "2026-11-16", source: "manual" },
+  { course: "INFO5990", title: "Final Exam", weight: "50%", dueDate: "2026-11-16", source: "manual" },
 ];

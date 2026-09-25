@@ -1659,6 +1659,16 @@ a.btn {
   gap: 0.35rem;
 }
 
+.exam-order-handle {
+  cursor: grab;
+  color: var(--dim);
+  padding: 0 0.25rem;
+}
+
+.exam-order-dragging {
+  opacity: 0.5;
+}
+
 .exam-format-reveal {
   display: flex;
   align-items: center;
@@ -1719,6 +1729,24 @@ a.btn {
   background: var(--panel);
   overflow: hidden;
   margin-bottom: 1.5rem;
+}
+
+.exam-tip-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--panel);
+  border-left: 3px solid var(--gold);
+  border-radius: 6px;
+  padding: 0.7rem 0.9rem;
+  margin: 0 0 1.5rem;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.exam-tip-banner .tag {
+  flex-shrink: 0;
+  background: var(--gold);
 }
 
 .exam-progress-fill {

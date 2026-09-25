@@ -4,7 +4,7 @@ import type { ExamReadingSeed } from "../exam-content/types";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { PromptText, DrawingLink } from "./shared-ui";
 import { isBlankCorrect, isFillBlankCorrect, isMatchCorrect, isOrderCorrect, isSortCorrect } from "./grading";
-import { seedFor, canOverrule, shuffledNotIdentity, matchChoiceOrder, moveItem, parseNumberArray, parseStringArray } from "./formats";
+import { seedFor, canOverrule, shuffledNotIdentity, matchChoiceOrder, moveItem, reorderItem, parseNumberArray, parseStringArray } from "./formats";
 
 // Grades the question and persists the student's answer. App.tsx supplies the
 // real implementation (api.grade + error handling); components stay API-free.
@@ -151,15 +151,30 @@ export function OrderQuestion({ question, course, week, paperNumber, onGrade }: 
   const saved = parseNumberArray(question.yourAnswer);
   const [arr, setArr] = useState<number[]>(() => saved ?? shuffledNotIdentity(steps.length, seedFor(course, week, paperNumber, question.index)));
   const shown = graded && saved ? saved : arr;
+  const [dragPos, setDragPos] = useState<number | null>(null);
 
   const check = () => onGrade(isOrderCorrect(arr, steps.length), JSON.stringify(arr));
 
   return (
     <QuestionShell question={question}>
-      <p className="exam-multi-hint">Put these in the right order using the arrows.</p>
+      <p className="exam-multi-hint">Drag the rows into the right order, or use the arrows.</p>
       <div className="exam-options">
         {shown.map((stepIdx, pos) => (
-          <div key={stepIdx} className={rowClass(graded, stepIdx === pos)}>
+          <div
+            key={stepIdx}
+            className={rowClass(graded, stepIdx === pos) + (dragPos === pos ? " exam-order-dragging" : "")}
+            draggable={!graded}
+            onDragStart={() => setDragPos(pos)}
+            onDragEnd={() => setDragPos(null)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (dragPos === null || dragPos === pos) return;
+              setArr(reorderItem(arr, dragPos, pos));
+              setDragPos(null);
+            }}
+          >
+            {!graded && <span className="exam-order-handle" aria-hidden="true">⠿</span>}
             <span className="exam-format-left">{pos + 1}. {steps[stepIdx]}</span>
             {!graded && (
               <span className="exam-order-controls">

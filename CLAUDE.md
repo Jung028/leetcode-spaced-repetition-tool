@@ -105,6 +105,23 @@ bun --hot ./index.ts
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
 
+## Code quality standards
+
+Always write and edit code to these standards — not just for new features, but whenever touching existing code:
+
+- **Single Responsibility**: each function, component, and module does one job. If a function/component needs "and" to describe it, split it.
+- **DRY, but only for real duplication**: extract shared logic into `shared/` (see `shared/scheduling.ts`, `shared/sydneyTime.ts`, `shared/links.ts`) the moment the same logic exists in two places — don't wait for a third. Don't extract on mere structural similarity that isn't the same concept.
+- **SOLID where the codebase is object/module-oriented** (the `*-db.ts` / `*-api.ts` layers, scheduling logic):
+  - Open/Closed — extend behavior via new functions/params, not by rewriting working logic in place.
+  - Liskov Substitution — a more specific type/shape must satisfy every guarantee of the general one it stands in for.
+  - Interface Segregation — keep function/prop signatures narrow; don't pass a whole object when a function needs two fields.
+  - Dependency Inversion — db/api modules depend on types and small functions, not on each other's internals.
+- **Naming**: names say what a thing is/does with no need for a comment. No abbreviations that aren't already established in this repo (`srs`, `mcq`, etc. are fine; one-off shortenings aren't).
+- **Clean comments**: default to none (per the top-level rule in `~/.claude/CLAUDE.md`). When a comment is warranted, it explains *why*, never *what* — the code already says what.
+- **No dead code / no commented-out code**: delete unused code outright; git history is the record, not a comment block.
+- **Small, focused functions**: prefer several small named functions over one long one with internal sections — the names document the flow.
+- **Boundaries validate, internals trust**: validate/parse at API routes and external inputs; don't re-validate the same data deeper in the call stack.
+
 ## Active exam prep priorities
 
 - **INFO5990 Interactive Oral / Viva** — 10%, hurdle requirement, oral, no notes allowed, covers Weeks 1–6 (assessment slides) / 1–7 (marking rubric — unconfirmed conflict, see assessment_overview.md), held Week 8. See `exam-content/info5990/assessment_overview.md` for full assessment breakdown and the Viva marking rubric (Knowledge & Understanding /40, Communication & Clarity /40, Professionalism & Engagement /20). Only Week 1 content is authored so far (`exam-content/info5990/week-1.ts`) — remaining weeks need authoring per `docs/exam-content-authoring-guide.md` before the Week 8 Viva. Authoring must target the rubric (guide point 6): synthesis across concepts/weeks for Knowledge & Understanding depth, time-boxed structured answers for Communication & Clarity, unaided-recall model answers for Professionalism & Engagement.

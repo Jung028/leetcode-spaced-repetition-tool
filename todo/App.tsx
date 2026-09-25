@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import type { Todo } from "./db";
 import { localToday } from "../shared/scheduling";
+import { isValidUrl } from "../shared/links";
 
 interface Stats {
   dueCount: number;
@@ -40,15 +41,6 @@ const api = {
 
 const daysBetween = (a: string, b: string) =>
   Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
-
-const isValidUrl = (value: string) => {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-};
 
 type StatModal = "due" | "overdue" | "completed" | null;
 
