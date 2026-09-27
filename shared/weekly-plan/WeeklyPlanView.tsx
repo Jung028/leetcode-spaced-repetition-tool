@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import type { PlanItem, WeeklyPlan } from "./model";
 import { localToday } from "../scheduling";
 import { shortDate } from "./week";

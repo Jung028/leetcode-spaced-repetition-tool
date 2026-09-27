@@ -1,8 +1,7 @@
-import type { Weekday, CategoryStyle, PlanContext, PlanDay, PlanItem, ReferencePanel } from "./model";
+import type { CategoryStyle, PlanContext, PlanDay, PlanItem, ReferencePanel } from "./model";
 import { WeeklyPlan } from "./model";
 import type { MetricsCalculator } from "./metrics";
-
-const WEEK_ORDER: Weekday[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+import { WEEKDAYS } from "./week";
 
 export interface WeeklyPlanInput<TItem extends PlanItem> {
   id: string;
@@ -19,7 +18,7 @@ export function definePlan<TItem extends PlanItem>(
 ): WeeklyPlan<TItem> {
   const gotDays = input.days.map((d) => d.day);
   const inOrder =
-    gotDays.length === WEEK_ORDER.length && WEEK_ORDER.every((w, i) => gotDays[i] === w);
+    gotDays.length === WEEKDAYS.length && WEEKDAYS.every((w, i) => gotDays[i] === w);
   if (!inOrder) {
     throw new Error(
       `plan "${input.id}": days must be exactly Mon, Tue, Wed, Thu, Fri, Sat, Sun in that order (got ${gotDays.join(", ") || "none"})`,

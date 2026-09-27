@@ -1,4 +1,3 @@
-/* shared/weekly-plan/weekly-plan.css */
 /* Weekly Plan template — builds on shared tokens and .stats/.board/.tag classes in index.css. */
 
 .plan-stats {
@@ -216,11 +215,6 @@
   color: var(--dim);
 }
 
-.plan-table-today {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border-color: var(--accent);
-}
-
 .plan-table-focus-row td {
   font-weight: 600;
   text-align: center;
@@ -228,6 +222,13 @@
 
 .plan-table-rest {
   background: var(--panel-raised);
+}
+
+/* Comes after .plan-table-rest so a today+rest cell keeps the accent
+   background — same specificity, later rule wins. */
+.plan-table-today {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: var(--accent);
 }
 
 .plan-table-item + .plan-table-item {

@@ -1,4 +1,3 @@
-// training/metrics.ts
 import type { MetricsCalculator } from "../shared/weekly-plan/metrics";
 import { CompositeMetrics, TodaySummary } from "../shared/weekly-plan/metrics";
 import type { PlanItem } from "../shared/weekly-plan/model";
@@ -11,11 +10,13 @@ export interface TrainingItem extends PlanItem {
 function hoursThisWeek(): MetricsCalculator<TrainingItem> {
   return {
     stats(plan) {
-      const total = plan.days.reduce(
-        (sum, day) => sum + day.items.reduce((s, item) => s + item.hours, 0),
+      const totalHundredths = plan.days.reduce(
+        (sum, day) => sum + day.items.reduce((s, item) => s + Math.round(item.hours * 100), 0),
         0,
       );
-      return [{ value: total.toFixed(1), label: "Hours this week" }];
+      const tenths = Math.round(totalHundredths / 10);
+      const value = `${Math.floor(tenths / 10)}.${tenths % 10}`;
+      return [{ value, label: "Hours this week" }];
     },
   };
 }

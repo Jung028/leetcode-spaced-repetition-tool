@@ -1,5 +1,6 @@
 import React from "react";
 import type { PlanDay, PlanItem, CategoryStyle } from "../model";
+import { categoryLabel } from "../model";
 import { shortDate } from "../week";
 
 export function DayCard<TItem extends PlanItem>({
@@ -24,15 +25,16 @@ export function DayCard<TItem extends PlanItem>({
         <p className="plan-day-rest">Rest</p>
       ) : (
         day.items.map((item, i) => {
-          const style = categories[item.category];
+          // definePlan() guarantees every item's category key exists in categories.
+          const style = categories[item.category]!;
           return (
             <div key={i} className="plan-item">
               <div className="plan-item-head">
                 <span
                   className="plan-pill"
-                  style={{ "--tone": `var(${style?.colorToken ?? "--dim"})` } as React.CSSProperties}
+                  style={{ "--tone": `var(${style.colorToken})` } as React.CSSProperties}
                 >
-                  {style?.label ?? item.category}
+                  {categoryLabel(categories, item.category)}
                 </span>
                 {item.time && <span className="plan-item-time">{item.time}</span>}
               </div>

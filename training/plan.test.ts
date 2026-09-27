@@ -1,4 +1,3 @@
-// training/plan.test.ts
 import { test, expect } from "bun:test";
 import { TRAINING_PLAN } from "./plan";
 
@@ -8,7 +7,7 @@ test("training plan has all 7 days, Monday first", () => {
   ]);
 });
 
-test("training week totals 11.4 hours and 43 run km", () => {
+test("training week totals 11.4 hours (exact total 11.35h, rounded half-up) and 43 run km", () => {
   const stats = TRAINING_PLAN.stats("2026-09-28");
   expect(stats.find((s) => s.label === "Hours this week")?.value).toBe("11.4");
   expect(stats.find((s) => s.label === "Run km")?.value).toBe("43");

@@ -1,4 +1,3 @@
-// training/plan.ts
 import { definePlan } from "../shared/weekly-plan/define";
 import { TrainingMetrics } from "./metrics";
 import type { TrainingItem } from "./metrics";

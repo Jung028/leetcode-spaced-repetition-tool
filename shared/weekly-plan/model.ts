@@ -1,7 +1,8 @@
 import type { MetricsCalculator } from "./metrics";
 import { weekdayOf, mondayOf, datesOfWeek } from "./week";
+import type { Weekday } from "./week";
 
-export type Weekday = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
+export type { Weekday } from "./week";
 
 export interface PlanStep {
   label: string;
@@ -24,6 +25,12 @@ export interface PlanDay<TItem extends PlanItem = PlanItem> {
 export interface CategoryStyle {
   label: string;
   colorToken: string;
+}
+
+// definePlan() guarantees every item's category key exists in the categories
+// map, so callers trust that invariant here instead of re-checking it.
+export function categoryLabel(categories: Record<string, CategoryStyle>, key: string): string {
+  return categories[key]!.label;
 }
 
 export interface ReferencePanel {

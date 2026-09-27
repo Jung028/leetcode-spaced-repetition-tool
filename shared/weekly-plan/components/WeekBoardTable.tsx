@@ -1,5 +1,6 @@
 import React from "react";
 import type { PlanItem, PlanDay, CategoryStyle } from "../model";
+import { categoryLabel } from "../model";
 import { shortDate } from "../week";
 
 function focusFor<TItem extends PlanItem>(
@@ -7,7 +8,14 @@ function focusFor<TItem extends PlanItem>(
   categories: Record<string, CategoryStyle>,
 ): string {
   if (day.items.length === 0) return "Rest";
-  return day.items.map((item) => categories[item.category]?.label ?? item.category).join(" / ");
+  return day.items.map((item) => categoryLabel(categories, item.category)).join(" / ");
+}
+
+function bodyCellClass<TItem extends PlanItem>(day: PlanDay<TItem>, isToday: boolean): string | undefined {
+  const classes = [day.items.length === 0 && "plan-table-rest", isToday && "plan-table-today"].filter(
+    Boolean,
+  );
+  return classes.length > 0 ? classes.join(" ") : undefined;
 }
 
 export function WeekBoardTable<TItem extends PlanItem>({
@@ -39,20 +47,14 @@ export function WeekBoardTable<TItem extends PlanItem>({
           <tbody>
             <tr className="plan-table-focus-row">
               {week.map(({ date, day, isToday }) => (
-                <td
-                  key={date}
-                  className={day.items.length === 0 ? "plan-table-rest" : isToday ? "plan-table-today" : undefined}
-                >
+                <td key={date} className={bodyCellClass(day, isToday)}>
                   {focusFor(day, categories)}
                 </td>
               ))}
             </tr>
             <tr>
               {week.map(({ date, day, isToday }) => (
-                <td
-                  key={date}
-                  className={day.items.length === 0 ? "plan-table-rest" : isToday ? "plan-table-today" : undefined}
-                >
+                <td key={date} className={bodyCellClass(day, isToday)}>
                   {day.items.length === 0 ? (
                     <span className="plan-day-rest">Rest</span>
                   ) : (
