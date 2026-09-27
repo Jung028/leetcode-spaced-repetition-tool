@@ -161,6 +161,14 @@ function NewTodoForm({ onCancel, onCreated }: { onCancel: () => void; onCreated:
   return (
     <form
       className="form"
+      onKeyDown={(e) => {
+        // Native implicit submit-on-Enter doesn't fire from a date input in
+        // most browsers, so it silently no-ops there instead of creating the todo.
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.requestSubmit();
+        }
+      }}
       onSubmit={async (e) => {
         e.preventDefault();
         if (!task.trim() || !dueDate) {
@@ -213,6 +221,14 @@ function EditTodoForm({
   return (
     <form
       className="form"
+      onKeyDown={(e) => {
+        // Native implicit submit-on-Enter doesn't fire from a date input in
+        // most browsers, so it silently no-ops there instead of saving.
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.requestSubmit();
+        }
+      }}
       onSubmit={async (e) => {
         e.preventDefault();
         if (!task.trim() || !dueDate) {
