@@ -24,12 +24,12 @@ interface GoalFields {
 
 const EMPTY_FIELDS: GoalFields = { title: "", currentValue: "", targetValue: "", targetDate: "", raceId: "", notes: "" };
 
-const toFields = (g: Goal): GoalFields => ({
+const toFields = (g: Goal, races: Race[]): GoalFields => ({
   title: g.title,
   currentValue: g.current_value,
   targetValue: g.target_value,
   targetDate: g.target_date ?? "",
-  raceId: g.race_id != null ? String(g.race_id) : "",
+  raceId: g.race_id != null && races.some((r) => r.id === g.race_id) ? String(g.race_id) : "",
   notes: g.notes ?? "",
 });
 
@@ -199,7 +199,7 @@ export default function GoalsApp() {
                 return (
                   <li key={g.id} style={{ animationDelay: `${i * 60}ms` }}>
                     <GoalForm
-                      initial={toFields(g)}
+                      initial={toFields(g, races)}
                       races={races}
                       submitLabel="Save"
                       onCancel={() => setEditingId(null)}

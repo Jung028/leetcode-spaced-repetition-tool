@@ -79,7 +79,10 @@ CREATE TABLE IF NOT EXISTS goals (
   current_value TEXT NOT NULL,
   target_value TEXT NOT NULL,
   target_date TEXT,      -- ISO date, nullable
-  race_id INTEGER REFERENCES races(id),
+  race_id INTEGER,        -- deliberately no REFERENCES races(id): this db enables
+                           -- foreign_keys, so a FK here would turn "delete a race
+                           -- that still has linked goals" into a 500 instead of an
+                           -- orphaned race_id the UI already tolerates
   notes TEXT,
   created_at TEXT NOT NULL
 );
