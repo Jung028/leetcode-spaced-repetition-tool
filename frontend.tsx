@@ -12,6 +12,8 @@ import UniCalendar from "./UniCalendar";
 const InterviewApp = React.lazy(() => import("./interview/App"));
 const JobsApp = React.lazy(() => import("./jobs/App"));
 const TrainingApp = React.lazy(() => import("./training/App"));
+const GoalsApp = React.lazy(() => import("./training/GoalsApp"));
+const RacesCalendar = React.lazy(() => import("./training/RacesCalendar"));
 import "./index.css";
 
 type View =
@@ -626,7 +628,7 @@ function LeetCodeApp({
   );
 }
 
-type Tab = "home" | "deadlines" | "leetcode" | "todo" | "exam" | "interview" | "jobs" | "training" | "calendar";
+type Tab = "home" | "deadlines" | "leetcode" | "todo" | "exam" | "interview" | "jobs" | "training" | "calendar" | "goals" | "races";
 
 type DeepLink =
   | { tab: "leetcode"; problemId: number }
@@ -765,12 +767,16 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
         activeTab={tab}
         onChange={onChange}
       />
-      <button
-        className={tab === "training" ? "tab tab-active" : "tab"}
-        onClick={() => onChange("training")}
-      >
-        Training
-      </button>
+      <NavGroup
+        label="Training"
+        tabs={[
+          { id: "training", label: "Schedule" },
+          { id: "goals", label: "Goals" },
+          { id: "races", label: "Races Calendar" },
+        ]}
+        activeTab={tab}
+        onChange={onChange}
+      />
       <ThemeToggle />
     </nav>
   );
@@ -840,6 +846,16 @@ function App() {
       {tab === "training" && (
         <Suspense fallback={<p className="board-empty">Loading…</p>}>
           <TrainingApp />
+        </Suspense>
+      )}
+      {tab === "goals" && (
+        <Suspense fallback={<p className="board-empty">Loading…</p>}>
+          <GoalsApp />
+        </Suspense>
+      )}
+      {tab === "races" && (
+        <Suspense fallback={<p className="board-empty">Loading…</p>}>
+          <RacesCalendar />
         </Suspense>
       )}
     </div>
