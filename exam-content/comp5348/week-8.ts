@@ -170,6 +170,24 @@ const LECTURE_PAPER: ExamPaperSeed = {
       body: "A quick refresher of last week, told with everyday pictures.\n\n• Reading a menu changes nothing. That is being safe.\n\n• Setting a thermostat to 21 gives the same result however often you do it. That is being idempotent, meaning many times has the same effect as once.\n\n• Pressing add a sandwich and pressing it again gives an extra sandwich. That is neither safe nor idempotent.\n\n• A waiter who forgets you between visits means each order slip has to carry everything the kitchen needs. That is being stateless.\n\n• A letter has an envelope on the outside and a body of content inside, with optional notes in a header. That is how a SOAP message is laid out.\n\n• REST is a style built on the web: addresses for things, cacheable pages and one uniform way to talk. The WS-* family adds extras on top."
     }
   ],
+  formulas: [
+    { label: "Service demand", formula: "D = V × S (visits to a device × service time per visit)" },
+    { label: "Service rate", formula: "μ = 1 / S" },
+    { label: "Bottleneck", formula: "D max = the largest single device demand Dᵢ" },
+    { label: "Forced Flow Law", formula: "Xᵢ = Vᵢ × X" },
+    { label: "Service Demand Law (Bottleneck Law)", formula: "Uᵢ = Dᵢ × X — pair D with system throughput X, never Xᵢ" },
+    { label: "Utilisation ceiling", formula: "X ≤ 1 / D max" },
+    { label: "Little's Law", formula: "N = λ × T (general), or N = X × (R + Z) for a closed system" },
+    { label: "Interactive response time", formula: "R = N / X − Z" },
+    { label: "Low-load bounds", formula: "R ≥ D  and  X ≤ N / (D + Z)" },
+    { label: "High-load bounds", formula: "X ≤ 1 / D max  and  R ≥ N × D max − Z" },
+    { label: "Knee point", formula: "N* = (D + Z) / D max" },
+    { label: "Planning for a target R", formula: "N ≤ (R target + Z) / D max, rounded down" },
+    { label: "M/M/1: utilisation", formula: "ρ = λ / μ" },
+    { label: "M/M/1: jobs in system", formula: "N = ρ / (1 − ρ)" },
+    { label: "M/M/1: time in system", formula: "T = 1 / (μ (1 − ρ))" },
+    { label: "M/M/1: waiting time", formula: "T wait = ρ / (μ (1 − ρ))" },
+  ],
   questions: [
     {
       type: "mcq",

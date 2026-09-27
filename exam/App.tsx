@@ -926,6 +926,9 @@ function PaperView({
   onError: (message: string | null) => void;
 }) {
   const [current, setCurrent] = useState(paper);
+  // A reference sheet, not teaching content — freely toggleable on every
+  // question of this paper, never gated like reading cards.
+  const [showFormulas, setShowFormulas] = useState(false);
   const [index, setIndex] = useState(() => {
     // Resume at the first ungraded question — or, if every question is
     // already graded but the paper was never submitted, land on the last
@@ -1069,6 +1072,28 @@ function PaperView({
           </>
         )}
       </header>
+      {current.formulas.length > 0 && (
+        <div className="exam-formulas">
+          <button
+            type="button"
+            className="btn"
+            aria-expanded={showFormulas}
+            onClick={() => setShowFormulas((v) => !v)}
+          >
+            {showFormulas ? "Hide formula sheet" : "Show formula sheet"}
+          </button>
+          {showFormulas && (
+            <dl className="exam-formulas-list">
+              {current.formulas.map((f) => (
+                <React.Fragment key={f.label}>
+                  <dt>{f.label}</dt>
+                  <dd>{f.formula}</dd>
+                </React.Fragment>
+              ))}
+            </dl>
+          )}
+        </div>
+      )}
       {reviewing ? (
         current.questions.map((q) => (
           <React.Fragment key={`${q.index}-${q.correct}`}>

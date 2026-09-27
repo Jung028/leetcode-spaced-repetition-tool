@@ -106,6 +106,7 @@ export interface ExamPaperView {
   scoreTotal: number | null;
   questions: ExamQuestionView[];
   readings: ExamReadingSeed[];
+  formulas: { label: string; formula: string }[];
 }
 
 export function toQuestionView(
@@ -151,6 +152,7 @@ function paperView(db: Database, course: string, row: ExamPaperRow): ExamPaperVi
     scoreTotal: row.score_total,
     questions: content.questions.map((q, index) => toQuestionView(q, index, answers.get(index))),
     readings: content.readings ?? [],
+    formulas: content.formulas ?? [],
   };
 }
 

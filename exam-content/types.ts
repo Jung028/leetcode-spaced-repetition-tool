@@ -68,4 +68,9 @@ export interface ExamPaperSeed {
   sourceFiles: string[];
   questions: ExamQuestionSeed[];
   readings?: ExamReadingSeed[];
+  // A reference formula sheet the student can freely toggle open during any
+  // question in this paper — unlike readings, never gated by round
+  // completion, since it's a reference list, not teaching content that
+  // would spoil the questions.
+  formulas?: { label: string; formula: string }[];
 }
