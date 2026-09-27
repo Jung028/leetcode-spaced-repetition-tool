@@ -19,6 +19,12 @@ import { interviewApiRoutes } from "./interview/api";
 import { migrateJobs, seedJobsOnce } from "./jobs/db";
 import { jobsApiRoutes } from "./jobs/api";
 import { JOB_SEED } from "./jobs/seed";
+import { migrateRaces, seedRacesOnce, listRaces } from "./training/races-db";
+import { racesApiRoutes } from "./training/races-api";
+import { RACE_SEED } from "./training/races-seed";
+import { migrateGoals, seedGoalsOnce, resolveGoalSeed } from "./training/goals-db";
+import { goalsApiRoutes } from "./training/goals-api";
+import { GOAL_SEED } from "./training/goals-seed";
 import { localToday } from "./shared/scheduling";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
@@ -40,6 +46,10 @@ migrateModuleItems(db, localToday());
 migrateJobs(db);
 // Imports the 2026-09-23 internship tracker once; guarded by a flag in jobs_meta.
 seedJobsOnce(db, JOB_SEED, localToday());
+migrateRaces(db);
+migrateGoals(db);
+seedRacesOnce(db, RACE_SEED, localToday());
+seedGoalsOnce(db, resolveGoalSeed(GOAL_SEED, listRaces(db)), localToday());
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 const wallCalendarPath = new URL("./assets/student-wall-calendar.pdf", import.meta.url);
 
@@ -68,6 +78,8 @@ const server = Bun.serve({
     ...interviewApiRoutes(db),
     ...moduleItemsApiRoutes(db),
     ...jobsApiRoutes(db),
+    ...racesApiRoutes(db),
+    ...goalsApiRoutes(db),
   },
   development: {
     hmr: true,
