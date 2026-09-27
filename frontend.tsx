@@ -10,6 +10,7 @@ import ExamApp from "./exam/App";
 import ModulePlanner from "./ModulePlanner";
 const InterviewApp = React.lazy(() => import("./interview/App"));
 const JobsApp = React.lazy(() => import("./jobs/App"));
+const TrainingApp = React.lazy(() => import("./training/App"));
 import "./index.css";
 
 type View =
@@ -624,7 +625,7 @@ function LeetCodeApp({
   );
 }
 
-type Tab = "home" | "deadlines" | "leetcode" | "todo" | "exam" | "interview" | "jobs";
+type Tab = "home" | "deadlines" | "leetcode" | "todo" | "exam" | "interview" | "jobs" | "training";
 
 type DeepLink =
   | { tab: "leetcode"; problemId: number }
@@ -714,6 +715,12 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
       >
         Jobs
       </button>
+      <button
+        className={tab === "training" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("training")}
+      >
+        Training
+      </button>
       <ThemeToggle />
     </nav>
   );
@@ -777,6 +784,11 @@ function App() {
             openJobId={deepLink?.tab === "jobs" ? deepLink.jobId : null}
             onOpened={() => setDeepLink(null)}
           />
+        </Suspense>
+      )}
+      {tab === "training" && (
+        <Suspense fallback={<p className="board-empty">Loading…</p>}>
+          <TrainingApp />
         </Suspense>
       )}
     </div>
