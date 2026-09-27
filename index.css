@@ -681,7 +681,13 @@ button.stat:hover {
   background: color-mix(in srgb, var(--red) 14%, var(--panel-raised));
 }
 
-/* Calendar — embedded Google Calendar */
+/* Calendar — embedded Google Calendar + wall calendar PDF */
+.uni-calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
 .gcal-frame {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -1227,6 +1233,56 @@ a.btn {
 
 .tab-active::after {
   transform: scaleX(1);
+}
+
+.tab-group {
+  position: relative;
+  display: inline-flex;
+}
+
+.tab-group-caret {
+  font-size: 0.65rem;
+  color: var(--dim);
+}
+
+.tab-group-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  flex-direction: column;
+  min-width: 10rem;
+  margin-top: 0.3rem;
+  padding: 0.35rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-panel);
+  z-index: 60;
+}
+
+.tab-group:hover .tab-group-menu,
+.tab-group-open .tab-group-menu {
+  display: flex;
+}
+
+.tab-group-item {
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.5rem 0.7rem;
+  border-radius: 5px;
+  color: var(--dim);
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.tab-group-item:hover {
+  color: var(--text);
+  background: var(--panel-raised);
+}
+
+.tab-group-item-active {
+  color: var(--accent);
 }
 
 .theme-toggle {

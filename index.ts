@@ -41,6 +41,7 @@ migrateJobs(db);
 // Imports the 2026-09-23 internship tracker once; guarded by a flag in jobs_meta.
 seedJobsOnce(db, JOB_SEED, localToday());
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
+const wallCalendarPath = new URL("./assets/student-wall-calendar.pdf", import.meta.url);
 
 const server = Bun.serve({
   port: Number(process.env.PORT ?? 3005),
@@ -52,6 +53,10 @@ const server = Bun.serve({
     "/leetcode-sync.user.js": () =>
       new Response(Bun.file(userscriptPath), {
         headers: { "content-type": "text/javascript; charset=utf-8" },
+      }),
+    "/assets/student-wall-calendar.pdf": () =>
+      new Response(Bun.file(wallCalendarPath), {
+        headers: { "content-type": "application/pdf" },
       }),
     ...apiRoutes(db),
     ...todoApiRoutes(db),

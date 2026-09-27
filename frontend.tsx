@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { LADDER, isDue, localToday } from "./shared/scheduling";
 import type { ProblemSummary, ProblemDetail } from "./leetcode/db";
@@ -8,6 +8,7 @@ import HomeApp from "./HomeApp";
 import type { DueItem } from "./home-api";
 import ExamApp from "./exam/App";
 import ModulePlanner from "./ModulePlanner";
+import UniCalendar from "./UniCalendar";
 const InterviewApp = React.lazy(() => import("./interview/App"));
 const JobsApp = React.lazy(() => import("./jobs/App"));
 const TrainingApp = React.lazy(() => import("./training/App"));
@@ -625,7 +626,7 @@ function LeetCodeApp({
   );
 }
 
-type Tab = "home" | "deadlines" | "leetcode" | "todo" | "exam" | "interview" | "jobs" | "training";
+type Tab = "home" | "deadlines" | "leetcode" | "todo" | "exam" | "interview" | "jobs" | "training" | "calendar";
 
 type DeepLink =
   | { tab: "leetcode"; problemId: number }
@@ -670,6 +671,65 @@ function ThemeToggle() {
   );
 }
 
+function NavGroup({
+  label,
+  tabs,
+  activeTab,
+  onChange,
+}: {
+  label: string;
+  tabs: { id: Tab; label: string }[];
+  activeTab: Tab;
+  onChange: (t: Tab) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const isActive = tabs.some((t) => t.id === activeTab);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className={open ? "tab-group tab-group-open" : "tab-group"} ref={ref}>
+      <button
+        className={isActive ? "tab tab-active" : "tab"}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="true"
+      >
+        {label} <span className="tab-group-caret">▾</span>
+      </button>
+      <div className="tab-group-menu">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            className={activeTab === t.id ? "tab-group-item tab-group-item-active" : "tab-group-item"}
+            onClick={() => {
+              onChange(t.id);
+              setOpen(false);
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
   return (
     <nav className="tabs" aria-label="Sections">
@@ -679,42 +739,32 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
       >
         Home
       </button>
-      <button
-        className={tab === "deadlines" ? "tab tab-active" : "tab"}
-        onClick={() => onChange("deadlines")}
-      >
-        Deadlines
-      </button>
-      <button
-        className={tab === "leetcode" ? "tab tab-active" : "tab"}
-        onClick={() => onChange("leetcode")}
-      >
-        LeetCode
-      </button>
+      <NavGroup
+        label="Uni"
+        tabs={[
+          { id: "deadlines", label: "Deadlines" },
+          { id: "exam", label: "Modules" },
+          { id: "calendar", label: "Calendar" },
+        ]}
+        activeTab={tab}
+        onChange={onChange}
+      />
       <button
         className={tab === "todo" ? "tab tab-active" : "tab"}
         onClick={() => onChange("todo")}
       >
         Todo
       </button>
-      <button
-        className={tab === "exam" ? "tab tab-active" : "tab"}
-        onClick={() => onChange("exam")}
-      >
-        Modules
-      </button>
-      <button
-        className={tab === "interview" ? "tab tab-active" : "tab"}
-        onClick={() => onChange("interview")}
-      >
-        Interview
-      </button>
-      <button
-        className={tab === "jobs" ? "tab tab-active" : "tab"}
-        onClick={() => onChange("jobs")}
-      >
-        Jobs
-      </button>
+      <NavGroup
+        label="Jobs"
+        tabs={[
+          { id: "interview", label: "Interview" },
+          { id: "leetcode", label: "LeetCode" },
+          { id: "jobs", label: "Jobs" },
+        ]}
+        activeTab={tab}
+        onChange={onChange}
+      />
       <button
         className={tab === "training" ? "tab tab-active" : "tab"}
         onClick={() => onChange("training")}
@@ -748,6 +798,7 @@ function App() {
     <div className="app">
       <TabBar tab={tab} onChange={setTab} />
       {tab === "home" && <HomeApp onNavigate={navigate} />}
+      {tab === "calendar" && <UniCalendar />}
       {tab === "deadlines" && (
         <ModulePlanner
           openItemId={deepLink?.tab === "deadlines" ? deepLink.moduleItemId : null}

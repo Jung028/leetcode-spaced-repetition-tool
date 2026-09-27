@@ -1,5 +1,5 @@
 // HomeApp.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { DueItem, DueSource, HomeStats } from "./home-api";
 import AnnouncementsBoard from "./AnnouncementsBoard";
 import { ED_DIGEST_URL } from "./ed-digest-link";
@@ -40,13 +40,6 @@ const SOURCE_COLOR: Record<DueSource, string> = {
   "module-item": "var(--cat-src-goals)",
   job: "var(--green)",
 };
-
-// Same two calendars leetcode-srs already overlays elsewhere: Adam's
-// primary calendar and his university timetable import.
-const EMBEDDED_CALENDARS = [
-  { id: "aedamjung@gmail.com", color: "#F4511E" },
-  { id: "crc3t59ndtkt77bdu0j6tv35ant0erjl@import.calendar.google.com", color: "#039BE5" },
-];
 
 function HomeListModal({
   title,
@@ -106,42 +99,6 @@ function HomeListModal({
   );
 }
 
-function GoogleCalendarEmbed() {
-  const src = useMemo(() => {
-    const params = new URLSearchParams({
-      mode: "MONTH",
-      wkst: "2",
-      ctz: "Australia/Sydney",
-      showTitle: "0",
-      showNav: "1",
-      showDate: "1",
-      showPrint: "0",
-      showTabs: "1",
-      showCalendars: "1",
-      showTz: "0",
-    });
-    for (const cal of EMBEDDED_CALENDARS) {
-      params.append("src", cal.id);
-      params.append("color", cal.color);
-    }
-    return `https://calendar.google.com/calendar/embed?${params.toString()}`;
-  }, []);
-
-  return (
-    <section className="calendar" aria-label="Review calendar">
-      <div className="section-head">
-        <h2>Calendar</h2>
-      </div>
-      <p className="rule-note">
-        Adam's primary calendar and university timetable, for reference.
-      </p>
-      <div className="gcal-frame">
-        <iframe src={src} title="Google Calendar — LeetCode reviews and study timetable" />
-      </div>
-    </section>
-  );
-}
-
 type StatModal = "due" | "overdue" | "completed" | null;
 
 // Jump-nav for the Home page's long scroll. Each button scrolls its target
@@ -162,9 +119,6 @@ function HomeToc() {
       </button>
       <button type="button" className="home-toc-link" onClick={() => jump("home-everything-due")}>
         Everything due
-      </button>
-      <button type="button" className="home-toc-link" onClick={() => jump("home-calendar")}>
-        Calendar
       </button>
     </nav>
   );
@@ -313,9 +267,6 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
           </ul>
         )}
       </section>
-      <div id="home-calendar">
-        <GoogleCalendarEmbed />
-      </div>
     </div>
   );
 }
