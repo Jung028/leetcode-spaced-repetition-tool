@@ -58,28 +58,60 @@ export function shuffleOptionsInSource(source: string, rng: () => number = Math.
     const multiline = literalText.includes("\n");
     const options: string[] = new Function(`return ${literalText}`)();
 
+    const rest = source.slice(optionsEnd, optionsEnd + 400);
     const ciRe = /correctIndex:\s*(\d+)/;
-    const rest = source.slice(optionsEnd, optionsEnd + 200);
+    const cisRe = /correctIndices:\s*(\[[^\]]*\])/;
     const ciMatch = ciRe.exec(rest);
-    if (!ciMatch) throw new Error(`No correctIndex found after options block at ${bracketOpen}`);
-    const correctIndex = Number(ciMatch[1]);
-    if (correctIndex < 0 || correctIndex >= options.length) {
-      throw new Error(`correctIndex ${correctIndex} out of range for options block at ${bracketOpen}`);
-    }
-    const ciDigitsStart = optionsEnd + ciMatch.index + ciMatch[0].lastIndexOf(ciMatch[1]!);
-    const ciDigitsEnd = ciDigitsStart + ciMatch[1]!.length;
+    const cisMatch = cisRe.exec(rest);
+    // A question's options block is followed by either a single correctIndex
+    // (mcq/truefalse) or a correctIndices array (multi) — whichever comes
+    // first in the source is the one that belongs to this options block.
+    const useMulti = cisMatch && (!ciMatch || cisMatch.index < ciMatch.index);
 
-    const correctText = options[correctIndex]!;
-    // Re-roll until the order actually changes (a no-op shuffle on a small
-    // array is common enough with Math.random that skipping this check
-    // would silently leave some questions untouched).
-    let shuffled = shuffle(options);
+    let shuffled: string[];
     let attempts = 0;
-    while (shuffled.every((o, i) => o === options[i]) && attempts < 10) {
+
+    if (useMulti) {
+      const correctIndices: number[] = new Function(`return ${cisMatch![1]}`)();
+      for (const idx of correctIndices) {
+        if (idx < 0 || idx >= options.length) {
+          throw new Error(`correctIndices value ${idx} out of range for options block at ${bracketOpen}`);
+        }
+      }
+      const correctTexts = new Set(correctIndices.map((i) => options[i]!));
       shuffled = shuffle(options);
-      attempts++;
+      while (shuffled.every((o, i) => o === options[i]) && attempts < 10) {
+        shuffled = shuffle(options);
+        attempts++;
+      }
+      const newIndices = shuffled
+        .map((o, i) => (correctTexts.has(o) ? i : -1))
+        .filter((i) => i >= 0);
+
+      const cisStart = optionsEnd + cisMatch!.index + cisMatch![0].indexOf(cisMatch![1]!);
+      const cisEnd = cisStart + cisMatch![1]!.length;
+      edits.push({ start: cisStart, end: cisEnd, replacement: `[${newIndices.join(", ")}]` });
+    } else {
+      if (!ciMatch) throw new Error(`No correctIndex/correctIndices found after options block at ${bracketOpen}`);
+      const correctIndex = Number(ciMatch[1]);
+      if (correctIndex < 0 || correctIndex >= options.length) {
+        throw new Error(`correctIndex ${correctIndex} out of range for options block at ${bracketOpen}`);
+      }
+      const ciDigitsStart = optionsEnd + ciMatch.index + ciMatch[0].lastIndexOf(ciMatch[1]!);
+      const ciDigitsEnd = ciDigitsStart + ciMatch[1]!.length;
+
+      const correctText = options[correctIndex]!;
+      // Re-roll until the order actually changes (a no-op shuffle on a small
+      // array is common enough with Math.random that skipping this check
+      // would silently leave some questions untouched).
+      shuffled = shuffle(options);
+      while (shuffled.every((o, i) => o === options[i]) && attempts < 10) {
+        shuffled = shuffle(options);
+        attempts++;
+      }
+      const newIndex = shuffled.indexOf(correctText);
+      edits.push({ start: ciDigitsStart, end: ciDigitsEnd, replacement: String(newIndex) });
     }
-    const newIndex = shuffled.indexOf(correctText);
 
     const indent = multiline ? source.slice(source.lastIndexOf("\n", bracketOpen) + 1, m.index) : "";
     const rendered = multiline
@@ -87,7 +119,6 @@ export function shuffleOptionsInSource(source: string, rng: () => number = Math.
       : "[" + shuffled.map((o) => JSON.stringify(o)).join(", ") + "]";
 
     edits.push({ start: bracketOpen, end: optionsEnd, replacement: rendered });
-    edits.push({ start: ciDigitsStart, end: ciDigitsEnd, replacement: String(newIndex) });
   }
 
   edits.sort((a, b) => a.start - b.start);
