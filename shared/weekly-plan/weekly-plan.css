@@ -1,0 +1,285 @@
+/* Weekly Plan template — builds on shared tokens and .stats/.board/.tag classes in index.css. */
+
+.plan-stats {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.plan-context {
+  background: var(--panel);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.plan-context-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.3rem;
+}
+
+.plan-context-dates {
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  color: var(--dim);
+}
+
+.plan-context-line {
+  margin: 0.2rem 0 0;
+  font-size: var(--text-sm);
+  color: var(--dim);
+}
+
+/* View toggle */
+.plan-view-toggle {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.plan-view-btn {
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: 4px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.plan-view-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.plan-view-btn-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.plan-view-btn-active:hover {
+  color: var(--on-accent);
+}
+
+/* Card view */
+.plan-week-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-2);
+}
+
+@media (max-width: 900px) {
+  .plan-week-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .plan-week-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.plan-day {
+  background: var(--panel);
+  border-radius: 6px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.plan-day-today {
+  border: 1px solid var(--accent);
+}
+
+.plan-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.plan-day-weekday {
+  font-weight: 600;
+}
+
+.plan-day-date {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  color: var(--dim);
+}
+
+.plan-day-rest {
+  color: var(--dim);
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+.plan-item {
+  border-top: 1px solid var(--line);
+  padding-top: 0.5rem;
+}
+
+.plan-item:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.plan-item-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+}
+
+.plan-pill {
+  font-size: var(--text-xs);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--tone) 45%, transparent);
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+  color: var(--tone);
+}
+
+.plan-item-time {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  color: var(--dim);
+}
+
+.plan-item-title {
+  font-size: var(--text-base);
+  margin: 0 0 0.3rem;
+}
+
+.plan-item-steps {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
+.plan-item-steps dt {
+  color: var(--dim);
+  font-weight: 600;
+  margin-top: 0.3rem;
+}
+
+.plan-item-steps dd {
+  margin: 0 0 0.2rem;
+}
+
+.plan-item-note {
+  font-size: var(--text-xs);
+  color: var(--dim);
+  margin: 0.3rem 0 0;
+  font-style: italic;
+}
+
+/* Table view */
+.plan-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.plan-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.plan-table th,
+.plan-table td {
+  border: 1px solid var(--line);
+  padding: 0.6rem 0.7rem;
+  vertical-align: top;
+  min-width: 150px;
+}
+
+.plan-table th {
+  background: var(--panel-raised);
+  text-align: center;
+}
+
+.plan-table-weekday {
+  display: block;
+  font-weight: 600;
+}
+
+.plan-table-date {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  color: var(--dim);
+}
+
+.plan-table-focus-row td {
+  font-weight: 600;
+  text-align: center;
+}
+
+.plan-table-rest {
+  background: var(--panel-raised);
+}
+
+/* Comes after .plan-table-rest so a today+rest cell keeps the accent
+   background — same specificity, later rule wins. */
+.plan-table-today {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: var(--accent);
+}
+
+.plan-table-item + .plan-table-item {
+  margin-top: 0.6rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.4rem;
+}
+
+@media (max-width: 700px) {
+  .plan-table {
+    table-layout: auto;
+  }
+}
+
+/* Reference panels */
+.plan-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-3);
+  margin-top: 1.5rem;
+}
+
+.plan-panel {
+  background: var(--panel);
+  border-radius: 6px;
+  padding: 0.85rem 1rem;
+}
+
+.plan-panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.plan-panel-head h3 {
+  margin: 0;
+  font-size: var(--text-base);
+}
+
+.plan-panel-rows {
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
+.plan-panel-rows dt {
+  color: var(--dim);
+  font-weight: 600;
+  margin-top: 0.3rem;
+}
+
+.plan-panel-rows dd {
+  margin: 0 0 0.2rem;
+}
