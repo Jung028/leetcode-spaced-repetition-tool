@@ -152,6 +152,15 @@ then do `short` / `scenario` / answer-entry questions get authored, alongside
 mcq. Until the user says "we're on Phase 2", treat typed-answer types as
 out of scope.
 
+**Exception — INFO6007 final-exam-style papers only** (added 2026-09-28): the
+INFO6007 final exam is genuinely essay/scenario-based, so its dedicated
+final-exam-style paper (see "INFO6007 — final exam style paper" below) uses
+`scenario`-type questions even while every other paper in every course stays
+Phase-1-only. This does not open `short`/`scenario` for INFO6007's normal
+lecture/tutorial papers, and does not change the phase for any other course —
+it is scoped to that one paper type, for that one course, until the user
+declares Phase 2 globally.
+
 ### Type mix (applies within the active phase)
 
 Use the type mix and ratio from `docs/exam-content-authoring-guide.md`, filtered to the phase's allowed types. Every question must still include a written `modelAnswer`: for mcq/truefalse, why the correct option is correct; for short/scenario (Phase 2 only), the revealed answer itself. Always traceable to the source material, never invented.
@@ -293,6 +302,49 @@ Questions must be genuinely exam-hard, not easy recall:
 - Unicode symbols (→ ≥ λ Σ ∴ etc.) directly in `prompt`/`modelAnswer` text need no schema support — use them freely wherever they make a question clearer or more compact than spelling the relation out in words.
 - `promptDiagram` / `answerDiagram` take Mermaid syntax (flowchart, sequence, etc. — see https://mermaid.js.org) and render live via `MermaidDiagram.tsx`. Use `promptDiagram` when the question references an existing diagram from the material (architecture diagram, sequence diagram); use `answerDiagram` when the diagram itself *is* the answer (e.g. "sketch the request flow for X").
 - Set `requiresDrawing: true` on any question that expects the student to sketch something by hand before checking the answer — the app shows a link to excalidraw.com as a scratchpad alongside the revealed answer.
+
+### INFO6007 — final exam style paper (essay/scenario, per week + cumulative)
+
+The lecturer described the INFO6007 final exam (verbatim, 2026-09-28): "The
+final exam would have 4 essay type questions with each question having 3-4
+parts. All questions would be based on a brief scenario for each question.
+It could cover any topic we are discussing in lectures or tutorials." It's a
+closed-book, supervised, 2-hour hurdle exam (60% of the unit, one A4
+double-sided notes sheet allowed) — see `exam-content/info6007/assessment_overview.md`.
+
+**From now on, every INFO6007 week (new or updated) gets a third paper on top
+of the usual lecture + tutorial papers**, matching this exact shape:
+
+- 4 scenario-driven questions, each with 3-4 parts. Model as `scenario`-type
+  questions per the exception above — either one `scenario` entry per
+  question whose `prompt` states the brief scenario once and then lists parts
+  (a)-(d), with `modelAnswer` answering each part in turn, or up to 4 linked
+  `scenario` entries sharing the same scenario intro line, one part each.
+  Whichever reads more naturally for that scenario.
+- Each part's answer follows the same "explain it to a teenager" shape as
+  every other subjective `modelAnswer` in this repo (see "Subjective (`short`
+  / `scenario`) model answers" above): plain analogy first, then labelled
+  bullets, then a bottom line stating the actual answer — never lecturer-to-
+  lecturer jargon.
+- Scenarios can freely pull from that week's own material or any earlier
+  week/tutorial — the real exam is cumulative in scope, not week-scoped, per
+  the lecturer's own description above.
+- **paperNumber**: use the next available number for that week, never
+  renumber an already-shipped paper. Weeks with tutorial (1) + lecture (2)
+  papers get paperNumber 3; a week with only one existing paper (e.g. Week 5's
+  Discussion Prep, paperNumber 1) gets paperNumber 2.
+- Title it `"Week N Practice Paper — Final Exam Style"`.
+
+**Also maintain one cumulative paper spanning Weeks 1-8**, following the
+`exam-content/info5990/final-practice.ts` precedent for file shape: a single
+`ExamPaperSeed` in `exam-content/info6007/final-practice.ts`, `week: 8`,
+the next available paperNumber for week 8, `sourceFiles` listing all eight
+`exam-content/info6007/week-*.ts` files, `topics` summarizing coverage across
+all eight weeks, and questions in the same 4-scenario/3-4-parts `scenario`
+format above — several scenarios should deliberately require combining a
+concept from one week with a concept from a different week, the way the real
+cumulative final exam would. Import it into `exam/content.ts`'s `ALL_PAPERS`
+the same way the other INFO6007 week files are imported.
 
 ## Exam content generation workflow (new video material)
 
