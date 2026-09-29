@@ -479,6 +479,61 @@ button.stat:hover {
   color: var(--accent);
 }
 
+.roadmap-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.roadmap-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.roadmap-table th,
+.roadmap-table td {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.roadmap-table thead th {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+  background: var(--panel);
+  white-space: nowrap;
+}
+
+.roadmap-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.roadmap-table tbody tr:hover {
+  background: var(--panel-raised);
+}
+
+.roadmap-table td:first-child {
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.roadmap-notes {
+  list-style: disc;
+  margin: 0.85rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--dim);
+  font-size: var(--text-sm);
+}
+
+.roadmap-notes li {
+  margin-bottom: 0.35rem;
+}
+
 .board-rows {
   list-style: none;
   margin: 0;

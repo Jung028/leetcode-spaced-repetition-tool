@@ -22,6 +22,7 @@ import { JOB_SEED } from "./jobs/seed";
 import { migrateGoals, seedGoalsOnce } from "./training/goals-db";
 import { goalsApiRoutes } from "./training/goals-api";
 import { GOAL_SEED } from "./training/goals-seed";
+import { roadmapApiRoutes } from "./training/roadmap-api";
 import { localToday } from "./shared/scheduling";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
@@ -51,7 +52,6 @@ migrateGoals(db);
 seedGoalsOnce(db, GOAL_SEED, localToday());
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 const wallCalendarPath = new URL("./assets/student-wall-calendar.pdf", import.meta.url);
-const raceRoadmapPath = new URL("./assets/race-roadmap-2026-2031.xlsx", import.meta.url);
 
 const server = Bun.serve({
   port: Number(process.env.PORT ?? 3005),
@@ -68,12 +68,6 @@ const server = Bun.serve({
       new Response(Bun.file(wallCalendarPath), {
         headers: { "content-type": "application/pdf" },
       }),
-    "/assets/race-roadmap-2026-2031.xlsx": () =>
-      new Response(Bun.file(raceRoadmapPath), {
-        headers: {
-          "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        },
-      }),
     ...apiRoutes(db),
     ...todoApiRoutes(db),
     ...announcementApiRoutes(db),
@@ -85,6 +79,7 @@ const server = Bun.serve({
     ...moduleItemsApiRoutes(db),
     ...jobsApiRoutes(db),
     ...goalsApiRoutes(db),
+    ...roadmapApiRoutes(),
   },
   development: {
     hmr: true,
