@@ -200,18 +200,28 @@ only module that touches it, via `Bun.$` git commands (`git fetch`,
 
 ## Testing
 
+This codebase has no existing React component-test infrastructure — every
+other tab's `.tsx` is verified by hand, not unit-tested; only the
+`-db.ts`/`-api.ts` logic layers get `bun test` coverage. This feature
+follows that same line, and doesn't introduce new test tooling to cross it:
+
 - `notes-repo.test.ts`: clone/read/write/commit/pull behavior against a
   disposable local bare git repo (no real GitHub network calls).
 - `notes-api.test.ts`: route-level tests in the same shape as
   `todo/api.test.ts`.
-- `NotesView.test.tsx`: renders against an in-memory fake `NotesClient`
-  (no HTTP, no GitHub) — covers list rendering, add flow, badge display,
-  and Pull/Sync button states independent of either backend.
 - `github-client.test.ts`: pending-queue behavior, retry-on-failure, and
-  token-invalid handling, with GitHub's API mocked. `local-client.ts` is
-  intentionally not separately unit-tested beyond this — it's a thin
-  fetch wrapper already exercised end-to-end by `notes-api.test.ts` via
-  the desktop tab's real usage.
+  token-invalid handling. `github-client.ts` takes its `Storage` and
+  `fetch` as constructor arguments (defaulting to the real
+  `window.localStorage` / global `fetch` at the call site in
+  `capture-entry.tsx`) specifically so tests can pass an in-memory fake
+  storage and a canned fake fetch — no real network call, no dependence
+  on a browser DOM inside `bun test`. `local-client.ts` gets its own
+  small test file too (same real-local-git-repo fixture as
+  `notes-api.test.ts`, with `fetch` scoped to the test server's origin)
+  — every task's deliverable is independently testable, so this is
+  slightly more than the bare minimum, not less.
+- `NotesView.tsx` itself: verified manually (see below), same as every
+  other tab's UI in this codebase.
 - Manual verification (GitHub Pages deploy + real device behavior, not
   part of `bun test`):
   1. Push a Notes change, confirm the Actions workflow deploys
