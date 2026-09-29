@@ -466,6 +466,19 @@ button.stat:hover {
   border-radius: 8px;
 }
 
+.broader-view-note {
+  color: var(--dim);
+  font-size: 0.85rem;
+  margin: 1rem 0 0;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
+
+.broader-view-note a {
+  color: var(--accent);
+}
+
 .board-rows {
   list-style: none;
   margin: 0;
@@ -623,6 +636,25 @@ button.stat:hover {
   background: color-mix(in srgb, var(--red) 12%, transparent);
 }
 
+/* Final 3-second warning (3, 2, 1) — same red as overtime, but pulses so it
+   grabs attention before time actually runs out. */
+.exam-timer-critical {
+  color: var(--red);
+  border-color: var(--red);
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  animation: exam-timer-pulse 1s ease-in-out infinite;
+}
+
+@keyframes exam-timer-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
 /* Floating countdown pinned to the bottom of the viewport while a question is
    being answered, so it stays visible however far the page is scrolled. It
    never intercepts clicks on whatever it overlaps. */
@@ -675,7 +707,8 @@ button.stat:hover {
 }
 
 /* Opaque tint (not transparent) so page text never shows through the pill. */
-.exam-timer-float.exam-timer-over {
+.exam-timer-float.exam-timer-over,
+.exam-timer-float.exam-timer-critical {
   color: var(--red);
   border-color: var(--red);
   background: color-mix(in srgb, var(--red) 14%, var(--panel-raised));
@@ -1285,8 +1318,89 @@ a.btn {
   color: var(--accent);
 }
 
-.theme-toggle {
+.shortcuts-help {
+  position: relative;
   margin-left: auto;
+  display: inline-flex;
+}
+
+.shortcuts-help-btn {
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  width: 1.6rem;
+  height: 1.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.shortcuts-help-btn:hover {
+  color: var(--text);
+  background: var(--panel-raised);
+}
+
+.shortcuts-help-panel {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  flex-direction: column;
+  min-width: 13rem;
+  margin-top: 0.4rem;
+  padding: 0.7rem 0.8rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-panel);
+  z-index: 60;
+}
+
+.shortcuts-help:hover .shortcuts-help-panel,
+.shortcuts-help-open .shortcuts-help-panel {
+  display: flex;
+}
+
+.shortcuts-help-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--dim);
+  margin: 0 0 0.5rem;
+}
+
+.shortcuts-help-panel dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 0.6rem;
+  align-items: center;
+  margin: 0;
+}
+
+.shortcuts-help-panel dt {
+  justify-self: start;
+}
+
+.shortcuts-help-panel dd {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.shortcuts-help-panel kbd {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: var(--panel-raised);
+  color: var(--text);
+}
+
+.theme-toggle {
   font-size: 1rem;
   line-height: 1;
   padding: 0.4rem 0.6rem;
@@ -1544,6 +1658,7 @@ a.btn {
   .form textarea,
   .theory-answer,
   .step-row input[type="checkbox"],
+  .shortcuts-help-btn,
   .theme-toggle {
     transition: none !important;
   }
@@ -1568,7 +1683,26 @@ a.btn {
   font-family: var(--mono);
   font-size: var(--text-xs);
   color: var(--dim);
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 45%;
+  overflow-wrap: break-word;
+}
+
+/* The Achieved section's header doubles as a collapse/expand toggle —
+   same look as .section-head, just a real <button> for keyboard access. */
+.board-toggle {
+  width: 100%;
+  font: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.board-toggle-arrow {
+  color: var(--dim);
+  font-size: var(--text-xs);
 }
 
 .step-row {

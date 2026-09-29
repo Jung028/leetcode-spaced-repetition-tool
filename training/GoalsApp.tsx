@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import type { Goal } from "./goals-db";
-import type { Race } from "./races-db";
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -13,72 +12,27 @@ async function json<T>(res: Response): Promise<T> {
 const errorMessage = (err: unknown): string =>
   err instanceof Error ? err.message : "Something went wrong.";
 
-interface GoalFields {
-  title: string;
-  currentValue: string;
-  targetValue: string;
-  targetDate: string;
-  raceId: string;
-  notes: string;
-}
-
-const EMPTY_FIELDS: GoalFields = { title: "", currentValue: "", targetValue: "", targetDate: "", raceId: "", notes: "" };
-
-const toFields = (g: Goal, races: Race[]): GoalFields => ({
-  title: g.title,
-  currentValue: g.current_value,
-  targetValue: g.target_value,
-  targetDate: g.target_date ?? "",
-  raceId: g.race_id != null && races.some((r) => r.id === g.race_id) ? String(g.race_id) : "",
-  notes: g.notes ?? "",
-});
-
-function toBody(f: GoalFields) {
-  return {
-    title: f.title.trim(),
-    currentValue: f.currentValue.trim(),
-    targetValue: f.targetValue.trim(),
-    targetDate: f.targetDate.trim() || null,
-    raceId: f.raceId.trim() ? Number(f.raceId.trim()) : null,
-    notes: f.notes.trim() || null,
-  };
-}
-
 const api = {
-  listGoals: () => fetch("/api/goals").then((r) => json<Goal[]>(r)),
-  listRaces: () => fetch("/api/races").then((r) => json<Race[]>(r)),
-  create: (f: GoalFields) =>
+  list: () => fetch("/api/goals").then((r) => json<Goal[]>(r)),
+  create: (text: string) =>
     fetch("/api/goals", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(toBody(f)),
+      body: JSON.stringify({ text }),
     }).then((r) => json<Goal>(r)),
-  update: (id: number, f: GoalFields) =>
+  update: (id: number, text: string) =>
     fetch(`/api/goals/${id}`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(toBody(f)),
+      body: JSON.stringify({ text }),
     }).then((r) => json<Goal>(r)),
+  toggle: (id: number) => fetch(`/api/goals/${id}/toggle`, { method: "POST" }).then((r) => json<Goal>(r)),
   remove: (id: number) => fetch(`/api/goals/${id}`, { method: "DELETE" }).then((r) => json<{ ok: true }>(r)),
 };
 
-function GoalForm({
-  initial,
-  races,
-  submitLabel,
-  onSubmit,
-  onCancel,
-}: {
-  initial: GoalFields;
-  races: Race[];
-  submitLabel: string;
-  onSubmit: (f: GoalFields) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const [f, setF] = useState(initial);
+function NewGoalForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: () => Promise<void> }) {
+  const [text, setText] = useState("");
   const [error, setError] = useState("");
-  const set = (k: keyof GoalFields) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setF({ ...f, [k]: e.target.value });
 
   return (
     <form
@@ -91,79 +45,167 @@ function GoalForm({
       }}
       onSubmit={async (e) => {
         e.preventDefault();
-        if (!f.title.trim() || !f.currentValue.trim() || !f.targetValue.trim()) {
-          setError("Title, current value and target value are all required.");
+        if (!text.trim()) {
+          setError("Write something first.");
           return;
         }
         try {
-          await onSubmit(f);
+          await api.create(text.trim());
+          await onCreated();
         } catch (err) {
           setError(errorMessage(err));
         }
       }}
     >
       <label>
-        Title
-        <input value={f.title} onChange={set("title")} placeholder="10km run leg" autoFocus />
-      </label>
-      <label>
-        Current
-        <input value={f.currentValue} onChange={set("currentValue")} placeholder="40:00" />
-      </label>
-      <label>
-        Target
-        <input value={f.targetValue} onChange={set("targetValue")} placeholder="33:30" />
-      </label>
-      <label>
-        Target date (optional)
-        <input value={f.targetDate} onChange={set("targetDate")} type="date" />
-      </label>
-      <label>
-        Supports race (optional)
-        <select value={f.raceId} onChange={set("raceId")}>
-          <option value="">None</option>
-          {races.map((r) => (
-            <option key={r.id} value={r.id}>{r.name}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Notes
-        <input value={f.notes} onChange={set("notes")} placeholder="Optional" />
+        Goal
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="10K: 38:47 → 36:30" autoFocus />
       </label>
       {error && <p className="form-error">{error}</p>}
       <div className="btn-row">
-        <button type="submit" className="btn btn-primary">{submitLabel}</button>
+        <button type="submit" className="btn btn-primary">Add goal</button>
         <button type="button" className="btn" onClick={onCancel}>Cancel</button>
       </div>
     </form>
   );
 }
 
+function EditGoalForm({
+  goal,
+  onCancel,
+  onSaved,
+}: {
+  goal: Goal;
+  onCancel: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [text, setText] = useState(goal.text);
+  const [error, setError] = useState("");
+
+  return (
+    <form
+      className="form"
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.requestSubmit();
+        }
+      }}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!text.trim()) {
+          setError("Write something first.");
+          return;
+        }
+        try {
+          await api.update(goal.id, text.trim());
+          await onSaved();
+        } catch (err) {
+          setError(errorMessage(err));
+        }
+      }}
+    >
+      <label>
+        Goal
+        <input value={text} onChange={(e) => setText(e.target.value)} autoFocus />
+      </label>
+      {error && <p className="form-error">{error}</p>}
+      <div className="btn-row">
+        <button type="submit" className="btn btn-primary">Save</button>
+        <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
+function GoalRow({
+  goal,
+  editingId,
+  onToggle,
+  onDelete,
+  onEdit,
+  onCancelEdit,
+  onSaved,
+}: {
+  goal: Goal;
+  editingId: number | null;
+  onToggle: (id: number) => void;
+  onDelete: (id: number) => void;
+  onEdit: (id: number) => void;
+  onCancelEdit: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  if (goal.id === editingId) {
+    return <EditGoalForm goal={goal} onCancel={onCancelEdit} onSaved={onSaved} />;
+  }
+  return (
+    <label className={goal.done ? "board-row board-row-main step-row step-row-done" : "board-row board-row-main step-row"}>
+      <input type="checkbox" checked={goal.done} readOnly={goal.done} onChange={() => onToggle(goal.id)} />
+      {goal.done && <span className="tag">achieved {goal.done_at}</span>}
+      <span className={goal.done ? "board-title board-title-done" : "board-title"}>{goal.text}</span>
+      <button
+        type="button"
+        className="btn"
+        onClick={(e) => {
+          e.preventDefault();
+          onEdit(goal.id);
+        }}
+      >
+        Edit
+      </button>
+      <button
+        type="button"
+        className="btn btn-danger"
+        onClick={(e) => {
+          e.preventDefault();
+          onDelete(goal.id);
+        }}
+      >
+        Delete
+      </button>
+    </label>
+  );
+}
+
 export default function GoalsApp() {
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [races, setRaces] = useState<Race[]>([]);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [showAchieved, setShowAchieved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = () => {
     setError(null);
-    return Promise.all([api.listGoals(), api.listRaces()])
-      .then(([g, r]) => {
-        setGoals(g);
-        setRaces(r);
-      })
-      .catch((err) => setError(errorMessage(err)));
+    return api.list().then(setGoals).catch((err) => setError(errorMessage(err)));
   };
   useEffect(() => { refresh(); }, []);
 
-  const raceNameById = new Map(races.map((r) => [r.id, r.name]));
+  const toggle = (id: number) => {
+    setError(null);
+    api.toggle(id).then(refresh).catch((err) => setError(errorMessage(err)));
+  };
 
   const remove = (id: number) => {
     if (!confirm("Delete this goal?")) return;
     setError(null);
     api.remove(id).then(refresh).catch((err) => setError(errorMessage(err)));
+  };
+
+  const saveEdit = async () => {
+    setEditingId(null);
+    await refresh();
+  };
+
+  const active = goals.filter((g) => !g.done);
+  const achieved = goals.filter((g) => g.done);
+
+  const rowProps = {
+    editingId,
+    onToggle: toggle,
+    onDelete: remove,
+    onEdit: setEditingId,
+    onCancelEdit: () => setEditingId(null),
+    onSaved: saveEdit,
   };
 
   return (
@@ -173,13 +215,9 @@ export default function GoalsApp() {
         <button className="btn btn-primary" onClick={() => setAdding(true)}>+ Add goal</button>
       </div>
       {adding && (
-        <GoalForm
-          initial={EMPTY_FIELDS}
-          races={races}
-          submitLabel="Add goal"
+        <NewGoalForm
           onCancel={() => setAdding(false)}
-          onSubmit={async (f) => {
-            await api.create(f);
+          onCreated={async () => {
             setAdding(false);
             await refresh();
           }}
@@ -188,47 +226,38 @@ export default function GoalsApp() {
       <section className="board" aria-label="Goals">
         <div className="section-head">
           <h2>Goals</h2>
-          <span className="board-count">{goals.length}</span>
+          <span className="board-count">{active.length}</span>
         </div>
-        {goals.length === 0 ? (
+        {active.length === 0 ? (
           <p className="board-empty">No goals yet. Add one to get started.</p>
         ) : (
           <ul className="board-rows">
-            {goals.map((g, i) => {
-              if (g.id === editingId) {
-                return (
-                  <li key={g.id} style={{ animationDelay: `${i * 60}ms` }}>
-                    <GoalForm
-                      initial={toFields(g, races)}
-                      races={races}
-                      submitLabel="Save"
-                      onCancel={() => setEditingId(null)}
-                      onSubmit={async (f) => {
-                        await api.update(g.id, f);
-                        setEditingId(null);
-                        await refresh();
-                      }}
-                    />
-                  </li>
-                );
-              }
-              const raceName = g.race_id != null ? raceNameById.get(g.race_id) : undefined;
-              return (
-                <li key={g.id} style={{ animationDelay: `${i * 60}ms` }}>
-                  <div className="board-row board-row-main">
-                    <span className="board-title">{g.title}</span>
-                    <span className="goal-deadline">{g.current_value} → {g.target_value}</span>
-                    {g.target_date && <span className="tag">{g.target_date}</span>}
-                    {raceName && <span className="goal-deadline">supports: {raceName}</span>}
-                    <button type="button" className="btn" onClick={() => setEditingId(g.id)}>Edit</button>
-                    <button type="button" className="btn btn-danger" onClick={() => remove(g.id)}>Delete</button>
-                  </div>
-                </li>
-              );
-            })}
+            {active.map((g, i) => (
+              <li key={g.id} style={{ animationDelay: `${i * 60}ms` }}>
+                <GoalRow goal={g} {...rowProps} />
+              </li>
+            ))}
           </ul>
         )}
       </section>
+      {achieved.length > 0 && (
+        <section className="board" aria-label="Achieved goals">
+          <button type="button" className="section-head board-toggle" onClick={() => setShowAchieved((v) => !v)}>
+            <h2>Achieved</h2>
+            <span className="board-count">{achieved.length}</span>
+            <span className="board-toggle-arrow">{showAchieved ? "▾" : "▸"}</span>
+          </button>
+          {showAchieved && (
+            <ul className="board-rows">
+              {achieved.map((g, i) => (
+                <li key={g.id} style={{ animationDelay: `${i * 60}ms` }}>
+                  <GoalRow goal={g} {...rowProps} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </div>
   );
 }

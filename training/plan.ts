@@ -11,23 +11,24 @@ const categories: Record<string, CategoryStyle> = {
   strength: { label: "Strength", colorToken: "--red" },
 };
 
-const strengthStep = { label: "Routine", detail: "See Strength · 30' panel below" };
+const shinSafeStrength = { label: "Routine", detail: "See Strength · shin-safe panel below" };
 
+// Injury Plan — Shin stress injury (Sep 2026): cycling only until a doctor
+// or physio clears running. Replaces the Phase 0 running+bike week until
+// then; see the Return to running panel for what comes after clearance.
 const days: PlanDay<TrainingItem>[] = [
   {
     day: "Mon",
     items: [
       {
-        title: "VO2 run (coach's session)",
-        category: "run",
-        time: "18:00",
-        hours: 1.1,
-        runKm: 12,
+        title: "Indoor Z2 ride + core",
+        category: "bike",
+        time: "Flexible",
+        hours: 1.25,
+        runKm: 0,
         steps: [
-          { label: "Warm-up", detail: "15' easy + drills + 4×100m strides (30\" rest)" },
-          { label: "Main set", detail: "2 sets of 1000/800/600m @ 5k pace (3:30 / 2:48 / 2:06)" },
-          { label: "Recovery", detail: "90\" jog between reps, 3' between sets" },
-          { label: "Cool-down", detail: "15' easy + stretch/roll" },
+          { label: "Ride", detail: "Indoor Z2, 75'" },
+          { label: "Core", detail: "Plank, side plank, dead bug" },
         ],
       },
     ],
@@ -36,23 +37,23 @@ const days: PlanDay<TrainingItem>[] = [
     day: "Tue",
     items: [
       {
-        title: "SUVelo Hills ride",
+        title: "Indoor sweet spot",
         category: "bike",
-        time: "06:00",
-        hours: 1.25,
+        time: "Flexible",
+        hours: 0.9,
         runKm: 0,
         steps: [
-          { label: "Ride", detail: "Base bunch, ~30 km (Centennial Park or Mosman)" },
-          { label: "Effort", detail: "Climb seated and steady, don't chase attacks" },
+          { label: "Main set", detail: "3×15' @ 88–93% FTP, 5' easy between" },
         ],
+        note: "Skip the SUVelo Hills ride — standing climbs load the shin",
       },
       {
-        title: "Strength · 30'",
+        title: "Strength · shin-safe",
         category: "strength",
         time: "PM",
         hours: 0.5,
         runKm: 0,
-        steps: [strengthStep],
+        steps: [shinSafeStrength],
       },
     ],
   },
@@ -60,17 +61,16 @@ const days: PlanDay<TrainingItem>[] = [
     day: "Wed",
     items: [
       {
-        title: "Threshold run (coach's session)",
-        category: "run",
-        time: "18:00",
+        title: "Indoor Z2 + high cadence",
+        category: "bike",
+        time: "Flexible",
         hours: 1.2,
-        runKm: 13,
+        runKm: 0,
         steps: [
-          { label: "Warm-up", detail: "15' easy + drills + 4×100m strides" },
-          { label: "Main set", detail: "5×6' @ 4:00–4:05/km" },
-          { label: "Recovery", detail: "90\" jog" },
-          { label: "Cool-down", detail: "15' easy + stretch/roll" },
+          { label: "Endurance", detail: "Indoor Z2, 60'" },
+          { label: "Cadence", detail: "6×1' @ 110+ rpm, 1' easy between" },
         ],
+        note: "Keeps running-like leg speed",
       },
     ],
   },
@@ -78,58 +78,42 @@ const days: PlanDay<TrainingItem>[] = [
     day: "Thu",
     items: [
       {
-        title: "Sweet spot + run off the bike",
-        category: "brick",
+        title: "FTP test / build",
+        category: "bike",
         time: "Flexible",
-        hours: 1.5,
-        runKm: 3,
+        hours: 0.75,
+        runKm: 0,
         steps: [
-          { label: "Warm-up", detail: "15' easy spin, 3×1' fast cadence" },
-          { label: "Main set", detail: "3×15' @ 88–93% FTP, 5' easy between" },
-          { label: "Off the bike", detail: "Straight into 15' easy run" },
-          { label: "Test weeks", detail: "Swap main set for 20' FTP test (FTP = avg × 0.95)" },
+          { label: "Week 1", detail: "20' FTP test, seated the whole time" },
+          { label: "Later weeks", detail: "2×20' @ 95% FTP" },
         ],
       },
       {
-        title: "Strength · 30'",
+        title: "Strength · shin-safe",
         category: "strength",
         time: "PM",
         hours: 0.5,
         runKm: 0,
-        steps: [strengthStep],
+        steps: [shinSafeStrength],
       },
     ],
   },
   {
     day: "Fri",
-    items: [
-      {
-        title: "SUVelo Coffee Ride or rest",
-        category: "easy",
-        time: "06:00",
-        hours: 1,
-        runKm: 0,
-        steps: [
-          { label: "Ride", detail: "Eastern Suburbs, Base, 28 km, no-drop" },
-          { label: "Effort", detail: "Easy only, skip if tired" },
-          { label: "After", detail: "10' mobility" },
-        ],
-      },
-    ],
+    items: [],
   },
   {
     day: "Sat",
     items: [
       {
-        title: "SUVelo South Long Haul",
+        title: "Long ride",
         category: "bike",
-        time: "05:55",
-        hours: 3,
+        time: "Flexible",
+        hours: 2.75,
         runKm: 0,
         steps: [
-          { label: "Ride", detail: "Civilised bunch, turn at Waterfall (~90 km); first Saturday of the month = north ride" },
-          { label: "Fuel", detail: "60 g carbs/h, 500–750 ml/h" },
-          { label: "Build", detail: "Extend to Royal National Park (110 km) by Dec–Jan" },
+          { label: "Ride", detail: "2.5–3h, Civilised bunch or solo" },
+          { label: "Effort", detail: "Stay seated on climbs; stop if the shin hurts" },
         ],
       },
     ],
@@ -138,14 +122,13 @@ const days: PlanDay<TrainingItem>[] = [
     day: "Sun",
     items: [
       {
-        title: "Long run",
-        category: "run",
-        time: "Morning",
-        hours: 1.3,
-        runKm: 15,
+        title: "Easy Z2 ride",
+        category: "easy",
+        time: "Flexible",
+        hours: 1.5,
+        runKm: 0,
         steps: [
-          { label: "Run", detail: "75–90' easy @ 4:50–5:15/km" },
-          { label: "Finish", detail: "6×20\" strides, walk-back rest" },
+          { label: "Ride", detail: "Easy Z2, 90' (indoor if the roads are hilly)" },
         ],
       },
     ],
@@ -159,28 +142,50 @@ export const TRAINING_PLAN = definePlan<TrainingItem>({
   categories,
   metrics: TrainingMetrics,
   context: {
-    heading: "Phase 0 · Engine build",
-    dates: "Oct 2026 – Feb 2027",
+    heading: "Injury comeback · cycling only",
+    dates: "Status as of 29 Sep 2026",
     lines: [
-      "Build bike volume and aerobic base. 80% of time easy.",
-      "Next: Gate 1 · Mar 2027: FTP 250 W or more, 5k under 17:00",
+      "Shin stress injury: pain when walking or running. Cycling only until a doctor or physio clears running.",
+      "Cycling is allowed only if it's pain-free during the ride and the next morning — stay seated, standing climbs load the shin more.",
+      "Gate 1 (Mar 2027) FTP 250W still stands; the 5k target moves to the first test after 6 weeks of pain-free running.",
+      "Skip: NSW 10000m (15 Oct), NSW 3000m (31 Oct), Twilight 5000m (26 Nov). NSW Duathlon State Champs (late Jan 2027) only if pain-free running for 6+ weeks by then.",
     ],
   },
   panels: [
     {
-      title: "Strength · 30'",
-      badge: "Tue + Thu",
+      title: "Strength · shin-safe",
+      badge: "Tue + Thu, no shin load",
       rows: [
-        { label: "Back squat", detail: "3×8, rest 90\"" },
-        { label: "Romanian deadlift", detail: "3×8, rest 90\"" },
-        { label: "Bulgarian split squat", detail: "3×8 each leg, rest 60\"" },
-        { label: "Single-leg calf raise", detail: "3×15 each, rest 45\"" },
-        { label: "Plank / side plank", detail: "3×40\" / 2×30\" each, rest 30\"" },
+        { label: "Glute bridge", detail: "3×12, rest 60\"" },
+        { label: "Clamshell", detail: "3×15 each side, rest 30\"" },
+        { label: "Side-lying leg raise", detail: "3×15 each side, rest 30\"" },
+        { label: "Upper body (push-up or row)", detail: "3×10, rest 60\"" },
+        { label: "Core (dead bug / plank)", detail: "3×40\", rest 30\"" },
       ],
     },
     {
-      title: "Pace guide",
-      badge: "5k 17:36 · 10k 38:46",
+      title: "Return to running",
+      badge: "Only once cleared — 6–12 weeks typical",
+      rows: [
+        { label: "1. Walk", detail: "30' pain-free for 1–2 weeks, no pain when the doctor presses the bone" },
+        { label: "2. Hop test", detail: "20× on the injured leg with no pain" },
+        { label: "3. Walk–run", detail: "1' run / 1' walk × 10, every second day, build over 4–6 weeks" },
+        { label: "4. Easy running", detail: "2–3 weeks before any speed work" },
+        { label: "5. Rebuild", detail: "add no more than ~10% running per week back to the old plan" },
+      ],
+    },
+    {
+      title: "Bone healing basics",
+      rows: [
+        { label: "Fuel", detail: "Eat enough — under-fuelling (RED-S) is a main cause of stress fractures. Fuel every ride over 60'" },
+        { label: "Calcium", detail: "~1,000mg/day — dairy, fortified soy milk, tofu, leafy greens" },
+        { label: "Vitamin D", detail: "Ask your doctor to check it" },
+        { label: "Sleep", detail: "8 hours — that's when bone repairs" },
+      ],
+    },
+    {
+      title: "Pace guide (target once cleared)",
+      badge: "5k 17:36 → 16:00 · 10k 38:46 → 34:00",
       rows: [
         { label: "Easy", detail: "4:50–5:15/km, can talk" },
         { label: "Threshold", detail: "4:00–4:05/km, comfortably hard" },

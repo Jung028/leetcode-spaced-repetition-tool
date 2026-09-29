@@ -5,6 +5,7 @@ import { definePlan } from "./define";
 import { CountByCategory } from "./metrics";
 import type { PlanItem } from "./model";
 import { WeeklyPlanView } from "./WeeklyPlanView";
+import { WeekBoardCards } from "./components/WeekBoardCards";
 
 const categories = {
   lecture: { label: "Lecture", colorToken: "--accent" },
@@ -41,5 +42,16 @@ test("a second plan type renders through WeeklyPlanView with zero changes to sha
   expect(html).toContain("Lecture");
   expect(html).toContain("Revision");
   expect(html).toContain("Off");
-  expect(html).toContain("Databases lecture");
+
+  // The table view's overview is compact by design (full item detail opens in a
+  // modal on click, see WeekBoardTable); the generic Cards renderer still shows
+  // every item's detail inline, so it proves the abstraction holds end to end.
+  const cardsHtml = renderToStaticMarkup(
+    React.createElement(WeekBoardCards, {
+      week: STUDY_PLAN.weekOf("2026-09-28"),
+      categories: STUDY_PLAN.categories,
+      heading: "This week",
+    }),
+  );
+  expect(cardsHtml).toContain("Databases lecture");
 });

@@ -20,37 +20,19 @@ test("POST /api/goals creates a goal and returns 201", async () => {
   const res = await fetch(`${base}/api/goals`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ title: "5k PB", currentValue: "17:36", targetValue: "16:30" }),
+    body: JSON.stringify({ text: "5K: 17:36 → 16:30" }),
   });
   expect(res.status).toBe(201);
   const body = await res.json();
-  expect(body.title).toBe("5k PB");
-  expect(body.current_value).toBe("17:36");
+  expect(body.text).toBe("5K: 17:36 → 16:30");
+  expect(body.done).toBe(false);
 });
 
-test("POST /api/goals requires title, currentValue and targetValue", async () => {
+test("POST /api/goals requires non-empty text", async () => {
   const res = await fetch(`${base}/api/goals`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ title: "5k PB", currentValue: "", targetValue: "16:30" }),
-  });
-  expect(res.status).toBe(400);
-});
-
-test("POST /api/goals rejects a malformed targetDate", async () => {
-  const res = await fetch(`${base}/api/goals`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ title: "A", currentValue: "1", targetValue: "2", targetDate: "not-a-date" }),
-  });
-  expect(res.status).toBe(400);
-});
-
-test("POST /api/goals rejects a non-numeric raceId", async () => {
-  const res = await fetch(`${base}/api/goals`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ title: "A", currentValue: "1", targetValue: "2", raceId: "seven" }),
+    body: JSON.stringify({ text: "  " }),
   });
   expect(res.status).toBe(400);
 });
@@ -59,36 +41,54 @@ test("GET /api/goals returns created goals", async () => {
   await fetch(`${base}/api/goals`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ title: "Goal A", currentValue: "1", targetValue: "2" }),
+    body: JSON.stringify({ text: "Goal A" }),
   });
   const res = await fetch(`${base}/api/goals`);
   const body = await res.json();
   expect(body.length).toBe(1);
-  expect(body[0].title).toBe("Goal A");
+  expect(body[0].text).toBe("Goal A");
 });
 
-test("PUT /api/goals/:id updates a goal", async () => {
+test("POST /api/goals/:id/toggle flips done", async () => {
   const created = await (
     await fetch(`${base}/api/goals`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: "Original", currentValue: "1", targetValue: "2" }),
+      body: JSON.stringify({ text: "Toggle me" }),
+    })
+  ).json();
+  const res = await fetch(`${base}/api/goals/${created.id}/toggle`, { method: "POST" });
+  expect(res.status).toBe(200);
+  expect((await res.json()).done).toBe(true);
+});
+
+test("POST /api/goals/:id/toggle on an unknown id returns 404", async () => {
+  const res = await fetch(`${base}/api/goals/9999/toggle`, { method: "POST" });
+  expect(res.status).toBe(404);
+});
+
+test("PUT /api/goals/:id updates a goal's text", async () => {
+  const created = await (
+    await fetch(`${base}/api/goals`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: "Original" }),
     })
   ).json();
   const res = await fetch(`${base}/api/goals/${created.id}`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ title: "Renamed", currentValue: "1", targetValue: "2" }),
+    body: JSON.stringify({ text: "Renamed" }),
   });
   expect(res.status).toBe(200);
-  expect((await res.json()).title).toBe("Renamed");
+  expect((await res.json()).text).toBe("Renamed");
 });
 
 test("PUT /api/goals/:id on an unknown id returns 404", async () => {
   const res = await fetch(`${base}/api/goals/9999`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ title: "X", currentValue: "1", targetValue: "2" }),
+    body: JSON.stringify({ text: "X" }),
   });
   expect(res.status).toBe(404);
 });
@@ -98,7 +98,7 @@ test("DELETE /api/goals/:id removes a goal", async () => {
     await fetch(`${base}/api/goals`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: "Delete me", currentValue: "1", targetValue: "2" }),
+      body: JSON.stringify({ text: "Delete me" }),
     })
   ).json();
   const res = await fetch(`${base}/api/goals/${created.id}`, { method: "DELETE" });

@@ -19,10 +19,7 @@ import { interviewApiRoutes } from "./interview/api";
 import { migrateJobs, seedJobsOnce } from "./jobs/db";
 import { jobsApiRoutes } from "./jobs/api";
 import { JOB_SEED } from "./jobs/seed";
-import { migrateRaces, seedRacesOnce, listRaces } from "./training/races-db";
-import { racesApiRoutes } from "./training/races-api";
-import { RACE_SEED } from "./training/races-seed";
-import { migrateGoals, seedGoalsOnce, resolveGoalSeed } from "./training/goals-db";
+import { migrateGoals, seedGoalsOnce } from "./training/goals-db";
 import { goalsApiRoutes } from "./training/goals-api";
 import { GOAL_SEED } from "./training/goals-seed";
 import { localToday } from "./shared/scheduling";
@@ -36,6 +33,10 @@ db.exec(`
   DROP TABLE IF EXISTS theory_reviews; DROP TABLE IF EXISTS theory_progress;
   DROP TABLE IF EXISTS theory_schedule; DROP TABLE IF EXISTS theory_state;
 `);
+// One-time cleanup: the hand-typed Races Calendar was replaced by direct
+// links to the user's real spreadsheets (see training/RoadmapLinks.tsx) —
+// maintaining a second, hand-copied race list drifted from the source.
+db.exec(`DROP TABLE IF EXISTS races; DROP TABLE IF EXISTS races_meta;`);
 migrateTodo(db);
 migrateAnnouncements(db);
 migrateModules(db, localToday());
@@ -46,12 +47,11 @@ migrateModuleItems(db, localToday());
 migrateJobs(db);
 // Imports the 2026-09-23 internship tracker once; guarded by a flag in jobs_meta.
 seedJobsOnce(db, JOB_SEED, localToday());
-migrateRaces(db);
 migrateGoals(db);
-seedRacesOnce(db, RACE_SEED, localToday());
-seedGoalsOnce(db, resolveGoalSeed(GOAL_SEED, listRaces(db)), localToday());
+seedGoalsOnce(db, GOAL_SEED, localToday());
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 const wallCalendarPath = new URL("./assets/student-wall-calendar.pdf", import.meta.url);
+const raceRoadmapPath = new URL("./assets/race-roadmap-2026-2031.xlsx", import.meta.url);
 
 const server = Bun.serve({
   port: Number(process.env.PORT ?? 3005),
@@ -68,6 +68,12 @@ const server = Bun.serve({
       new Response(Bun.file(wallCalendarPath), {
         headers: { "content-type": "application/pdf" },
       }),
+    "/assets/race-roadmap-2026-2031.xlsx": () =>
+      new Response(Bun.file(raceRoadmapPath), {
+        headers: {
+          "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+      }),
     ...apiRoutes(db),
     ...todoApiRoutes(db),
     ...announcementApiRoutes(db),
@@ -78,7 +84,6 @@ const server = Bun.serve({
     ...interviewApiRoutes(db),
     ...moduleItemsApiRoutes(db),
     ...jobsApiRoutes(db),
-    ...racesApiRoutes(db),
     ...goalsApiRoutes(db),
   },
   development: {

@@ -1105,7 +1105,7 @@ const LECTURE_PAPER: ExamPaperSeed = {
     {
       type: "match",
       prompt:
-        "TechSolutions uses three named vendors: an ERP Development Vendor, a Cloud Hosting Provider, and a Cybersecurity Auditing Firm. Match each vendor to its sourcing model.",
+        "TechSolutions uses three named vendors: an ERP Development Vendor based in a distant country overseas, a Cloud Hosting Provider based in Australia (TechSolutions' own country), and a Cybersecurity Auditing Firm based in a nearby country a short flight away. Match each vendor to its sourcing model.",
       pairs: [
         { left: "ERP Development Vendor", right: "Offshore" },
         { left: "Cloud Hosting Provider", right: "Onshore" },

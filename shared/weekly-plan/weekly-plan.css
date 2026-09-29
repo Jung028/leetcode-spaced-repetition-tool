@@ -231,16 +231,61 @@
   border-color: var(--accent);
 }
 
-.plan-table-item + .plan-table-item {
-  margin-top: 0.6rem;
-  border-top: 1px solid var(--line);
-  padding-top: 0.4rem;
+/* Comes after .plan-table-today so a selected+today cell still reads as
+   selected (stronger, bordered) rather than falling back to the today tint. */
+.plan-table-selected {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border: 2px solid var(--accent);
+}
+
+.plan-table-daybtn {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  width: 100%;
+  padding: 0;
+  cursor: pointer;
+  text-align: inherit;
+}
+
+.plan-table-daybtn:hover {
+  color: var(--accent);
 }
 
 @media (max-width: 700px) {
   .plan-table {
     table-layout: auto;
   }
+}
+
+/* Day detail panel — shows the selected table column's full session info
+   below the table, so the table itself stays a compact two-row overview.
+   Tinted by that day's category (see WeekBoardTable's --tone) the same way
+   a DayCard's pill is, so it reads as "opened" rather than a plain box. */
+.plan-day-detail {
+  background: var(--panel);
+  border-left: 3px solid var(--tone, var(--accent));
+  border-radius: 6px;
+  padding: 1rem 1.1rem;
+  margin-top: var(--space-2);
+  box-shadow: var(--shadow-panel);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  animation: row-in var(--dur-base) var(--ease);
+}
+
+.plan-day-detail-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.plan-day-detail-head .plan-table-weekday {
+  font-size: var(--text-base);
 }
 
 /* Reference panels */

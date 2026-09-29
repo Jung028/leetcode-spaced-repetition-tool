@@ -854,6 +854,27 @@ function QuestionTimer({
     onExpireRef.current();
   }, [elapsed, budgetSeconds, frozen, questionKey]);
 
+  // Keyboard shortcut for pause/resume, mirroring the floating button — skipped
+  // while typing in a form control so it doesn't eat a literal "p" keystroke.
+  // Declared before the `frozen` early return below so every render calls the
+  // same hooks in the same order.
+  useEffect(() => {
+    if (frozen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable)) {
+        return;
+      }
+      if (e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        setPausedFor((prev) => (prev === questionKey ? null : questionKey));
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [frozen, questionKey]);
+
   if (frozen) {
     return (
       <span className="exam-timer" title="Time allowed for this question">
@@ -864,11 +885,18 @@ function QuestionTimer({
 
   const remaining = budgetSeconds - elapsed;
   const over = remaining < 0;
-  const label = paused ? "Resume timer" : "Pause timer";
+  // Final 3-second warning, so the pill turns red before time actually runs
+  // out rather than only after — gives a beat to finish typing.
+  const critical = !over && !paused && remaining <= 3 && remaining > 0;
+  const label = paused ? "Resume timer (P)" : "Pause timer (P)";
+
   return (
     <>
       <span
-        className={over ? "exam-timer exam-timer-over" : paused ? "exam-timer exam-timer-paused" : "exam-timer"}
+        className={
+          "exam-timer" +
+          (over ? " exam-timer-over" : critical ? " exam-timer-critical" : paused ? " exam-timer-paused" : "")
+        }
         title="Time left — when it runs out the correct answer is shown and the question is marked wrong"
       >
         ⏱ {formatCountdown(remaining)}
@@ -881,7 +909,9 @@ function QuestionTimer({
       {createPortal(
         <div
           className={
-            "exam-timer-float" + (over ? " exam-timer-over" : "") + (paused ? " exam-timer-paused" : "")
+            "exam-timer-float" +
+            (over ? " exam-timer-over" : critical ? " exam-timer-critical" : "") +
+            (paused ? " exam-timer-paused" : "")
           }
           role="timer"
           aria-label="Time left for this question"
@@ -1000,6 +1030,37 @@ function PaperView({
   // Once a round is fully graded its card is available again (no peeking mid-round).
   const currentReading = readingFor(readings, index);
   const canReread = currentReading !== -1 && roundFullyGraded(readings, currentReading, gradedList);
+
+  // Keyboard shortcuts mirroring the Previous/Next/Back buttons below — see
+  // the "?" cheatsheet in the top nav (frontend.tsx's ShortcutsHelp). Skipped
+  // while typing in a form control (short-answer text, etc.) so a literal
+  // arrow-key or Escape keystroke there isn't hijacked into navigation.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable)) {
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onBack();
+        return;
+      }
+      if (reviewing) return;
+      if (e.key === "ArrowLeft") {
+        if (index === 0) return;
+        e.preventDefault();
+        setIndex((i) => Math.max(0, i - 1));
+      } else if (e.key === "ArrowRight") {
+        if (showingCard || index === current.questions.length - 1) return;
+        e.preventDefault();
+        setIndex((i) => Math.min(current.questions.length - 1, i + 1));
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [reviewing, index, showingCard, current.questions.length, onBack]);
 
   const submit = async () => {
     onError(null);
@@ -1191,11 +1252,17 @@ function PaperView({
             </>
           )}
           <div className="btn-row">
-            <button className="btn" disabled={index === 0} onClick={() => setIndex((i) => Math.max(0, i - 1))}>
+            <button
+              className="btn"
+              title="Previous question (←)"
+              disabled={index === 0}
+              onClick={() => setIndex((i) => Math.max(0, i - 1))}
+            >
               Previous
             </button>
             <button
               className="btn"
+              title="Next question (→)"
               disabled={showingCard || index === current.questions.length - 1}
               onClick={() => setIndex((i) => Math.min(current.questions.length - 1, i + 1))}
             >
@@ -1207,7 +1274,7 @@ function PaperView({
                 Submit paper
               </button>
             )}
-            <button className="btn" onClick={onBack}>Back</button>
+            <button className="btn" title="Back (Esc)" onClick={onBack}>Back</button>
           </div>
           {index === current.questions.length - 1 && !allGraded && (
             <p className="board-empty">

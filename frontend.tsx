@@ -13,7 +13,7 @@ const InterviewApp = React.lazy(() => import("./interview/App"));
 const JobsApp = React.lazy(() => import("./jobs/App"));
 const TrainingApp = React.lazy(() => import("./training/App"));
 const GoalsApp = React.lazy(() => import("./training/GoalsApp"));
-const RacesCalendar = React.lazy(() => import("./training/RacesCalendar"));
+const RoadmapLinks = React.lazy(() => import("./training/RoadmapLinks"));
 import "./index.css";
 
 type View =
@@ -628,7 +628,7 @@ function LeetCodeApp({
   );
 }
 
-type Tab = "home" | "deadlines" | "leetcode" | "todo" | "exam" | "interview" | "jobs" | "training" | "calendar" | "goals" | "races";
+type Tab = "home" | "deadlines" | "leetcode" | "todo" | "exam" | "interview" | "jobs" | "training" | "calendar" | "goals" | "roadmap";
 
 type DeepLink =
   | { tab: "leetcode"; problemId: number }
@@ -670,6 +670,59 @@ function ThemeToggle() {
     >
       {theme === "light" ? "☾︎" : "☀︎"}
     </button>
+  );
+}
+
+// Keyboard-shortcut cheatsheet for the exam paper view (see exam/App.tsx).
+// Shown on hover for mouse users and on click/focus for keyboard and touch,
+// matching NavGroup's own hover-or-click popover pattern below.
+function ShortcutsHelp() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className={open ? "shortcuts-help shortcuts-help-open" : "shortcuts-help"} ref={ref}>
+      <button
+        type="button"
+        className="shortcuts-help-btn"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="true"
+        aria-label="Keyboard shortcuts"
+        title="Keyboard shortcuts"
+      >
+        ?
+      </button>
+      <div className="shortcuts-help-panel" role="menu">
+        <p className="shortcuts-help-title">Exam paper shortcuts</p>
+        <dl>
+          <dt><kbd>←</kbd></dt>
+          <dd>Previous question</dd>
+          <dt><kbd>→</kbd></dt>
+          <dd>Next question</dd>
+          <dt><kbd>P</kbd></dt>
+          <dd>Pause / resume timer</dd>
+          <dt><kbd>Esc</kbd></dt>
+          <dd>Back</dd>
+        </dl>
+      </div>
+    </div>
   );
 }
 
@@ -772,11 +825,12 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
         tabs={[
           { id: "training", label: "Schedule" },
           { id: "goals", label: "Goals" },
-          { id: "races", label: "Races Calendar" },
+          { id: "roadmap", label: "Race Calendar" },
         ]}
         activeTab={tab}
         onChange={onChange}
       />
+      <ShortcutsHelp />
       <ThemeToggle />
     </nav>
   );
@@ -853,9 +907,9 @@ function App() {
           <GoalsApp />
         </Suspense>
       )}
-      {tab === "races" && (
+      {tab === "roadmap" && (
         <Suspense fallback={<p className="board-empty">Loading…</p>}>
-          <RacesCalendar />
+          <RoadmapLinks />
         </Suspense>
       )}
     </div>
