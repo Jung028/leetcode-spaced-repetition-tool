@@ -273,6 +273,51 @@ test("a 401 on the GET path used to resolve a note's sha clears the stored token
   expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
 });
 
+test("listNotes falls back to the last successfully-fetched remote list (plus pending) when a later refresh fails, instead of collapsing to pending-only", async () => {
+  let shouldFail = false;
+  const fetchFn = (async (url: string) => {
+    if (shouldFail) return new Response("Server Error", { status: 500 });
+    if (url.endsWith("/contents/notes")) return Response.json([{ name: "seen.md", type: "file" }]);
+    if (url.endsWith("/contents/notes/seen.md")) return Response.json({ content: btoa("already seen"), sha: "sha-1" });
+    throw new Error(`unexpected request: ${url}`);
+  }) as unknown as typeof fetch;
+  const client = createGithubClient({ owner: "me", repo: "notes-data", token: "t", storage, fetchFn });
+
+  const first = await client.listNotes();
+  expect(first.map((n) => n.text)).toEqual(["already seen"]);
+
+  await client.addNote("mid-edit draft");
+  shouldFail = true;
+  const second = await client.listNotes();
+  expect(second.map((n) => n.text).sort()).toEqual(["already seen", "mid-edit draft"].sort());
+});
+
+test("a 403 with x-ratelimit-remaining: 0 is treated as a rate limit, not an auth failure, and keeps the stored token", async () => {
+  storage.setItem(TOKEN_STORAGE_KEY, "still-good");
+  const fetchFn = (async () =>
+    new Response("rate limited", {
+      status: 403,
+      headers: { "x-ratelimit-remaining": "0" },
+    })) as unknown as typeof fetch;
+  const client = createGithubClient({ owner: "me", repo: "notes-data", token: "still-good", storage, fetchFn });
+  await client.addNote("kept for retry");
+  await expect(client.sync()).rejects.toThrow(/rate limit/i);
+  expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("still-good");
+});
+
+test("a 403 with a retry-after header is also treated as a rate limit, not an auth failure", async () => {
+  storage.setItem(TOKEN_STORAGE_KEY, "still-good");
+  const fetchFn = (async () =>
+    new Response("secondary rate limit", {
+      status: 403,
+      headers: { "retry-after": "30" },
+    })) as unknown as typeof fetch;
+  const client = createGithubClient({ owner: "me", repo: "notes-data", token: "still-good", storage, fetchFn });
+  await client.addNote("kept for retry");
+  await expect(client.sync()).rejects.toThrow(/rate limit/i);
+  expect(storage.getItem(TOKEN_STORAGE_KEY)).toBe("still-good");
+});
+
 test("updateNote surfaces a real error message when the retry also hits a stale sha", async () => {
   const fetchFn = (async (url: string, init?: RequestInit) => {
     if (init?.method === "PUT") return new Response("Conflict", { status: 409 });

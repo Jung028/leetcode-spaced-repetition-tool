@@ -30,7 +30,7 @@ export function createLocalClient(fetchFn: FetchLike = fetch): NotesClient {
       return (await res.json()) as Note;
     },
     async updateNote(id: string, text: string) {
-      const res = await fetchFn(`/api/notes/${id}`, {
+      const res = await fetchFn(`/api/notes/${encodeURIComponent(id)}`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text }),

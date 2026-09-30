@@ -11,6 +11,8 @@ import {
 
 const json = (data: unknown, status = 200) => Response.json(data, { status });
 
+const NOTE_ID_PATTERN = /^[A-Za-z0-9-]+$/;
+
 export function notesApiRoutes(clonePath: string) {
   return {
     "/api/notes": {
@@ -34,6 +36,9 @@ export function notesApiRoutes(clonePath: string) {
     },
     "/api/notes/:id": {
       PUT: async (req: Request & { params: { id: string } }) => {
+        if (!NOTE_ID_PATTERN.test(req.params.id)) {
+          return json({ error: "invalid note id" }, 400);
+        }
         const body = (await req.json().catch(() => null)) as { text?: unknown } | null;
         const text = typeof body?.text === "string" ? body.text.trim() : "";
         if (!text) return json({ error: "text is required" }, 400);

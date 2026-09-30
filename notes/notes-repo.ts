@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, realpathSync } from "node:fs";
+import { resolve, sep } from "node:path";
 import type { Note } from "./notes-client";
 
 function notesDir(clonePath: string): string {
@@ -84,7 +85,13 @@ export async function writeNote(clonePath: string, text: string): Promise<Note> 
 
 export async function updateNote(clonePath: string, id: string, text: string): Promise<Note> {
   await assertOwnRepo(clonePath);
-  const path = `${notesDir(clonePath)}/${id}.md`;
+  const dir = notesDir(clonePath);
+  const path = `${dir}/${id}.md`;
+  const resolvedDir = resolve(dir);
+  const resolvedPath = resolve(path);
+  if (resolvedPath !== resolvedDir && !resolvedPath.startsWith(resolvedDir + sep)) {
+    throw new Error(`note not found: ${id}`);
+  }
   if (!existsSync(path)) {
     throw new Error(`note not found: ${id}`);
   }

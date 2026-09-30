@@ -252,6 +252,11 @@ test("updateNote throws when the note id does not exist", async () => {
   await expect(updateNote(cloneDir, "does-not-exist", "text")).rejects.toThrow(/note not found/);
 });
 
+test("updateNote rejects a path-traversal id instead of writing outside notesDir", async () => {
+  await expect(updateNote(cloneDir, "../outside", "pwned")).rejects.toThrow(/note not found/);
+  expect(existsSync(join(cloneDir, "outside.md"))).toBe(false);
+});
+
 test("updateNote refuses to run when the clone path is not a git repository at all", async () => {
   const plainDir = join(root, "plain-updatenote-dir");
   mkdirSync(plainDir, { recursive: true });

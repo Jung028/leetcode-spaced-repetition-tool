@@ -17,8 +17,15 @@ class StaleShaError extends Error {}
 const STORAGE_KEY = "notes-capture-pending";
 export const TOKEN_STORAGE_KEY = "notes-capture-token";
 
+function isRateLimitResponse(res: Response): boolean {
+  return res.headers.get("x-ratelimit-remaining") === "0" || res.headers.has("retry-after");
+}
+
 function throwIfAuthFailure(res: Response, storage: Storage): void {
   if (res.status !== 401 && res.status !== 403) return;
+  if (res.status === 403 && isRateLimitResponse(res)) {
+    throw new Error("GitHub rate limit hit — try again in a bit.");
+  }
   // Fine-grained tokens always expire; dropping it makes the next page load re-prompt.
   storage.removeItem(TOKEN_STORAGE_KEY);
   throw new Error(
@@ -73,6 +80,7 @@ export function createGithubClient(opts: {
 }): NotesClient {
   const fetchFn = opts.fetchFn ?? fetch;
   const shaCache = new Map<string, string>();
+  let lastKnownRemote: Note[] = [];
 
   const authHeaders = {
     Authorization: `Bearer ${opts.token}`,
@@ -121,13 +129,16 @@ export function createGithubClient(opts: {
     try {
       remote = await listRemoteNotes();
     } catch {
-      // Offline, rate-limited, or an expired token: fall back to the local queue only,
-      // the same way this file's checkForUpdates() already swallows remote failures —
-      // a phone showing its own unsynced notes beats a phone showing a network error.
-      return pendingAsNotes(opts.storage);
+      // Offline, rate-limited, or an expired token: fall back to the last remote list we
+      // successfully fetched this session, merged with the local queue — the same way
+      // this file's checkForUpdates() already swallows remote failures. A phone showing
+      // its already-seen notes plus its own unsynced ones beats a phone showing a note
+      // (and any draft the user is mid-edit on) disappearing entirely.
+      return mergeNotes(lastKnownRemote, pendingAsNotes(opts.storage));
     }
     remote.forEach((n) => shaCache.set(n.id, n.sha));
     const notes = remote.map(({ id, text }) => ({ id, text, createdAt: id }) satisfies Note);
+    lastKnownRemote = notes;
     return mergeNotes(notes, pendingAsNotes(opts.storage));
   };
 

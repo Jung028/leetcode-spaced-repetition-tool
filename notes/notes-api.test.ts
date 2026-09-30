@@ -1,6 +1,6 @@
 // notes/notes-api.test.ts
 import { test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureNotesRepoCloned } from "./notes-repo";
@@ -151,4 +151,25 @@ test("PUT /api/notes/:id returns 404 for an unknown note id", async () => {
     body: JSON.stringify({ text: "edited" }),
   });
   expect(res.status).toBe(404);
+});
+
+test("PUT /api/notes/:id rejects a path-traversal id instead of writing outside the clone", async () => {
+  const res = await fetch(`${base}/api/notes/${encodeURIComponent("../../victim")}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: "pwned" }),
+  });
+  expect(res.status).toBe(400);
+  expect(await res.json()).toEqual({ error: "invalid note id" });
+  expect(existsSync(join(root, "victim.md"))).toBe(false);
+});
+
+test("PUT /api/notes/:id rejects a literally-encoded traversal id (..%2F..%2Fvictim)", async () => {
+  const res = await fetch(`${base}/api/notes/..%2F..%2Fvictim`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: "pwned" }),
+  });
+  expect(res.status).toBe(400);
+  expect(existsSync(join(root, "victim.md"))).toBe(false);
 });
