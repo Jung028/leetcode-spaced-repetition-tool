@@ -66,6 +66,8 @@ export async function hasUnpulledChanges(clonePath: string): Promise<boolean> {
 }
 
 export async function pullChanges(clonePath: string): Promise<void> {
+  const remoteBranches = (await Bun.$`git ls-remote --heads origin`.cwd(clonePath).quiet().text()).trim();
+  if (remoteBranches.length === 0) return; // nothing has ever been pushed — nothing to pull
   await Bun.$`git pull`.cwd(clonePath).quiet();
 }
 

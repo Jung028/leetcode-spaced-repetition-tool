@@ -113,3 +113,13 @@ test("hasUnpulledChanges is true after another clone pushes, then pullChanges br
   const notes = await readNotes(cloneDir);
   expect(notes.some((n) => n.text === "from second clone")).toBe(true);
 });
+
+test("pullChanges is a safe no-op against a genuinely empty remote (nothing ever pushed)", async () => {
+  const emptyRemoteDir = join(root, "empty-remote.git");
+  const emptyCloneDir = join(root, "empty-clone");
+  await Bun.$`git init --bare ${emptyRemoteDir}`.quiet();
+  await ensureNotesRepoCloned(emptyCloneDir, emptyRemoteDir);
+  await expect(pullChanges(emptyCloneDir)).resolves.toBeUndefined();
+  const notes = await readNotes(emptyCloneDir);
+  expect(notes).toEqual([]);
+});
