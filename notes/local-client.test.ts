@@ -10,11 +10,12 @@ import { createLocalClient, type FetchLike } from "./local-client";
 let root: string;
 let server: ReturnType<typeof Bun.serve>;
 let client: ReturnType<typeof createLocalClient>;
+let cloneDir: string;
 
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), "local-client-test-"));
   const remoteDir = join(root, "remote.git");
-  const cloneDir = join(root, "clone");
+  cloneDir = join(root, "clone");
   await Bun.$`git init --bare ${remoteDir}`.quiet();
   await ensureNotesRepoCloned(cloneDir, remoteDir);
   await Bun.$`git config user.email test@example.com`.cwd(cloneDir).quiet();
@@ -44,6 +45,28 @@ test("addNote then listNotes round-trips the note", async () => {
 
 test("checkForUpdates returns false on a fresh clone", async () => {
   expect(await client.checkForUpdates()).toBe(false);
+});
+
+test("a failed sync reports the server's error message, including git's own reason", async () => {
+  await client.addNote("will not push");
+  await Bun.$`git remote set-url origin /nonexistent/path`.cwd(cloneDir).quiet();
+  const failure = await client.sync().catch((err: Error) => err);
+  expect(failure).toBeInstanceOf(Error);
+  expect((failure as Error).message).toStartWith("push failed: ");
+  expect((failure as Error).message).toContain("/nonexistent/path");
+});
+
+test("the server's JSON error field becomes the thrown message", async () => {
+  const stubFetch: FetchLike = async () =>
+    Response.json({ error: "notes repo not available: boom" }, { status: 503 });
+  await expect(createLocalClient(stubFetch).listNotes()).rejects.toThrow(
+    new Error("notes repo not available: boom"),
+  );
+});
+
+test("a non-JSON error response falls back to the status-code message", async () => {
+  const stubFetch: FetchLike = async () => new Response("<html>bad gateway</html>", { status: 502 });
+  await expect(createLocalClient(stubFetch).sync()).rejects.toThrow(new Error("sync failed (502)"));
 });
 
 test("sync and pull do not throw against a working repo", async () => {
