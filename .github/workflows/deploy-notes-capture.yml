@@ -8,6 +8,7 @@ on:
       - "notes/**"
       - "notes-capture/index.html"
       - ".github/workflows/deploy-notes-capture.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
