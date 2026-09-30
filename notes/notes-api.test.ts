@@ -1,0 +1,105 @@
+// notes/notes-api.test.ts
+import { test, expect, beforeEach, afterEach } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { ensureNotesRepoCloned } from "./notes-repo";
+import { notesApiRoutes } from "./notes-api";
+
+let root: string;
+let remoteDir: string;
+let cloneDir: string;
+let server: ReturnType<typeof Bun.serve>;
+let base: string;
+
+beforeEach(async () => {
+  root = mkdtempSync(join(tmpdir(), "notes-api-test-"));
+  remoteDir = join(root, "remote.git");
+  cloneDir = join(root, "clone");
+  await Bun.$`git init --bare ${remoteDir}`.quiet();
+
+  // Create an initial commit in the remote so pulls work
+  const tempDir = join(root, "temp");
+  await Bun.$`git clone ${remoteDir} ${tempDir}`.quiet();
+  await Bun.$`git config user.email test@example.com`.cwd(tempDir).quiet();
+  await Bun.$`git config user.name "Test User"`.cwd(tempDir).quiet();
+  await Bun.$`touch .gitkeep`.cwd(tempDir).quiet();
+  await Bun.$`git add .gitkeep`.cwd(tempDir).quiet();
+  await Bun.$`git commit -m "Initial commit"`.cwd(tempDir).quiet();
+  await Bun.$`git push -u origin HEAD`.cwd(tempDir).quiet();
+
+  await ensureNotesRepoCloned(cloneDir, remoteDir);
+  await Bun.$`git config user.email test@example.com`.cwd(cloneDir).quiet();
+  await Bun.$`git config user.name "Test User"`.cwd(cloneDir).quiet();
+  server = Bun.serve({ port: 0, routes: notesApiRoutes(cloneDir) });
+  base = server.url.origin;
+});
+
+afterEach(() => {
+  server.stop(true);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("GET /api/notes returns an empty list initially", async () => {
+  const res = await fetch(`${base}/api/notes`);
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual([]);
+});
+
+test("POST /api/notes creates a note", async () => {
+  const res = await fetch(`${base}/api/notes`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: "remember the milk" }),
+  });
+  expect(res.status).toBe(201);
+  const body = await res.json();
+  expect(body.text).toBe("remember the milk");
+
+  const list = await (await fetch(`${base}/api/notes`)).json();
+  expect(list.length).toBe(1);
+});
+
+test("POST /api/notes rejects empty text", async () => {
+  const res = await fetch(`${base}/api/notes`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: "" }),
+  });
+  expect(res.status).toBe(400);
+});
+
+test("POST /api/notes rejects whitespace-only text", async () => {
+  const res = await fetch(`${base}/api/notes`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: "   \n  " }),
+  });
+  expect(res.status).toBe(400);
+  const list = await (await fetch(`${base}/api/notes`)).json();
+  expect(list.length).toBe(0);
+});
+
+test("POST /api/notes/push commits and pushes a pending note", async () => {
+  await fetch(`${base}/api/notes`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: "sync me" }),
+  });
+  const res = await fetch(`${base}/api/notes/push`, { method: "POST" });
+  expect(res.status).toBe(200);
+  const status = (await Bun.$`git status --porcelain`.cwd(cloneDir).quiet().text()).trim();
+  expect(status).toBe("");
+});
+
+test("GET /api/notes/sync-status reports no updates on a fresh clone", async () => {
+  const res = await fetch(`${base}/api/notes/sync-status`);
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual({ hasUpdates: false });
+});
+
+test("POST /api/notes/pull returns the current note list", async () => {
+  const res = await fetch(`${base}/api/notes/pull`, { method: "POST" });
+  expect(res.status).toBe(200);
+  expect(await res.json()).toEqual([]);
+});
