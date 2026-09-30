@@ -29,6 +29,15 @@ export function createLocalClient(fetchFn: FetchLike = fetch): NotesClient {
       if (!res.ok) throw new Error(await readErrorMessage(res, `could not save note (${res.status})`));
       return (await res.json()) as Note;
     },
+    async updateNote(id: string, text: string) {
+      const res = await fetchFn(`/api/notes/${id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error(await readErrorMessage(res, `could not update note (${res.status})`));
+      return (await res.json()) as Note;
+    },
     async checkForUpdates() {
       const res = await fetchFn("/api/notes/sync-status");
       if (!res.ok) throw new Error(await readErrorMessage(res, `could not check for updates (${res.status})`));

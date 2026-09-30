@@ -74,3 +74,18 @@ test("sync and pull do not throw against a working repo", async () => {
   await expect(client.sync()).resolves.toBeUndefined();
   await expect(client.pull()).resolves.toEqual(expect.any(Array));
 });
+
+test("updateNote round-trips an edit against a real local clone", async () => {
+  const added = await client.addNote("before edit");
+  const updated = await client.updateNote(added.id, "after edit");
+  expect(updated.id).toBe(added.id);
+  expect(updated.text).toBe("after edit");
+  const notes = await client.listNotes();
+  expect(notes.find((n) => n.id === added.id)?.text).toBe("after edit");
+});
+
+test("updateNote against an unknown id reports the server's 404 message", async () => {
+  const failure = await client.updateNote("does-not-exist", "text").catch((err: Error) => err);
+  expect(failure).toBeInstanceOf(Error);
+  expect((failure as Error).message).toContain("note not found");
+});

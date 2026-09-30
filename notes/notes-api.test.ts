@@ -103,3 +103,52 @@ test("POST /api/notes/pull returns the current note list", async () => {
   expect(res.status).toBe(200);
   expect(await res.json()).toEqual([]);
 });
+
+test("PUT /api/notes/:id updates an existing note's text", async () => {
+  const created = await (
+    await fetch(`${base}/api/notes`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: "original" }),
+    })
+  ).json();
+
+  const res = await fetch(`${base}/api/notes/${created.id}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: "edited" }),
+  });
+  expect(res.status).toBe(200);
+  const updated = await res.json();
+  expect(updated.id).toBe(created.id);
+  expect(updated.text).toBe("edited");
+
+  const list = await (await fetch(`${base}/api/notes`)).json();
+  expect(list.length).toBe(1);
+  expect(list[0].text).toBe("edited");
+});
+
+test("PUT /api/notes/:id rejects empty text", async () => {
+  const created = await (
+    await fetch(`${base}/api/notes`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: "original" }),
+    })
+  ).json();
+  const res = await fetch(`${base}/api/notes/${created.id}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: "   " }),
+  });
+  expect(res.status).toBe(400);
+});
+
+test("PUT /api/notes/:id returns 404 for an unknown note id", async () => {
+  const res = await fetch(`${base}/api/notes/does-not-exist`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: "edited" }),
+  });
+  expect(res.status).toBe(404);
+});

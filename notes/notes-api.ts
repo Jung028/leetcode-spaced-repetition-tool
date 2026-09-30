@@ -2,6 +2,7 @@
 import {
   readNotes,
   writeNote,
+  updateNote,
   fetchRemote,
   hasUnpulledChanges,
   pullChanges,
@@ -28,6 +29,20 @@ export function notesApiRoutes(clonePath: string) {
           return json(await writeNote(clonePath, text), 201);
         } catch (err) {
           return json({ error: `could not save note: ${(err as Error).message}` }, 503);
+        }
+      },
+    },
+    "/api/notes/:id": {
+      PUT: async (req: Request & { params: { id: string } }) => {
+        const body = (await req.json().catch(() => null)) as { text?: unknown } | null;
+        const text = typeof body?.text === "string" ? body.text.trim() : "";
+        if (!text) return json({ error: "text is required" }, 400);
+        try {
+          return json(await updateNote(clonePath, req.params.id, text));
+        } catch (err) {
+          const message = (err as Error).message;
+          if (message.includes("note not found")) return json({ error: message }, 404);
+          return json({ error: `could not update note: ${message}` }, 503);
         }
       },
     },
