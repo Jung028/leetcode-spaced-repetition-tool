@@ -17,6 +17,15 @@ class StaleShaError extends Error {}
 const STORAGE_KEY = "notes-capture-pending";
 export const TOKEN_STORAGE_KEY = "notes-capture-token";
 
+function throwIfAuthFailure(res: Response, storage: Storage): void {
+  if (res.status !== 401 && res.status !== 403) return;
+  // Fine-grained tokens always expire; dropping it makes the next page load re-prompt.
+  storage.removeItem(TOKEN_STORAGE_KEY);
+  throw new Error(
+    `GitHub rejected your token (${res.status}) — it may be expired or invalid. Refresh this page to enter a new one.`,
+  );
+}
+
 function loadPending(storage: Storage): PendingNote[] {
   const raw = storage.getItem(STORAGE_KEY);
   if (!raw) return [];
@@ -82,13 +91,7 @@ export function createGithubClient(opts: {
         content: toBase64(text),
       }),
     });
-    if (res.status === 401 || res.status === 403) {
-      // Fine-grained tokens always expire; dropping it makes the next page load re-prompt.
-      opts.storage.removeItem(TOKEN_STORAGE_KEY);
-      throw new Error(
-        `GitHub rejected your token (${res.status}) — it may be expired or invalid. Refresh this page to enter a new one.`,
-      );
-    }
+    throwIfAuthFailure(res, opts.storage);
     if (!res.ok) {
       throw new Error(`GitHub rejected the note (${res.status})`);
     }
@@ -97,6 +100,7 @@ export function createGithubClient(opts: {
   const listRemoteNotes = async (): Promise<RemoteNote[]> => {
     const listRes = await fetchFn(contentsUrl("notes"), { headers: authHeaders });
     if (listRes.status === 404) return []; // notes/ doesn't exist yet on a brand new repo
+    throwIfAuthFailure(listRes, opts.storage);
     if (!listRes.ok) throw new Error(`could not list notes from GitHub (${listRes.status})`);
     const entries = (await listRes.json()) as { name: string; type: string }[];
     const files = entries.filter((e) => e.type === "file" && e.name.endsWith(".md"));
@@ -104,6 +108,7 @@ export function createGithubClient(opts: {
       files.map(async (entry) => {
         const id = entry.name.replace(/\.md$/, "");
         const fileRes = await fetchFn(contentsUrl(`notes/${entry.name}`), { headers: authHeaders });
+        throwIfAuthFailure(fileRes, opts.storage);
         if (!fileRes.ok) throw new Error(`could not read note ${id} from GitHub (${fileRes.status})`);
         const file = (await fileRes.json()) as { content: string; sha: string };
         return { id, text: fromBase64(file.content), sha: file.sha };
@@ -112,7 +117,15 @@ export function createGithubClient(opts: {
   };
 
   const refreshFromRemote = async (): Promise<Note[]> => {
-    const remote = await listRemoteNotes();
+    let remote: RemoteNote[];
+    try {
+      remote = await listRemoteNotes();
+    } catch {
+      // Offline, rate-limited, or an expired token: fall back to the local queue only,
+      // the same way this file's checkForUpdates() already swallows remote failures —
+      // a phone showing its own unsynced notes beats a phone showing a network error.
+      return pendingAsNotes(opts.storage);
+    }
     remote.forEach((n) => shaCache.set(n.id, n.sha));
     const notes = remote.map(({ id, text }) => ({ id, text, createdAt: id }) satisfies Note);
     return mergeNotes(notes, pendingAsNotes(opts.storage));
@@ -122,6 +135,7 @@ export function createGithubClient(opts: {
     const cached = shaCache.get(id);
     if (cached) return cached;
     const res = await fetchFn(contentsUrl(`notes/${id}.md`), { headers: authHeaders });
+    throwIfAuthFailure(res, opts.storage);
     if (!res.ok) throw new Error(`could not find note ${id} on GitHub (${res.status})`);
     const file = (await res.json()) as { sha: string };
     shaCache.set(id, file.sha);
@@ -134,14 +148,11 @@ export function createGithubClient(opts: {
       headers: authHeaders,
       body: JSON.stringify({ message: `Update note ${id}`, content: toBase64(text), sha }),
     });
-    if (res.status === 401 || res.status === 403) {
-      opts.storage.removeItem(TOKEN_STORAGE_KEY);
-      throw new Error(
-        `GitHub rejected your token (${res.status}) — it may be expired or invalid. Refresh this page to enter a new one.`,
-      );
-    }
+    throwIfAuthFailure(res, opts.storage);
     if (res.status === 409 || res.status === 422) {
-      throw new StaleShaError();
+      throw new StaleShaError(
+        `GitHub rejected the update (${res.status}) — the note changed again while saving.`,
+      );
     }
     if (!res.ok) {
       throw new Error(`GitHub rejected the update (${res.status})`);

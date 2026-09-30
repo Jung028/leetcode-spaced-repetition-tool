@@ -256,3 +256,30 @@ test("updateNote clears the stored token on a 401, same as sync", async () => {
   await expect(client.updateNote("n1", "edit")).rejects.toThrow(/Refresh this page to enter a new one/);
   expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
 });
+
+test("listNotes falls back to the pending queue when the remote fetch fails", async () => {
+  const fetchFn = (async () => new Response("Server Error", { status: 500 })) as unknown as typeof fetch;
+  const client = createGithubClient({ owner: "me", repo: "notes-data", token: "t", storage, fetchFn });
+  const added = await client.addNote("queued while remote is down");
+  const notes = await client.listNotes();
+  expect(notes).toEqual([{ id: added.id, text: "queued while remote is down", createdAt: added.id }]);
+});
+
+test("a 401 on the GET path used to resolve a note's sha clears the stored token", async () => {
+  storage.setItem(TOKEN_STORAGE_KEY, "expired");
+  const fetchFn = (async () => new Response("Bad credentials", { status: 401 })) as unknown as typeof fetch;
+  const client = createGithubClient({ owner: "me", repo: "notes-data", token: "expired", storage, fetchFn });
+  await expect(client.updateNote("some-id", "edit")).rejects.toThrow(/Refresh this page to enter a new one/);
+  expect(storage.getItem(TOKEN_STORAGE_KEY)).toBeNull();
+});
+
+test("updateNote surfaces a real error message when the retry also hits a stale sha", async () => {
+  const fetchFn = (async (url: string, init?: RequestInit) => {
+    if (init?.method === "PUT") return new Response("Conflict", { status: 409 });
+    if (url.endsWith("/contents/notes")) return Response.json([{ name: "n1.md", type: "file" }]);
+    if (url.endsWith("/contents/notes/n1.md")) return Response.json({ content: btoa("v1"), sha: "sha-1" });
+    throw new Error(`unexpected request: ${url}`);
+  }) as unknown as typeof fetch;
+  const client = createGithubClient({ owner: "me", repo: "notes-data", token: "t", storage, fetchFn });
+  await expect(client.updateNote("n1", "edit")).rejects.toThrow(/note changed again while saving/);
+});
