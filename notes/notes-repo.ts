@@ -82,6 +82,16 @@ export async function writeNote(clonePath: string, text: string): Promise<Note> 
   return { id, text, createdAt: id };
 }
 
+export async function updateNote(clonePath: string, id: string, text: string): Promise<Note> {
+  await assertOwnRepo(clonePath);
+  const path = `${notesDir(clonePath)}/${id}.md`;
+  if (!existsSync(path)) {
+    throw new Error(`note not found: ${id}`);
+  }
+  await Bun.write(path, text);
+  return { id, text, createdAt: id };
+}
+
 export async function fetchRemote(clonePath: string): Promise<void> {
   await assertOwnRepo(clonePath);
   await Bun.$`git fetch`.cwd(clonePath).quiet();
@@ -110,7 +120,7 @@ export async function hasUnpulledChanges(clonePath: string): Promise<boolean> {
 export async function pullChanges(clonePath: string): Promise<void> {
   await assertOwnRepo(clonePath);
   if (!(await hasRemoteBranches(clonePath))) return; // nothing has ever been pushed — nothing to pull
-  await runReportingStderr("git pull --rebase", () => Bun.$`git pull --rebase`.cwd(clonePath).quiet());
+  await runReportingStderr("git pull --rebase", () => Bun.$`git pull --rebase -X theirs`.cwd(clonePath).quiet());
 }
 
 export async function pushLocalChanges(clonePath: string): Promise<void> {
@@ -128,10 +138,12 @@ export async function pushLocalChanges(clonePath: string): Promise<void> {
     // No commits yet, nothing to push
   }
   if (!hasCommits) return;
-  // Rebasing onto the remote first means a phone push since our last sync never
-  // rejects this push; one file per note means the rebase itself never conflicts.
+  // Rebasing onto the remote first means a push from elsewhere since our last sync
+  // never rejects this push. -X theirs makes "last device to push wins" the actual
+  // outcome if the same note was edited on both sides, instead of surfacing a raw
+  // rebase conflict — in git rebase, "theirs" is the commit being replayed, i.e. ours.
   if (await hasRemoteBranches(clonePath)) {
-    await runReportingStderr("git pull --rebase", () => Bun.$`git pull --rebase`.cwd(clonePath).quiet());
+    await runReportingStderr("git pull --rebase", () => Bun.$`git pull --rebase -X theirs`.cwd(clonePath).quiet());
   }
   await runReportingStderr("git push", () => Bun.$`git push -u origin HEAD`.cwd(clonePath).quiet());
 }

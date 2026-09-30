@@ -6,6 +6,7 @@ import {
   ensureNotesRepoCloned,
   readNotes,
   writeNote,
+  updateNote,
   fetchRemote,
   hasUnpulledChanges,
   pullChanges,
@@ -235,4 +236,45 @@ test("pullChanges is a safe no-op against a genuinely empty remote (nothing ever
   await expect(pullChanges(emptyCloneDir)).resolves.toBeUndefined();
   const notes = await readNotes(emptyCloneDir);
   expect(notes).toEqual([]);
+});
+
+test("updateNote overwrites the note's text in place, keeping the same id", async () => {
+  const note = await writeNote(cloneDir, "original text");
+  const updated = await updateNote(cloneDir, note.id, "edited text");
+  expect(updated.id).toBe(note.id);
+  expect(updated.text).toBe("edited text");
+  const notes = await readNotes(cloneDir);
+  expect(notes.length).toBe(1);
+  expect(notes.find((n) => n.id === note.id)?.text).toBe("edited text");
+});
+
+test("updateNote throws when the note id does not exist", async () => {
+  await expect(updateNote(cloneDir, "does-not-exist", "text")).rejects.toThrow(/note not found/);
+});
+
+test("updateNote refuses to run when the clone path is not a git repository at all", async () => {
+  const plainDir = join(root, "plain-updatenote-dir");
+  mkdirSync(plainDir, { recursive: true });
+  await expect(updateNote(plainDir, "some-id", "text")).rejects.toThrow(/is not a git repository/);
+});
+
+test("editing the same note on two clones resolves via last-sync-wins (git pull --rebase -X theirs)", async () => {
+  const note = await writeNote(cloneDir, "shared note v1");
+  await pushLocalChanges(cloneDir);
+
+  const phoneCloneDir = join(root, "phone-clone");
+  await ensureNotesRepoCloned(phoneCloneDir, remoteDir);
+  await configureIdentity(phoneCloneDir);
+  await pullChanges(phoneCloneDir);
+  await updateNote(phoneCloneDir, note.id, "phone edit");
+  await pushLocalChanges(phoneCloneDir);
+
+  // desktop never pulled the phone's edit before editing the same note itself —
+  // without -X theirs this push would throw a rebase conflict error instead of resolving
+  await updateNote(cloneDir, note.id, "desktop edit");
+  await expect(pushLocalChanges(cloneDir)).resolves.toBeUndefined();
+
+  const texts = await remoteNoteTexts();
+  expect(texts).toContain("desktop edit");
+  expect(texts).not.toContain("phone edit");
 });
