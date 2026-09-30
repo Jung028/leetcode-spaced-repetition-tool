@@ -6,6 +6,14 @@ interface PendingNote {
   text: string;
 }
 
+interface RemoteNote {
+  id: string;
+  text: string;
+  sha: string;
+}
+
+class StaleShaError extends Error {}
+
 const STORAGE_KEY = "notes-capture-pending";
 export const TOKEN_STORAGE_KEY = "notes-capture-token";
 
@@ -23,11 +31,14 @@ function savePending(storage: Storage, pending: PendingNote[]): void {
   storage.setItem(STORAGE_KEY, JSON.stringify(pending));
 }
 
-// The phone never shows remote history — only its own not-yet-synced queue.
 function pendingAsNotes(storage: Storage): Note[] {
   return loadPending(storage).map(
     (note) => ({ id: note.id, text: note.text, createdAt: note.id }) satisfies Note,
   );
+}
+
+function mergeNotes(remote: Note[], pending: Note[]): Note[] {
+  return [...pending, ...remote].sort((a, b) => b.id.localeCompare(a.id));
 }
 
 function timestampId(date: Date): string {
@@ -40,6 +51,10 @@ function toBase64(text: string): string {
   return btoa(unescape(encodeURIComponent(text)));
 }
 
+function fromBase64(content: string): string {
+  return decodeURIComponent(escape(atob(content.replace(/\n/g, ""))));
+}
+
 export function createGithubClient(opts: {
   owner: string;
   repo: string;
@@ -48,22 +63,25 @@ export function createGithubClient(opts: {
   fetchFn?: typeof fetch;
 }): NotesClient {
   const fetchFn = opts.fetchFn ?? fetch;
+  const shaCache = new Map<string, string>();
+
+  const authHeaders = {
+    Authorization: `Bearer ${opts.token}`,
+    Accept: "application/vnd.github+json",
+  };
+
+  const contentsUrl = (path: string) =>
+    `https://api.github.com/repos/${opts.owner}/${opts.repo}/contents/${path}`;
 
   const putFile = async (id: string, text: string): Promise<void> => {
-    const res = await fetchFn(
-      `https://api.github.com/repos/${opts.owner}/${opts.repo}/contents/notes/${id}.md`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${opts.token}`,
-          Accept: "application/vnd.github+json",
-        },
-        body: JSON.stringify({
-          message: `Add note ${id}`,
-          content: toBase64(text),
-        }),
-      },
-    );
+    const res = await fetchFn(contentsUrl(`notes/${id}.md`), {
+      method: "PUT",
+      headers: authHeaders,
+      body: JSON.stringify({
+        message: `Add note ${id}`,
+        content: toBase64(text),
+      }),
+    });
     if (res.status === 401 || res.status === 403) {
       // Fine-grained tokens always expire; dropping it makes the next page load re-prompt.
       opts.storage.removeItem(TOKEN_STORAGE_KEY);
@@ -76,9 +94,65 @@ export function createGithubClient(opts: {
     }
   };
 
+  const listRemoteNotes = async (): Promise<RemoteNote[]> => {
+    const listRes = await fetchFn(contentsUrl("notes"), { headers: authHeaders });
+    if (listRes.status === 404) return []; // notes/ doesn't exist yet on a brand new repo
+    if (!listRes.ok) throw new Error(`could not list notes from GitHub (${listRes.status})`);
+    const entries = (await listRes.json()) as { name: string; type: string }[];
+    const files = entries.filter((e) => e.type === "file" && e.name.endsWith(".md"));
+    return Promise.all(
+      files.map(async (entry) => {
+        const id = entry.name.replace(/\.md$/, "");
+        const fileRes = await fetchFn(contentsUrl(`notes/${entry.name}`), { headers: authHeaders });
+        if (!fileRes.ok) throw new Error(`could not read note ${id} from GitHub (${fileRes.status})`);
+        const file = (await fileRes.json()) as { content: string; sha: string };
+        return { id, text: fromBase64(file.content), sha: file.sha };
+      }),
+    );
+  };
+
+  const refreshFromRemote = async (): Promise<Note[]> => {
+    const remote = await listRemoteNotes();
+    remote.forEach((n) => shaCache.set(n.id, n.sha));
+    const notes = remote.map(({ id, text }) => ({ id, text, createdAt: id }) satisfies Note);
+    return mergeNotes(notes, pendingAsNotes(opts.storage));
+  };
+
+  const getFileSha = async (id: string): Promise<string> => {
+    const cached = shaCache.get(id);
+    if (cached) return cached;
+    const res = await fetchFn(contentsUrl(`notes/${id}.md`), { headers: authHeaders });
+    if (!res.ok) throw new Error(`could not find note ${id} on GitHub (${res.status})`);
+    const file = (await res.json()) as { sha: string };
+    shaCache.set(id, file.sha);
+    return file.sha;
+  };
+
+  const putFileWithSha = async (id: string, text: string, sha: string): Promise<string> => {
+    const res = await fetchFn(contentsUrl(`notes/${id}.md`), {
+      method: "PUT",
+      headers: authHeaders,
+      body: JSON.stringify({ message: `Update note ${id}`, content: toBase64(text), sha }),
+    });
+    if (res.status === 401 || res.status === 403) {
+      opts.storage.removeItem(TOKEN_STORAGE_KEY);
+      throw new Error(
+        `GitHub rejected your token (${res.status}) — it may be expired or invalid. Refresh this page to enter a new one.`,
+      );
+    }
+    if (res.status === 409 || res.status === 422) {
+      throw new StaleShaError();
+    }
+    if (!res.ok) {
+      throw new Error(`GitHub rejected the update (${res.status})`);
+    }
+    const body = (await res.json()) as { content: { sha: string } };
+    return body.content.sha;
+  };
+
   return {
     async listNotes() {
-      return pendingAsNotes(opts.storage);
+      return refreshFromRemote();
     },
     async addNote(text: string) {
       const pending = loadPending(opts.storage);
@@ -87,12 +161,34 @@ export function createGithubClient(opts: {
       savePending(opts.storage, pending);
       return { id, text, createdAt: id };
     },
+    async updateNote(id: string, text: string) {
+      const pending = loadPending(opts.storage);
+      const pendingIndex = pending.findIndex((n) => n.id === id);
+      if (pendingIndex !== -1) {
+        pending[pendingIndex] = { id, text };
+        savePending(opts.storage, pending);
+        return { id, text, createdAt: id };
+      }
+
+      const sha = await getFileSha(id);
+      try {
+        const newSha = await putFileWithSha(id, text, sha);
+        shaCache.set(id, newSha);
+      } catch (err) {
+        if (!(err instanceof StaleShaError)) throw err;
+        // last-sync-wins: refetch the current sha and overwrite with this edit anyway
+        shaCache.delete(id);
+        const freshSha = await getFileSha(id);
+        const newSha = await putFileWithSha(id, text, freshSha);
+        shaCache.set(id, newSha);
+      }
+      return { id, text, createdAt: id };
+    },
     async checkForUpdates() {
       return false;
     },
     async pull() {
-      // Pull shows the same list as listNotes, so tapping it never hides still-queued notes.
-      return pendingAsNotes(opts.storage);
+      return refreshFromRemote();
     },
     async sync() {
       const pending = loadPending(opts.storage);
