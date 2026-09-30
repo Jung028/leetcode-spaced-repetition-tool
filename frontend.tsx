@@ -4,6 +4,7 @@ import { LADDER, isDue, localToday } from "./shared/scheduling";
 import type { ProblemSummary, ProblemDetail } from "./leetcode/db";
 import { highlightCode } from "./leetcode/highlight";
 import TodoApp from "./todo/App";
+import NotesApp from "./notes/App";
 import HomeApp from "./HomeApp";
 import type { DueItem } from "./home-api";
 import ExamApp from "./exam/App";
@@ -628,7 +629,7 @@ function LeetCodeApp({
   );
 }
 
-type Tab = "home" | "deadlines" | "leetcode" | "todo" | "exam" | "interview" | "jobs" | "training" | "calendar" | "goals" | "roadmap";
+type Tab = "home" | "deadlines" | "leetcode" | "todo" | "notes" | "exam" | "interview" | "jobs" | "training" | "calendar" | "goals" | "roadmap";
 
 type DeepLink =
   | { tab: "leetcode"; problemId: number }
@@ -810,6 +811,12 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
       >
         Todo
       </button>
+      <button
+        className={tab === "notes" ? "tab tab-active" : "tab"}
+        onClick={() => onChange("notes")}
+      >
+        Notes
+      </button>
       <NavGroup
         label="Jobs"
         tabs={[
@@ -877,6 +884,7 @@ function App() {
           onOpened={() => setDeepLink(null)}
         />
       )}
+      {tab === "notes" && <NotesApp />}
       {tab === "exam" && (
         <ExamApp
           openCourse={deepLink?.tab === "exam" && "course" in deepLink ? deepLink.course : null}

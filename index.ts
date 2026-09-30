@@ -3,6 +3,8 @@ import { openDb } from "./leetcode/db";
 import { apiRoutes } from "./leetcode/api";
 import { migrateTodo } from "./todo/db";
 import { todoApiRoutes } from "./todo/api";
+import { ensureNotesRepoCloned } from "./notes/notes-repo";
+import { notesApiRoutes } from "./notes/notes-api";
 import { migrateAnnouncements } from "./announcement-db";
 import { announcementApiRoutes } from "./announcement-api";
 import { migrateModules } from "./modules-db";
@@ -53,6 +55,18 @@ seedGoalsOnce(db, GOAL_SEED, localToday());
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 const wallCalendarPath = new URL("./assets/student-wall-calendar.pdf", import.meta.url);
 
+const NOTES_CLONE_PATH = process.env.NOTES_DATA_CLONE_PATH ?? "../notes-data";
+const NOTES_REMOTE_URL = process.env.NOTES_DATA_REMOTE;
+if (NOTES_REMOTE_URL) {
+  try {
+    await ensureNotesRepoCloned(NOTES_CLONE_PATH, NOTES_REMOTE_URL);
+  } catch (err) {
+    console.warn(`Notes repo not available yet: ${(err as Error).message}`);
+  }
+} else {
+  console.warn("NOTES_DATA_REMOTE is not set — the Notes tab will show errors until it is.");
+}
+
 const server = Bun.serve({
   port: Number(process.env.PORT ?? 3005),
   routes: {
@@ -80,6 +94,7 @@ const server = Bun.serve({
     ...jobsApiRoutes(db),
     ...goalsApiRoutes(db),
     ...roadmapApiRoutes(),
+    ...notesApiRoutes(NOTES_CLONE_PATH),
   },
   development: {
     hmr: true,
