@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import index from "./index.html";
 import { openDb } from "./leetcode/db";
 import { apiRoutes } from "./leetcode/api";
@@ -55,7 +56,8 @@ seedGoalsOnce(db, GOAL_SEED, localToday());
 const userscriptPath = new URL("./userscript/leetcode-sync.user.js", import.meta.url);
 const wallCalendarPath = new URL("./assets/student-wall-calendar.pdf", import.meta.url);
 
-const NOTES_CLONE_PATH = process.env.NOTES_DATA_CLONE_PATH ?? "../notes-data";
+const NOTES_CLONE_PATH =
+  process.env.NOTES_DATA_CLONE_PATH ?? fileURLToPath(new URL("../notes-data", import.meta.url));
 const NOTES_REMOTE_URL = process.env.NOTES_DATA_REMOTE;
 if (NOTES_REMOTE_URL) {
   try {

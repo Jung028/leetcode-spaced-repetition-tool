@@ -1,5 +1,5 @@
 import { test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -112,6 +112,119 @@ test("hasUnpulledChanges is true after another clone pushes, then pullChanges br
   await pullChanges(cloneDir);
   const notes = await readNotes(cloneDir);
   expect(notes.some((n) => n.text === "from second clone")).toBe(true);
+});
+
+async function remoteLogMessages(): Promise<string[]> {
+  const log = await Bun.$`git log --all --format=%s`.cwd(remoteDir).quiet().text();
+  return log.trim().split("\n");
+}
+
+async function remoteNoteTexts(): Promise<string[]> {
+  const verifyDir = join(root, "verify-clone");
+  rmSync(verifyDir, { recursive: true, force: true });
+  await ensureNotesRepoCloned(verifyDir, remoteDir);
+  return (await readNotes(verifyDir)).map((n) => n.text);
+}
+
+test("pushLocalChanges succeeds after another clone pushed since our last sync (diverged history)", async () => {
+  await writeNote(cloneDir, "desktop note 1");
+  await pushLocalChanges(cloneDir);
+
+  const phoneCloneDir = join(root, "phone-clone");
+  await ensureNotesRepoCloned(phoneCloneDir, remoteDir);
+  await configureIdentity(phoneCloneDir);
+  await writeNote(phoneCloneDir, "phone note");
+  await pushLocalChanges(phoneCloneDir);
+
+  await writeNote(cloneDir, "desktop note 2");
+  await expect(pushLocalChanges(cloneDir)).resolves.toBeUndefined();
+
+  // a second round must also work — the old failure mode wedged every later sync
+  await writeNote(cloneDir, "desktop note 3");
+  await expect(pushLocalChanges(cloneDir)).resolves.toBeUndefined();
+
+  const texts = await remoteNoteTexts();
+  expect(texts).toEqual(expect.arrayContaining(["desktop note 1", "phone note", "desktop note 2", "desktop note 3"]));
+  expect((await remoteLogMessages()).length).toBe(4);
+});
+
+test("pushLocalChanges succeeds when both clones started from an empty remote and the other pushed first", async () => {
+  const phoneCloneDir = join(root, "phone-clone");
+  await ensureNotesRepoCloned(phoneCloneDir, remoteDir);
+  await configureIdentity(phoneCloneDir);
+
+  await writeNote(cloneDir, "desktop unpushed note");
+  await Bun.$`git add -A`.cwd(cloneDir).quiet();
+  await Bun.$`git commit -m ${"Add note"}`.cwd(cloneDir).quiet();
+
+  await writeNote(phoneCloneDir, "phone note");
+  await pushLocalChanges(phoneCloneDir);
+
+  await writeNote(cloneDir, "desktop second note");
+  await expect(pushLocalChanges(cloneDir)).resolves.toBeUndefined();
+
+  const texts = await remoteNoteTexts();
+  expect(texts).toEqual(expect.arrayContaining(["desktop unpushed note", "phone note", "desktop second note"]));
+});
+
+test("pullChanges succeeds while the desktop holds an unpushed local commit (diverged history)", async () => {
+  await writeNote(cloneDir, "desktop note 1");
+  await pushLocalChanges(cloneDir);
+
+  const phoneCloneDir = join(root, "phone-clone");
+  await ensureNotesRepoCloned(phoneCloneDir, remoteDir);
+  await configureIdentity(phoneCloneDir);
+  await writeNote(phoneCloneDir, "phone note");
+  await pushLocalChanges(phoneCloneDir);
+
+  await writeNote(cloneDir, "desktop unpushed note");
+  await Bun.$`git add -A`.cwd(cloneDir).quiet();
+  await Bun.$`git commit -m ${"Add note"}`.cwd(cloneDir).quiet();
+
+  await expect(pullChanges(cloneDir)).resolves.toBeUndefined();
+  const texts = (await readNotes(cloneDir)).map((n) => n.text);
+  expect(texts).toEqual(expect.arrayContaining(["desktop note 1", "phone note", "desktop unpushed note"]));
+});
+
+test("git failures surface git's own stderr, not just an exit code", async () => {
+  await writeNote(cloneDir, "orphaned note");
+  await Bun.$`git remote set-url origin /nonexistent/path`.cwd(cloneDir).quiet();
+  const failure = await pushLocalChanges(cloneDir).catch((err: Error) => err);
+  expect(failure).toBeInstanceOf(Error);
+  expect((failure as Error).message).not.toMatch(/^Failed with exit code/);
+  expect((failure as Error).message).toContain("/nonexistent/path");
+});
+
+test("git commands refuse to run when the clone path sits inside another repository", async () => {
+  const outerRepoDir = join(root, "outer-repo");
+  await Bun.$`git init ${outerRepoDir}`.quiet();
+  await configureIdentity(outerRepoDir);
+  const nestedClonePath = join(outerRepoDir, "notes-data");
+  mkdirSync(nestedClonePath, { recursive: true });
+
+  await expect(writeNote(nestedClonePath, "must not land in the outer repo")).rejects.toThrow(
+    /inside another repository/,
+  );
+  await expect(pushLocalChanges(nestedClonePath)).rejects.toThrow(/inside another repository/);
+  await expect(pullChanges(nestedClonePath)).rejects.toThrow(/inside another repository/);
+  await expect(fetchRemote(nestedClonePath)).rejects.toThrow(/inside another repository/);
+  await expect(hasUnpulledChanges(nestedClonePath)).rejects.toThrow(/inside another repository/);
+
+  const outerLog = await Bun.$`git log --oneline`.cwd(outerRepoDir).nothrow().quiet().text();
+  expect(outerLog.trim()).toBe("");
+});
+
+test("git commands refuse to run when the clone path is not a git repository at all", async () => {
+  const plainDir = join(root, "plain-dir");
+  mkdirSync(plainDir, { recursive: true });
+  await expect(pushLocalChanges(plainDir)).rejects.toThrow(/is not a git repository/);
+});
+
+test("ensureNotesRepoCloned clones into an existing directory that has no .git", async () => {
+  const preexistingDir = join(root, "preexisting");
+  mkdirSync(preexistingDir, { recursive: true });
+  await ensureNotesRepoCloned(preexistingDir, remoteDir);
+  expect(existsSync(join(preexistingDir, ".git"))).toBe(true);
 });
 
 test("pullChanges is a safe no-op against a genuinely empty remote (nothing ever pushed)", async () => {
