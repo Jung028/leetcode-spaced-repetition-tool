@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensureNotesRepoCloned } from "./notes-repo";
 import { notesApiRoutes } from "./notes-api";
-import { createLocalClient } from "./local-client";
+import { createLocalClient, type FetchLike } from "./local-client";
 
 let root: string;
 let server: ReturnType<typeof Bun.serve>;
@@ -21,7 +21,7 @@ beforeEach(async () => {
   await Bun.$`git config user.name "Test User"`.cwd(cloneDir).quiet();
   server = Bun.serve({ port: 0, routes: notesApiRoutes(cloneDir) });
   const base = server.url.origin;
-  const scopedFetch: typeof fetch = (input, init) =>
+  const scopedFetch: FetchLike = (input, init) =>
     fetch(new URL(String(input), base), init);
   client = createLocalClient(scopedFetch);
 });

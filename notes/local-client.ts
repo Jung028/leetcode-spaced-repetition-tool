@@ -1,7 +1,9 @@
 // notes/local-client.ts
 import type { Note, NotesClient } from "./notes-client";
 
-export function createLocalClient(fetchFn: typeof fetch = fetch): NotesClient {
+export type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
+export function createLocalClient(fetchFn: FetchLike = fetch): NotesClient {
   return {
     async listNotes() {
       const res = await fetchFn("/api/notes");
