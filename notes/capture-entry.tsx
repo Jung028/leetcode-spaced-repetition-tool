@@ -1,18 +1,16 @@
 // notes/capture-entry.tsx
 import { createRoot } from "react-dom/client";
 import NotesView from "./NotesView";
-import { createGithubClient } from "./github-client";
-
-const TOKEN_KEY = "notes-capture-token";
+import { createGithubClient, TOKEN_STORAGE_KEY } from "./github-client";
 
 function getOrPromptToken(): string {
-  const existing = localStorage.getItem(TOKEN_KEY);
+  const existing = localStorage.getItem(TOKEN_STORAGE_KEY);
   if (existing) return existing;
   const entered = window.prompt(
     "Paste your GitHub personal access token (scoped to the notes-data repo):",
   );
   const token = entered?.trim() ?? "";
-  if (token) localStorage.setItem(TOKEN_KEY, token);
+  if (token) localStorage.setItem(TOKEN_STORAGE_KEY, token);
   return token;
 }
 

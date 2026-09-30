@@ -40,6 +40,7 @@ export default function NotesView({ client }: { client: NotesClient }) {
     } catch (err) {
       setStatus((err as Error).message);
     } finally {
+      await load();
       setBusy(false);
     }
   };
@@ -57,6 +58,8 @@ export default function NotesView({ client }: { client: NotesClient }) {
     } catch (err) {
       setStatus((err as Error).message);
     } finally {
+      // Reload after the sync attempt too, so the phone's list drops notes that just synced.
+      await load();
       setBusy(false);
     }
   };

@@ -7,6 +7,7 @@ interface PendingNote {
 }
 
 const STORAGE_KEY = "notes-capture-pending";
+export const TOKEN_STORAGE_KEY = "notes-capture-token";
 
 function loadPending(storage: Storage): PendingNote[] {
   const raw = storage.getItem(STORAGE_KEY);
@@ -20,6 +21,13 @@ function loadPending(storage: Storage): PendingNote[] {
 
 function savePending(storage: Storage, pending: PendingNote[]): void {
   storage.setItem(STORAGE_KEY, JSON.stringify(pending));
+}
+
+// The phone never shows remote history — only its own not-yet-synced queue.
+function pendingAsNotes(storage: Storage): Note[] {
+  return loadPending(storage).map(
+    (note) => ({ id: note.id, text: note.text, createdAt: note.id }) satisfies Note,
+  );
 }
 
 function timestampId(date: Date): string {
@@ -56,6 +64,13 @@ export function createGithubClient(opts: {
         }),
       },
     );
+    if (res.status === 401 || res.status === 403) {
+      // Fine-grained tokens always expire; dropping it makes the next page load re-prompt.
+      opts.storage.removeItem(TOKEN_STORAGE_KEY);
+      throw new Error(
+        `GitHub rejected your token (${res.status}) — it may be expired or invalid. Refresh this page to enter a new one.`,
+      );
+    }
     if (!res.ok) {
       throw new Error(`GitHub rejected the note (${res.status})`);
     }
@@ -63,8 +78,7 @@ export function createGithubClient(opts: {
 
   return {
     async listNotes() {
-      // v1: the phone is add-only, see the spec's "Out of scope" section.
-      return [] as Note[];
+      return pendingAsNotes(opts.storage);
     },
     async addNote(text: string) {
       const pending = loadPending(opts.storage);
@@ -77,7 +91,8 @@ export function createGithubClient(opts: {
       return false;
     },
     async pull() {
-      return [] as Note[];
+      // Pull shows the same list as listNotes, so tapping it never hides still-queued notes.
+      return pendingAsNotes(opts.storage);
     },
     async sync() {
       const pending = loadPending(opts.storage);
