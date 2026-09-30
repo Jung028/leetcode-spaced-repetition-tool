@@ -9,6 +9,8 @@ export default function NotesView({ client }: { client: NotesClient }) {
   const [hasUpdates, setHasUpdates] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
 
   const load = async () => {
     try {
@@ -77,6 +79,36 @@ export default function NotesView({ client }: { client: NotesClient }) {
     }
   };
 
+  const startEdit = (note: Note) => {
+    if (busy) return;
+    setEditingId(note.id);
+    setEditDraft(note.text);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditDraft("");
+  };
+
+  const saveEdit = async () => {
+    const text = editDraft.trim();
+    if (!text || !editingId) return;
+    setBusy(true);
+    try {
+      await client.updateNote(editingId, text);
+      setEditingId(null);
+      setEditDraft("");
+      await load();
+      await client.sync();
+      setStatus(null);
+    } catch (err) {
+      setStatus((err as Error).message);
+    } finally {
+      await load();
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="notes-view">
       <div className="notes-toolbar">
@@ -101,12 +133,31 @@ export default function NotesView({ client }: { client: NotesClient }) {
         </button>
       </div>
       <ul className="notes-list">
-        {notes.map((note) => (
-          <li key={note.id} className="notes-item">
-            <span className="notes-item-text">{note.text}</span>
-            <span className="notes-item-date">{note.createdAt}</span>
-          </li>
-        ))}
+        {notes.map((note) =>
+          note.id === editingId ? (
+            <li key={note.id} className="notes-item notes-item-editing">
+              <textarea
+                className="notes-edit-textarea"
+                value={editDraft}
+                onChange={(e) => setEditDraft(e.target.value)}
+                rows={3}
+              />
+              <div className="notes-edit-actions">
+                <button onClick={saveEdit} disabled={busy || !editDraft.trim()}>
+                  Save & Sync
+                </button>
+                <button onClick={cancelEdit} disabled={busy}>
+                  Cancel
+                </button>
+              </div>
+            </li>
+          ) : (
+            <li key={note.id} className="notes-item" onClick={() => startEdit(note)}>
+              <span className="notes-item-text">{note.text}</span>
+              <span className="notes-item-date">{note.createdAt}</span>
+            </li>
+          ),
+        )}
         {notes.length === 0 && <li className="notes-empty">No notes yet.</li>}
       </ul>
     </div>
