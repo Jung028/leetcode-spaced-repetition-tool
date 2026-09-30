@@ -1,0 +1,39 @@
+# .github/workflows/deploy-notes-capture.yml
+name: Deploy notes capture page
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "notes/**"
+      - "notes-capture/index.html"
+      - ".github/workflows/deploy-notes-capture.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install
+      - run: bun build ./notes/capture-entry.tsx --outdir ./notes-capture
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: notes-capture
+      - id: deployment
+        uses: actions/deploy-pages@v4
