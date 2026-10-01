@@ -1,6 +1,10 @@
 // notes/NotesView.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Note, NotesClient } from "./notes-client";
+import { groupNotesByDay, labelForDateKey, todayKey } from "./notes-grouping";
+import NotesSidebar from "./NotesSidebar";
+import NotesComposer from "./NotesComposer";
+import NotesTimeline from "./NotesTimeline";
 import "./notes.css";
 
 export default function NotesView({ client }: { client: NotesClient }) {
@@ -11,6 +15,8 @@ export default function NotesView({ client }: { client: NotesClient }) {
   const [busy, setBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
+  const [selectedDayKey, setSelectedDayKey] = useState(() => todayKey());
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
   const load = async () => {
     try {
@@ -34,10 +40,16 @@ export default function NotesView({ client }: { client: NotesClient }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const groups = useMemo(() => groupNotesByDay(notes), [notes]);
+  const selectedGroup = groups.find((g) => g.dateKey === selectedDayKey);
+  const selectedNotes = selectedGroup?.notes ?? [];
+  const selectedLabel = selectedGroup?.label ?? labelForDateKey(selectedDayKey);
+
   const runSync = async () => {
     setBusy(true);
     try {
       await client.sync();
+      setLastSyncedAt(new Date());
       setStatus(null);
     } catch (err) {
       setStatus((err as Error).message);
@@ -56,7 +68,9 @@ export default function NotesView({ client }: { client: NotesClient }) {
       setDraft("");
       await load();
       await client.sync();
+      setLastSyncedAt(new Date());
       setStatus(null);
+      setSelectedDayKey(todayKey());
     } catch (err) {
       setStatus((err as Error).message);
     } finally {
@@ -100,6 +114,7 @@ export default function NotesView({ client }: { client: NotesClient }) {
       setEditDraft("");
       await load();
       await client.sync();
+      setLastSyncedAt(new Date());
       setStatus(null);
     } catch (err) {
       setStatus((err as Error).message);
@@ -111,55 +126,27 @@ export default function NotesView({ client }: { client: NotesClient }) {
 
   return (
     <div className="notes-view">
-      <div className="notes-toolbar">
-        {hasUpdates && <span className="notes-badge">New notes available</span>}
-        <button onClick={handlePull} disabled={busy}>
-          Pull
-        </button>
-        <button onClick={runSync} disabled={busy}>
-          Sync
-        </button>
-      </div>
-      {status && <p className="notes-status">{status}</p>}
-      <div className="notes-add">
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Type or dictate a note…"
-          rows={3}
+      <NotesSidebar groups={groups} selectedDayKey={selectedDayKey} onSelectDay={setSelectedDayKey} />
+      <div className="notes-content">
+        <NotesComposer draft={draft} onDraftChange={setDraft} onSave={handleSaveAndSync} busy={busy} />
+        <NotesTimeline
+          dayLabel={selectedLabel}
+          dateKey={selectedDayKey}
+          notes={selectedNotes}
+          status={status}
+          busy={busy}
+          lastSyncedAt={lastSyncedAt}
+          hasUpdates={hasUpdates}
+          onPull={handlePull}
+          onSync={runSync}
+          editingId={editingId}
+          editDraft={editDraft}
+          onEditDraftChange={setEditDraft}
+          onStartEdit={startEdit}
+          onCancelEdit={cancelEdit}
+          onSaveEdit={saveEdit}
         />
-        <button onClick={handleSaveAndSync} disabled={busy || !draft.trim()}>
-          Save & Sync
-        </button>
       </div>
-      <ul className="notes-list">
-        {notes.map((note) =>
-          note.id === editingId ? (
-            <li key={note.id} className="notes-item notes-item-editing">
-              <textarea
-                className="notes-edit-textarea"
-                value={editDraft}
-                onChange={(e) => setEditDraft(e.target.value)}
-                rows={3}
-              />
-              <div className="notes-edit-actions">
-                <button onClick={saveEdit} disabled={busy || !editDraft.trim()}>
-                  Save & Sync
-                </button>
-                <button onClick={cancelEdit} disabled={busy}>
-                  Cancel
-                </button>
-              </div>
-            </li>
-          ) : (
-            <li key={note.id} className="notes-item" onClick={() => startEdit(note)}>
-              <span className="notes-item-text">{note.text}</span>
-              <span className="notes-item-date">{note.createdAt}</span>
-            </li>
-          ),
-        )}
-        {notes.length === 0 && <li className="notes-empty">No notes yet.</li>}
-      </ul>
     </div>
   );
 }
