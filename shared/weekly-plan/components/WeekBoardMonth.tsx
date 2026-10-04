@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PlanItem, WeeklyPlan } from "../model";
 import { focusFor } from "../model";
 import { WEEKDAYS, datesOfWeek, monthLabel, monthWeeks, shortDate } from "../week";
 import { PlanDayDetail } from "./PlanDayDetail";
 import { MonthTabs } from "./MonthTabs";
+
+function defaultSelection(today: string, monthKey: string): string {
+  return today.slice(0, 7) === monthKey ? today : `${monthKey}-01`;
+}
 
 function cellClass(isRest: boolean, isToday: boolean, isSelected: boolean, inMonth: boolean): string | undefined {
   const classes = [
@@ -27,8 +31,19 @@ export function WeekBoardMonth<TItem extends PlanItem>({
   onAnchorChange: (date: string) => void;
 }) {
   const monthKey = anchor.slice(0, 7);
-  const [selected, setSelected] = useState(today);
-  const shown = selected.slice(0, 7) === monthKey ? selected : `${monthKey}-01`;
+  const [selected, setSelected] = useState(() => defaultSelection(today, monthKey));
+
+  // Navigating to a different month (via MonthTabs, which changes `anchor`)
+  // leaves `selected` pointing at a day in the month we just left, so reset
+  // it to today-if-visible-else-the-1st of the newly shown month. This only
+  // fires on month navigation (monthKey change) — clicking an out-of-month
+  // cell within the CURRENTLY rendered grid is a deliberate selection and
+  // must be honored as-is, not overridden back to the 1st.
+  useEffect(() => {
+    setSelected(defaultSelection(today, monthKey));
+  }, [monthKey]);
+
+  const shown = selected;
 
   return (
     <section className="board plan-board" aria-label={monthLabel(anchor)}>
