@@ -735,6 +735,27 @@ button.stat:hover {
   margin-top: 0.2rem;
 }
 
+.goal-group + .goal-group {
+  margin-top: var(--space-5);
+}
+
+.goal-group .card-kicker {
+  margin: 0 0 var(--space-2);
+}
+
+.goal-card-target {
+  font-family: var(--mono);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.goal-card-done .card-title {
+  text-decoration: line-through;
+  color: var(--dim);
+}
+
 /* Rung meter */
 .rung {
   display: inline-flex;

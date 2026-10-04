@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { Goal } from "./goals-db";
+import { GOAL_CATEGORIES, GOAL_CATEGORY_LABEL, parseGoalText, type GoalCategory } from "./goal-text";
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -14,24 +15,37 @@ const errorMessage = (err: unknown): string =>
 
 const api = {
   list: () => fetch("/api/goals").then((r) => json<Goal[]>(r)),
-  create: (text: string) =>
+  create: (text: string, category: GoalCategory) =>
     fetch("/api/goals", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, category }),
     }).then((r) => json<Goal>(r)),
-  update: (id: number, text: string) =>
+  update: (id: number, text: string, category: GoalCategory) =>
     fetch(`/api/goals/${id}`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, category }),
     }).then((r) => json<Goal>(r)),
   toggle: (id: number) => fetch(`/api/goals/${id}/toggle`, { method: "POST" }).then((r) => json<Goal>(r)),
   remove: (id: number) => fetch(`/api/goals/${id}`, { method: "DELETE" }).then((r) => json<{ ok: true }>(r)),
 };
 
-function NewGoalForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: () => Promise<void> }) {
-  const [text, setText] = useState("");
+function GoalForm({
+  initialText,
+  initialCategory,
+  submitLabel,
+  onCancel,
+  onSubmit,
+}: {
+  initialText: string;
+  initialCategory: GoalCategory;
+  submitLabel: string;
+  onCancel: () => void;
+  onSubmit: (text: string, category: GoalCategory) => Promise<void>;
+}) {
+  const [text, setText] = useState(initialText);
+  const [category, setCategory] = useState<GoalCategory>(initialCategory);
   const [error, setError] = useState("");
 
   return (
@@ -50,8 +64,7 @@ function NewGoalForm({ onCancel, onCreated }: { onCancel: () => void; onCreated:
           return;
         }
         try {
-          await api.create(text.trim());
-          await onCreated();
+          await onSubmit(text.trim(), category);
         } catch (err) {
           setError(errorMessage(err));
         }
@@ -61,110 +74,62 @@ function NewGoalForm({ onCancel, onCreated }: { onCancel: () => void; onCreated:
         Goal
         <input value={text} onChange={(e) => setText(e.target.value)} placeholder="10K: 38:47 → 36:30" autoFocus />
       </label>
-      {error && <p className="form-error">{error}</p>}
-      <div className="btn-row">
-        <button type="submit" className="btn btn-primary">Add goal</button>
-        <button type="button" className="btn" onClick={onCancel}>Cancel</button>
-      </div>
-    </form>
-  );
-}
-
-function EditGoalForm({
-  goal,
-  onCancel,
-  onSaved,
-}: {
-  goal: Goal;
-  onCancel: () => void;
-  onSaved: () => Promise<void>;
-}) {
-  const [text, setText] = useState(goal.text);
-  const [error, setError] = useState("");
-
-  return (
-    <form
-      className="form"
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          e.currentTarget.requestSubmit();
-        }
-      }}
-      onSubmit={async (e) => {
-        e.preventDefault();
-        if (!text.trim()) {
-          setError("Write something first.");
-          return;
-        }
-        try {
-          await api.update(goal.id, text.trim());
-          await onSaved();
-        } catch (err) {
-          setError(errorMessage(err));
-        }
-      }}
-    >
       <label>
-        Goal
-        <input value={text} onChange={(e) => setText(e.target.value)} autoFocus />
+        Group
+        <select value={category} onChange={(e) => setCategory(e.target.value as GoalCategory)}>
+          {GOAL_CATEGORIES.map((key) => (
+            <option key={key} value={key}>{GOAL_CATEGORY_LABEL[key]}</option>
+          ))}
+        </select>
       </label>
       {error && <p className="form-error">{error}</p>}
       <div className="btn-row">
-        <button type="submit" className="btn btn-primary">Save</button>
+        <button type="submit" className="btn btn-primary">{submitLabel}</button>
         <button type="button" className="btn" onClick={onCancel}>Cancel</button>
       </div>
     </form>
   );
 }
 
-function GoalRow({
+function GoalCard({
   goal,
-  editingId,
   onToggle,
   onDelete,
   onEdit,
-  onCancelEdit,
-  onSaved,
 }: {
   goal: Goal;
-  editingId: number | null;
   onToggle: (id: number) => void;
   onDelete: (id: number) => void;
   onEdit: (id: number) => void;
-  onCancelEdit: () => void;
-  onSaved: () => Promise<void>;
 }) {
-  if (goal.id === editingId) {
-    return <EditGoalForm goal={goal} onCancel={onCancelEdit} onSaved={onSaved} />;
-  }
+  const parts = parseGoalText(goal.text);
   return (
-    <label className={goal.done ? "board-row board-row-main step-row step-row-done" : "board-row board-row-main step-row"}>
-      <input type="checkbox" checked={goal.done} readOnly={goal.done} onChange={() => onToggle(goal.id)} />
+    <div className={goal.done ? "card goal-card goal-card-done" : "card goal-card"}>
+      <label className="card-check">
+        <input type="checkbox" checked={goal.done} onChange={() => onToggle(goal.id)} />
+        <span className="card-title">{parts ? parts.title : goal.text}</span>
+      </label>
+      {parts && (
+        <div>
+          <div className="goal-card-target">{parts.target}</div>
+          <div className="card-meta">from {parts.current}</div>
+        </div>
+      )}
+      {parts?.note && <div className="card-meta">{parts.note}</div>}
       {goal.done && <span className="tag">achieved {goal.done_at}</span>}
-      <span className={goal.done ? "board-title board-title-done" : "board-title"}>{goal.text}</span>
-      <button
-        type="button"
-        className="btn"
-        onClick={(e) => {
-          e.preventDefault();
-          onEdit(goal.id);
-        }}
-      >
-        Edit
-      </button>
-      <button
-        type="button"
-        className="btn btn-danger"
-        onClick={(e) => {
-          e.preventDefault();
-          onDelete(goal.id);
-        }}
-      >
-        Delete
-      </button>
-    </label>
+      <div className="card-actions">
+        <button type="button" className="btn" onClick={() => onEdit(goal.id)}>Edit</button>
+        <button type="button" className="btn btn-danger" onClick={() => onDelete(goal.id)}>Delete</button>
+      </div>
+    </div>
   );
+}
+
+function groupByCategory(goals: Goal[]): { category: GoalCategory; goals: Goal[] }[] {
+  return GOAL_CATEGORIES.map((category) => ({
+    category,
+    goals: goals.filter((goal) => goal.category === category),
+  })).filter((group) => group.goals.length > 0);
 }
 
 export default function GoalsApp() {
@@ -191,7 +156,8 @@ export default function GoalsApp() {
     api.remove(id).then(refresh).catch((err) => setError(errorMessage(err)));
   };
 
-  const saveEdit = async () => {
+  const saveEdit = async (goal: Goal, text: string, category: GoalCategory) => {
+    await api.update(goal.id, text, category);
     setEditingId(null);
     await refresh();
   };
@@ -199,14 +165,18 @@ export default function GoalsApp() {
   const active = goals.filter((g) => !g.done);
   const achieved = goals.filter((g) => g.done);
 
-  const rowProps = {
-    editingId,
-    onToggle: toggle,
-    onDelete: remove,
-    onEdit: setEditingId,
-    onCancelEdit: () => setEditingId(null),
-    onSaved: saveEdit,
-  };
+  const renderGoal = (goal: Goal) =>
+    goal.id === editingId ? (
+      <GoalForm
+        initialText={goal.text}
+        initialCategory={goal.category}
+        submitLabel="Save"
+        onCancel={() => setEditingId(null)}
+        onSubmit={(text, category) => saveEdit(goal, text, category)}
+      />
+    ) : (
+      <GoalCard goal={goal} onToggle={toggle} onDelete={remove} onEdit={setEditingId} />
+    );
 
   return (
     <div className="goals">
@@ -215,9 +185,13 @@ export default function GoalsApp() {
         <button className="btn btn-primary" onClick={() => setAdding(true)}>+ Add goal</button>
       </div>
       {adding && (
-        <NewGoalForm
+        <GoalForm
+          initialText=""
+          initialCategory="running"
+          submitLabel="Add goal"
           onCancel={() => setAdding(false)}
-          onCreated={async () => {
+          onSubmit={async (text, category) => {
+            await api.create(text, category);
             setAdding(false);
             await refresh();
           }}
@@ -231,13 +205,20 @@ export default function GoalsApp() {
         {active.length === 0 ? (
           <p className="board-empty">No goals yet. Add one to get started.</p>
         ) : (
-          <ul className="board-rows">
-            {active.map((g, i) => (
-              <li key={g.id} style={{ animationDelay: `${i * 60}ms` }}>
-                <GoalRow goal={g} {...rowProps} />
-              </li>
-            ))}
-          </ul>
+          groupByCategory(active).map((group) => (
+            <div key={group.category} className="goal-group">
+              <h3 className="card-kicker">
+                {GOAL_CATEGORY_LABEL[group.category]} · {group.goals.length}
+              </h3>
+              <ul className="card-grid" style={{ "--card-min": "220px" } as React.CSSProperties}>
+                {group.goals.map((goal, i) => (
+                  <li key={goal.id} style={{ animationDelay: `${i * 60}ms` }}>
+                    {renderGoal(goal)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
         )}
       </section>
       {achieved.length > 0 && (
@@ -248,10 +229,10 @@ export default function GoalsApp() {
             <span className="board-toggle-arrow">{showAchieved ? "▾" : "▸"}</span>
           </button>
           {showAchieved && (
-            <ul className="board-rows">
-              {achieved.map((g, i) => (
-                <li key={g.id} style={{ animationDelay: `${i * 60}ms` }}>
-                  <GoalRow goal={g} {...rowProps} />
+            <ul className="card-grid" style={{ "--card-min": "220px" } as React.CSSProperties}>
+              {achieved.map((goal, i) => (
+                <li key={goal.id} style={{ animationDelay: `${i * 60}ms` }}>
+                  {renderGoal(goal)}
                 </li>
               ))}
             </ul>
