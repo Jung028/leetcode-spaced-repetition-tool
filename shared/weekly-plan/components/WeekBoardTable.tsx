@@ -1,16 +1,8 @@
 import { useState } from "react";
 import type { PlanItem, PlanDay, CategoryStyle } from "../model";
-import { categoryLabel } from "../model";
+import { focusFor } from "../model";
 import { shortDate } from "../week";
-import { PlanItemView } from "./PlanItemView";
-
-function focusFor<TItem extends PlanItem>(
-  day: PlanDay<TItem>,
-  categories: Record<string, CategoryStyle>,
-): string {
-  if (day.items.length === 0) return "Rest";
-  return day.items.map((item) => categoryLabel(categories, item.category)).join(" / ");
-}
+import { PlanDayDetail } from "./PlanDayDetail";
 
 function headerCellClass(isToday: boolean, isSelected: boolean): string | undefined {
   const classes = [isToday && "plan-table-today", isSelected && "plan-table-selected"].filter(Boolean);
@@ -41,12 +33,6 @@ export function WeekBoardTable<TItem extends PlanItem>({
 }) {
   const [selected, setSelected] = useState(() => week.find((w) => w.isToday)?.date ?? week[0]!.date);
   const selectedEntry = week.find((w) => w.date === selected) ?? week.find((w) => w.isToday) ?? week[0]!;
-  // A single-session day tints the detail panel's border with that session's
-  // category colour; a multi-session or rest day falls back to the neutral accent.
-  const detailTone =
-    selectedEntry.day.items.length === 1
-      ? categories[selectedEntry.day.items[0]!.category]!.colorToken
-      : "--accent";
 
   return (
     <section className="board plan-board" aria-label="This week">
@@ -90,24 +76,12 @@ export function WeekBoardTable<TItem extends PlanItem>({
           </tbody>
         </table>
       </div>
-      <div
-        key={selectedEntry.date}
-        className="plan-day-detail"
-        style={{ "--tone": `var(${detailTone})` } as React.CSSProperties}
-      >
-        <header className="plan-day-detail-head">
-          <span className="plan-table-weekday">{selectedEntry.day.day}</span>
-          <span className="plan-table-date">{shortDate(selectedEntry.date)}</span>
-          {selectedEntry.isToday && <span className="tag">today</span>}
-        </header>
-        {selectedEntry.day.items.length === 0 ? (
-          <p className="plan-day-rest">Rest</p>
-        ) : (
-          selectedEntry.day.items.map((item, i) => (
-            <PlanItemView key={i} item={item} categories={categories} />
-          ))
-        )}
-      </div>
+      <PlanDayDetail
+        date={selectedEntry.date}
+        day={selectedEntry.day}
+        isToday={selectedEntry.isToday}
+        categories={categories}
+      />
     </section>
   );
 }

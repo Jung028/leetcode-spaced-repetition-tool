@@ -33,6 +33,14 @@ export function categoryLabel(categories: Record<string, CategoryStyle>, key: st
   return categories[key]!.label;
 }
 
+export function focusFor<TItem extends PlanItem>(
+  day: PlanDay<TItem>,
+  categories: Record<string, CategoryStyle>,
+): string {
+  if (day.items.length === 0) return "Rest";
+  return day.items.map((item) => categoryLabel(categories, item.category)).join(" / ");
+}
+
 export interface ReferencePanel {
   title: string;
   badge?: string;

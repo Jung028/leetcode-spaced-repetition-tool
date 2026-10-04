@@ -28,3 +28,29 @@ export function shortDate(date: string): string {
   const [, m, d] = date.split("-").map(Number);
   return `${d} ${MONTHS[m! - 1]}`;
 }
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// ISO dates compare correctly as strings, so "is this Monday still inside
+// or before the month" is a plain prefix comparison.
+export function monthWeeks(anyDateInMonth: string): string[] {
+  const monthKey = anyDateInMonth.slice(0, 7);
+  const mondays: string[] = [];
+  for (let monday = mondayOf(`${monthKey}-01`); monday.slice(0, 7) <= monthKey; monday = addDays(monday, 7)) {
+    mondays.push(monday);
+  }
+  return mondays;
+}
+
+export function monthLabel(date: string): string {
+  const [year, month] = date.split("-").map(Number);
+  return `${MONTH_NAMES[month! - 1]} ${year}`;
+}
+
+export function monthsOfYear(date: string): string[] {
+  const year = date.slice(0, 4);
+  return Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}-01`);
+}
