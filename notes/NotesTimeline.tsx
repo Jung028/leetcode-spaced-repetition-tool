@@ -1,7 +1,7 @@
 // notes/NotesTimeline.tsx
 import { useState } from "react";
 import type { Note } from "./notes-client";
-import { formatFullDate, formatRelativeTime } from "./notes-grouping";
+import { formatFullDate, formatNoteTime, formatRelativeTime } from "./notes-grouping";
 
 const TRUNCATE_AT = 320;
 
@@ -31,7 +31,6 @@ function NoteEntry({
   if (isEditing) {
     return (
       <li className="notes-entry notes-entry-editing">
-        <span className="notes-entry-dot" aria-hidden="true" />
         <div className="notes-entry-body">
           <textarea
             className="notes-edit-textarea"
@@ -54,7 +53,6 @@ function NoteEntry({
 
   return (
     <li className="notes-entry" onClick={onStartEdit}>
-      <span className="notes-entry-dot" aria-hidden="true" />
       <div className="notes-entry-body">
         <span className="notes-entry-text">{shownText}</span>
         {isLong && (
@@ -69,7 +67,7 @@ function NoteEntry({
             {expanded ? "Show less" : "Show more"}
           </button>
         )}
-        <span className="notes-entry-time">{note.createdAt}</span>
+        <span className="notes-entry-time">{formatNoteTime(note.id)}</span>
       </div>
     </li>
   );

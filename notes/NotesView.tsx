@@ -1,7 +1,7 @@
 // notes/NotesView.tsx
 import { useEffect, useMemo, useState } from "react";
 import type { Note, NotesClient } from "./notes-client";
-import { groupNotesByDay, labelForDateKey, todayKey } from "./notes-grouping";
+import { groupDaysByMonth, groupNotesByDay, labelForDateKey, todayKey } from "./notes-grouping";
 import NotesSidebar from "./NotesSidebar";
 import NotesComposer from "./NotesComposer";
 import NotesTimeline from "./NotesTimeline";
@@ -41,6 +41,7 @@ export default function NotesView({ client }: { client: NotesClient }) {
   }, []);
 
   const groups = useMemo(() => groupNotesByDay(notes), [notes]);
+  const months = useMemo(() => groupDaysByMonth(groups), [groups]);
   const selectedGroup = groups.find((g) => g.dateKey === selectedDayKey);
   const selectedNotes = selectedGroup?.notes ?? [];
   const selectedLabel = selectedGroup?.label ?? labelForDateKey(selectedDayKey);
@@ -126,7 +127,7 @@ export default function NotesView({ client }: { client: NotesClient }) {
 
   return (
     <div className="notes-view">
-      <NotesSidebar groups={groups} selectedDayKey={selectedDayKey} onSelectDay={setSelectedDayKey} />
+      <NotesSidebar months={months} selectedDayKey={selectedDayKey} onSelectDay={setSelectedDayKey} />
       <div className="notes-content">
         <NotesComposer draft={draft} onDraftChange={setDraft} onSave={handleSaveAndSync} busy={busy} />
         <NotesTimeline
