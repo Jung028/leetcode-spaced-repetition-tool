@@ -1,5 +1,5 @@
 // notes/NotesView.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Note, NotesClient } from "./notes-client";
 import { groupDaysByMonth, groupNotesByDay, labelForDateKey, todayKey } from "./notes-grouping";
 import NotesSidebar from "./NotesSidebar";
@@ -17,6 +17,27 @@ export default function NotesView({ client }: { client: NotesClient }) {
   const [editDraft, setEditDraft] = useState("");
   const [selectedDayKey, setSelectedDayKey] = useState(() => todayKey());
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [daysOpen, setDaysOpen] = useState(false);
+  const daysToggleRef = useRef<HTMLButtonElement>(null);
+
+  const closeDays = () => {
+    setDaysOpen(false);
+    daysToggleRef.current?.focus();
+  };
+
+  const selectDay = (dateKey: string) => {
+    setSelectedDayKey(dateKey);
+    closeDays();
+  };
+
+  useEffect(() => {
+    if (!daysOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeDays();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [daysOpen]);
 
   const load = async () => {
     try {
@@ -126,8 +147,21 @@ export default function NotesView({ client }: { client: NotesClient }) {
   };
 
   return (
-    <div className="notes-view">
-      <NotesSidebar months={months} selectedDayKey={selectedDayKey} onSelectDay={setSelectedDayKey} />
+    <div className={daysOpen ? "notes-view notes-view-days-open" : "notes-view"}>
+      <NotesSidebar
+        id="notes-days"
+        open={daysOpen}
+        months={months}
+        selectedDayKey={selectedDayKey}
+        onSelectDay={selectDay}
+      />
+      <button
+        type="button"
+        className="notes-scrim"
+        aria-label="Close days"
+        tabIndex={daysOpen ? 0 : -1}
+        onClick={closeDays}
+      />
       <div className="notes-content">
         <NotesComposer draft={draft} onDraftChange={setDraft} onSave={handleSaveAndSync} busy={busy} />
         <NotesTimeline
@@ -138,6 +172,9 @@ export default function NotesView({ client }: { client: NotesClient }) {
           busy={busy}
           lastSyncedAt={lastSyncedAt}
           hasUpdates={hasUpdates}
+          daysOpen={daysOpen}
+          onOpenDays={() => setDaysOpen(true)}
+          daysToggleRef={daysToggleRef}
           onPull={handlePull}
           onSync={runSync}
           editingId={editingId}

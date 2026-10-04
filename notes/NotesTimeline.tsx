@@ -1,5 +1,5 @@
 // notes/NotesTimeline.tsx
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import type { Note } from "./notes-client";
 import { formatFullDate, formatNoteTime, formatRelativeTime } from "./notes-grouping";
 
@@ -81,6 +81,9 @@ export default function NotesTimeline({
   busy,
   lastSyncedAt,
   hasUpdates,
+  daysOpen,
+  onOpenDays,
+  daysToggleRef,
   onPull,
   onSync,
   editingId,
@@ -97,6 +100,9 @@ export default function NotesTimeline({
   busy: boolean;
   lastSyncedAt: Date | null;
   hasUpdates: boolean;
+  daysOpen: boolean;
+  onOpenDays: () => void;
+  daysToggleRef: RefObject<HTMLButtonElement | null>;
   onPull: () => void;
   onSync: () => void;
   editingId: string | null;
@@ -109,6 +115,16 @@ export default function NotesTimeline({
   return (
     <section className="notes-main">
       <header className="notes-main-header">
+        <button
+          type="button"
+          ref={daysToggleRef}
+          className="notes-days-toggle"
+          aria-expanded={daysOpen}
+          aria-controls="notes-days"
+          onClick={onOpenDays}
+        >
+          Days
+        </button>
         <div>
           <h2 className="notes-day-title">
             {dayLabel} <span className="notes-day-subtitle">· {formatFullDate(dateKey)}</span>
