@@ -252,7 +252,7 @@ export default function AnnouncementsBoard() {
       {items.length === 0 ? (
         <p className="board-empty">No announcements yet. Add one so you don't forget it.</p>
       ) : (
-        <ul className="board-rows">
+        <ul className="card-grid" style={{ "--card-min": "320px" } as React.CSSProperties}>
           {items.map((a, i) =>
             editingId === a.id ? (
               <li key={a.id} style={{ animationDelay: `${i * 60}ms` }}>
@@ -269,61 +269,44 @@ export default function AnnouncementsBoard() {
               </li>
             ) : (
               <li key={a.id} style={{ animationDelay: `${i * 60}ms` }}>
-                <label className={a.completed ? "board-row board-row-main step-row announcement-done" : "board-row board-row-main step-row"}>
-                  <input type="checkbox" checked={a.completed} onChange={() => toggle(a.id)} />
-                  <span className="board-title announcement-message">{a.message}</span>
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditingId(a.id);
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-danger"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      remove(a.id);
-                    }}
-                  >
-                    Delete
-                  </button>
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={modulesError || modules.length === 0}
-                    title={
-                      modulesError
-                        ? "Couldn't load modules"
-                        : modules.length === 0
-                          ? "No modules to add to"
-                          : "Add this as a deadline"
-                    }
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setDeadlineFor(a.id);
-                    }}
-                  >
-                    + Add to deadlines
-                  </button>
-                </label>
-                {deadlineFor === a.id && (
-                  <DeadlineQuickForm
-                    announcement={a}
-                    modules={modules}
-                    onCancel={() => setDeadlineFor(null)}
-                    onDone={() => {
-                      setDeadlineFor(null);
-                      setAddedFor(a.id);
-                      setTimeout(() => setAddedFor(null), 2500);
-                    }}
-                  />
-                )}
-                {addedFor === a.id && <p className="announcement-added">✓ Added to deadlines</p>}
+                <div className={a.completed ? "card announcement-done" : "card"}>
+                  <label className="card-check">
+                    <input type="checkbox" checked={a.completed} onChange={() => toggle(a.id)} />
+                    <span className="announcement-message">{a.message}</span>
+                  </label>
+                  <div className="card-actions">
+                    <button type="button" className="btn" onClick={() => setEditingId(a.id)}>Edit</button>
+                    <button type="button" className="btn btn-danger" onClick={() => remove(a.id)}>Delete</button>
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={modulesError || modules.length === 0}
+                      title={
+                        modulesError
+                          ? "Couldn't load modules"
+                          : modules.length === 0
+                            ? "No modules to add to"
+                            : "Add this as a deadline"
+                      }
+                      onClick={() => setDeadlineFor(a.id)}
+                    >
+                      + Add to deadlines
+                    </button>
+                  </div>
+                  {deadlineFor === a.id && (
+                    <DeadlineQuickForm
+                      announcement={a}
+                      modules={modules}
+                      onCancel={() => setDeadlineFor(null)}
+                      onDone={() => {
+                        setDeadlineFor(null);
+                        setAddedFor(a.id);
+                        setTimeout(() => setAddedFor(null), 2500);
+                      }}
+                    />
+                  )}
+                  {addedFor === a.id && <p className="announcement-added">✓ Added to deadlines</p>}
+                </div>
               </li>
             ),
           )}

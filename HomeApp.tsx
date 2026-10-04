@@ -230,35 +230,29 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
         ) : items.length === 0 ? (
           <p className="board-empty">Nothing due — you're all caught up.</p>
         ) : (
-          <ul className="board-rows">
+          <ul className="card-grid">
             {items.map((item, i) => {
               const color = item.overdueDays > 0 ? "red" : "gold";
               const hasLink = !!item.subtitle && isValidUrl(item.subtitle);
               return (
                 <li key={`${item.source}-${item.id}`} style={{ animationDelay: `${i * 60}ms` }}>
-                  <div
-                    className="board-row board-row-main"
-                    style={{ "--urgency": `var(--${color})` } as React.CSSProperties}
-                  >
-                    <button type="button" className="board-row-click" onClick={() => onNavigate(item)}>
-                      <span className="tag">{item.overdueDays > 0 ? `${item.overdueDays}d late` : "due"}</span>
-                      <span className="cat-tag" style={{ "--cat-color": SOURCE_COLOR[item.source] } as React.CSSProperties}>
-                        {SOURCE_LABEL[item.source]}
+                  <div className="card" style={{ "--urgency": `var(--${color})` } as React.CSSProperties}>
+                    <button type="button" className="card-click" onClick={() => onNavigate(item)}>
+                      <span className="card-top">
+                        <span className="cat-tag" style={{ "--cat-color": SOURCE_COLOR[item.source] } as React.CSSProperties}>
+                          {SOURCE_LABEL[item.source]}
+                        </span>
+                        <span className="tag">{item.overdueDays > 0 ? `${item.overdueDays}d late` : "due"}</span>
                       </span>
-                      <span className="board-title">{item.title}</span>
-                      {item.subtitle && !hasLink && <span className="goal-deadline">{item.subtitle}</span>}
+                      <span className="card-title">{item.title}</span>
+                      {item.subtitle && !hasLink && <span className="card-meta">{item.subtitle}</span>}
                     </button>
                     {hasLink && (
-                      <a
-                        className="board-row-review"
-                        href={item.subtitle}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        title="Open link"
-                      >
-                        ↗
-                      </a>
+                      <div className="card-actions">
+                        <a className="btn" href={item.subtitle} target="_blank" rel="noopener noreferrer">
+                          Open link ↗
+                        </a>
+                      </div>
                     )}
                   </div>
                 </li>
