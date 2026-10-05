@@ -6,6 +6,8 @@ import {
   formatFullDate,
   labelForDateKey,
   todayKey,
+  groupDaysByMonth,
+  formatNoteTime,
 } from "./notes-grouping";
 import type { Note } from "./notes-client";
 
@@ -124,5 +126,34 @@ test("todayKey matches the dateKey groupNotesByDay assigns to a same-day note", 
   const notes = [noteAt(now, "today note")];
   const groups = groupNotesByDay(notes, now);
   expect(first(groups).dateKey).toBe(todayKey(now));
+});
+
+test("groupDaysByMonth splits days into months, newest first, with a note count per month", () => {
+  const days = [
+    { dateKey: "2026-10-04", label: "Today", notes: [noteAt(new Date(2026, 9, 4, 9), "a")] },
+    {
+      dateKey: "2026-10-01",
+      label: "Thu, 1 Oct",
+      notes: [noteAt(new Date(2026, 9, 1, 9), "b"), noteAt(new Date(2026, 9, 1, 10), "c", "bbbb")],
+    },
+    { dateKey: "2026-09-30", label: "Wed, 30 Sep", notes: [noteAt(new Date(2026, 8, 30, 9), "d")] },
+  ];
+  const months = groupDaysByMonth(days);
+  expect(months.map((m) => [m.monthKey, m.label, m.noteCount, m.days.length])).toEqual([
+    ["2026-10", "October 2026", 3, 2],
+    ["2026-09", "September 2026", 1, 1],
+  ]);
+});
+
+test("groupDaysByMonth returns no months for no days", () => {
+  expect(groupDaysByMonth([])).toEqual([]);
+});
+
+test("formatNoteTime renders the note's local time as HH:mm", () => {
+  expect(formatNoteTime(idFor(new Date(2026, 8, 30, 9, 5)))).toBe("09:05");
+});
+
+test("formatNoteTime falls back to the raw id when the id has no timestamp", () => {
+  expect(formatNoteTime("not-a-timestamp")).toBe("not-a-timestamp");
 });
 

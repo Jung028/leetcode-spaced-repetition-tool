@@ -78,7 +78,14 @@ test("toggleGoal on an unknown id returns null", () => {
 test("updateGoal replaces the text and returns the updated row", () => {
   const g = createGoal(db, "Original", TODAY);
   const updated = updateGoal(db, g.id, "Renamed");
-  expect(updated).toEqual({ id: g.id, text: "Renamed", done: false, done_at: null, created_at: TODAY });
+  expect(updated).toEqual({
+    id: g.id,
+    text: "Renamed",
+    done: false,
+    done_at: null,
+    created_at: TODAY,
+    category: "other",
+  });
 });
 
 test("updateGoal on an unknown id returns null", () => {
@@ -100,4 +107,41 @@ test("seedGoalsOnce inserts rows and guards against a second call", () => {
   expect(seedGoalsOnce(db, rows, TODAY)).toBe(2);
   expect(seedGoalsOnce(db, rows, TODAY)).toBe(0);
   expect(listGoals(db).length).toBe(2);
+});
+
+test("createGoal infers the category from the text when none is given", () => {
+  expect(createGoal(db, "FTP (20-min test): 220W → 250W", TODAY).category).toBe("cycling");
+});
+
+test("createGoal stores an explicit category over the inferred one", () => {
+  expect(createGoal(db, "FTP (20-min test): 220W → 250W", TODAY, "other").category).toBe("other");
+});
+
+test("updateGoal leaves the category alone when none is given, and replaces it when one is", () => {
+  const goal = createGoal(db, "5K: 17:36 → 16:00", TODAY);
+  expect(updateGoal(db, goal.id, "5K: 17:20 → 16:00")!.category).toBe("running");
+  expect(updateGoal(db, goal.id, "5K: 17:20 → 16:00", "events")!.category).toBe("events");
+});
+
+test("migrateGoals adds category to a pre-category table and backfills it by inference", () => {
+  const old = new Database(":memory:");
+  old.exec(`
+    CREATE TABLE goals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      text TEXT NOT NULL,
+      done INTEGER NOT NULL DEFAULT 0,
+      done_at TEXT,
+      created_at TEXT NOT NULL
+    );
+    INSERT INTO goals (text, created_at) VALUES ('Injury: cycling only → cleared to run pain-free', '2026-09-28');
+    INSERT INTO goals (text, created_at) VALUES ('Powerman Run 2 (10km off the bike): 44:00+ → 35:00', '2026-09-28');
+  `);
+  migrateGoals(old);
+  expect(listGoals(old).map((g) => g.category)).toEqual(["recovery", "running"]);
+});
+
+test("migrateGoals does not re-run the backfill over a category the user chose", () => {
+  const goal = createGoal(db, "5K: 17:36 → 16:00", TODAY, "other");
+  migrateGoals(db);
+  expect(listGoals(db).find((g) => g.id === goal.id)!.category).toBe("other");
 });

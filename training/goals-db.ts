@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import { inferGoalCategory, type GoalCategory } from "./goal-text";
 
 export interface Goal {
   id: number;
@@ -6,6 +7,7 @@ export interface Goal {
   done: boolean;
   done_at: string | null;
   created_at: string;
+  category: GoalCategory;
 }
 
 interface GoalRow {
@@ -14,6 +16,7 @@ interface GoalRow {
   done: number;
   done_at: string | null;
   created_at: string;
+  category: GoalCategory;
 }
 
 const toGoal = (row: GoalRow): Goal => ({ ...row, done: row.done === 1 });
@@ -50,12 +53,25 @@ export function migrateGoals(db: Database): void {
       ALTER TABLE goals_new RENAME TO goals;
     `);
   }
+
+  const columns = db.query(`PRAGMA table_info(goals)`).all() as { name: string }[];
+  if (!columns.some((column) => column.name === "category")) {
+    db.exec(`ALTER TABLE goals ADD COLUMN category TEXT NOT NULL DEFAULT 'other'`);
+    const existing = db.query(`SELECT id, text FROM goals`).all() as { id: number; text: string }[];
+    const setCategory = db.query(`UPDATE goals SET category = ? WHERE id = ?`);
+    for (const goal of existing) setCategory.run(inferGoalCategory(goal.text), goal.id);
+  }
 }
 
-export function createGoal(db: Database, text: string, today: string): Goal {
+export function createGoal(
+  db: Database,
+  text: string,
+  today: string,
+  category: GoalCategory = inferGoalCategory(text),
+): Goal {
   const row = db
-    .query(`INSERT INTO goals (text, done, done_at, created_at) VALUES (?, 0, NULL, ?) RETURNING *`)
-    .get(text, today) as GoalRow;
+    .query(`INSERT INTO goals (text, done, done_at, created_at, category) VALUES (?, 0, NULL, ?, ?) RETURNING *`)
+    .get(text, today, category) as GoalRow;
   return toGoal(row);
 }
 
@@ -63,10 +79,10 @@ export function listGoals(db: Database): Goal[] {
   return (db.query(`SELECT * FROM goals ORDER BY created_at, id`).all() as GoalRow[]).map(toGoal);
 }
 
-export function updateGoal(db: Database, id: number, text: string): Goal | null {
-  const row = db.query(`UPDATE goals SET text = ? WHERE id = ? RETURNING *`).get(text, id) as
-    | GoalRow
-    | undefined;
+export function updateGoal(db: Database, id: number, text: string, category?: GoalCategory): Goal | null {
+  const row = db
+    .query(`UPDATE goals SET text = ?, category = COALESCE(?, category) WHERE id = ? RETURNING *`)
+    .get(text, category ?? null, id) as GoalRow | undefined;
   return row ? toGoal(row) : null;
 }
 

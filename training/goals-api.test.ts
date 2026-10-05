@@ -110,3 +110,29 @@ test("DELETE /api/goals/:id on an unknown id returns 404", async () => {
   const res = await fetch(`${base}/api/goals/9999`, { method: "DELETE" });
   expect(res.status).toBe(404);
 });
+
+const post = (body: unknown) =>
+  fetch(`${base}/api/goals`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+test("POST /api/goals infers a category when none is sent", async () => {
+  const body = await (await post({ text: "10K: 38:46 → 34:00" })).json();
+  expect(body.category).toBe("running");
+});
+
+test("POST /api/goals rejects an unknown category", async () => {
+  expect((await post({ text: "10K: 38:46 → 34:00", category: "swimming" })).status).toBe(400);
+});
+
+test("PUT /api/goals/:id keeps the category when none is sent", async () => {
+  const created = await (await post({ text: "10K: 38:46 → 34:00", category: "events" })).json();
+  const res = await fetch(`${base}/api/goals/${created.id}`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: "10K: 38:00 → 34:00" }),
+  });
+  expect((await res.json()).category).toBe("events");
+});

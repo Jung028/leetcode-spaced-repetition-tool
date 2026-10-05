@@ -129,8 +129,13 @@
   box-sizing: border-box;
 }
 
+html {
+  background: var(--bg);
+}
+
 body {
   margin: 0;
+  min-height: 100vh;
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
@@ -479,59 +484,18 @@ button.stat:hover {
   color: var(--accent);
 }
 
-.roadmap-table-wrap {
-  overflow-x: auto;
+.race-calendar-embed {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 160px);
+  min-height: 480px;
+}
+
+.race-calendar-embed iframe {
+  flex: 1;
+  width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
-}
-
-.roadmap-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--text-sm);
-}
-
-.roadmap-table th,
-.roadmap-table td {
-  text-align: left;
-  padding: 0.6rem 0.75rem;
-  border-bottom: 1px solid var(--line);
-  vertical-align: top;
-}
-
-.roadmap-table thead th {
-  font-family: var(--mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--dim);
-  background: var(--panel);
-  white-space: nowrap;
-}
-
-.roadmap-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.roadmap-table tbody tr:hover {
-  background: var(--panel-raised);
-}
-
-.roadmap-table td:first-child {
-  font-family: var(--mono);
-  font-weight: 600;
-}
-
-.roadmap-notes {
-  list-style: disc;
-  margin: 0.85rem 0 0;
-  padding-left: 1.25rem;
-  color: var(--dim);
-  font-size: var(--text-sm);
-}
-
-.roadmap-notes li {
-  margin-bottom: 0.35rem;
 }
 
 .board-rows {
@@ -635,6 +599,125 @@ button.stat:hover {
   border-radius: 3px;
   min-width: 3.8rem;
   text-align: center;
+}
+
+/* Cards — the short, bordered tile used by Goals, Home and the race
+   calendar. Deliberately no coloured left border (that is .board-row's
+   look); urgency and category are carried by a tag inside the card. */
+.card-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-min, 240px), 1fr));
+}
+
+.card-grid > li {
+  display: flex;
+  min-width: 0;
+  animation: row-in var(--dur-base) var(--ease) backwards;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-4);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  transition: background var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.card:hover {
+  background: var(--panel-raised);
+  box-shadow: var(--shadow-panel);
+}
+
+.card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.card-title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.card-meta {
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  color: var(--dim);
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.card-kicker {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.card-click {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.card-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+
+.card-check input[type="checkbox"] {
+  flex: 0 0 auto;
+  margin-top: 0.2rem;
+}
+
+.goal-group + .goal-group {
+  margin-top: var(--space-5);
+}
+
+.goal-group .card-kicker {
+  margin: 0 0 var(--space-2);
+}
+
+.goal-card-target {
+  font-family: var(--mono);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.goal-card-done .card-title {
+  text-decoration: line-through;
+  color: var(--dim);
 }
 
 /* Rung meter */
@@ -2153,6 +2236,16 @@ a.btn {
   border-radius: 999px; background: var(--panel-2, rgba(127,127,127,0.15)); color: var(--dim);
   font-size: 0.8em;
 }
+
+/* notes tab: collapsible week-training glance */
+.notes-training { margin: 0 auto 1rem; max-width: 920px; }
+.notes-training > summary {
+  cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--dim);
+  list-style: none; padding: 0.25rem 0;
+}
+.notes-training > summary::-webkit-details-marker { display: none; }
+.notes-training > summary::before { content: "▸ "; }
+.notes-training[open] > summary::before { content: "▾ "; }
 
 /* announcement → deadline quick form */
 .announcement-deadline-form { margin: 0.5rem 0 0.25rem; }

@@ -6,44 +6,55 @@ import { StatRow } from "./components/StatRow";
 import { ContextBanner } from "./components/ContextBanner";
 import { WeekBoardTable } from "./components/WeekBoardTable";
 import { WeekBoardCards } from "./components/WeekBoardCards";
+import { WeekBoardMonth } from "./components/WeekBoardMonth";
 import { ReferencePanel } from "./components/ReferencePanel";
 import "./weekly-plan.css";
 
 type WeekView = "table" | "cards";
+type PlanRange = "week" | "month";
 
-function loadView(): WeekView {
+function loadChoice<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
-    const stored = localStorage.getItem("weekly-plan-view");
-    if (stored === "table" || stored === "cards") return stored;
+    const stored = localStorage.getItem(key);
+    if (allowed.includes(stored as T)) return stored as T;
   } catch {
     // localStorage inaccessible (e.g. blocked storage) — fall back to default
   }
-  return "table";
+  return fallback;
 }
 
-function saveView(view: WeekView) {
+function saveChoice(key: string, value: string) {
   try {
-    localStorage.setItem("weekly-plan-view", view);
+    localStorage.setItem(key, value);
   } catch {
-    // localStorage inaccessible — view choice just won't persist across visits
+    // localStorage inaccessible — choice just won't persist across visits
   }
 }
 
-function ViewToggle({ view, onChange }: { view: WeekView; onChange: (v: WeekView) => void }) {
+function SegmentedToggle<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { value: T; text: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
   return (
-    <nav className="plan-view-toggle" aria-label="Week layout">
-      <button
-        className={view === "table" ? "plan-view-btn plan-view-btn-active" : "plan-view-btn"}
-        onClick={() => onChange("table")}
-      >
-        Table
-      </button>
-      <button
-        className={view === "cards" ? "plan-view-btn plan-view-btn-active" : "plan-view-btn"}
-        onClick={() => onChange("cards")}
-      >
-        Cards
-      </button>
+    <nav className="plan-view-toggle" aria-label={label}>
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          aria-pressed={value === option.value}
+          className={value === option.value ? "plan-view-btn plan-view-btn-active" : "plan-view-btn"}
+          onClick={() => onChange(option.value)}
+        >
+          {option.text}
+        </button>
+      ))}
     </nav>
   );
 }
@@ -51,15 +62,26 @@ function ViewToggle({ view, onChange }: { view: WeekView; onChange: (v: WeekView
 export function WeeklyPlanView<TItem extends PlanItem>({
   plan,
   today = localToday(),
+  cardsOnly = false,
 }: {
   plan: WeeklyPlan<TItem>;
   today?: string;
+  /** Skip the context banner and range/layout toggles, always render the week as cards. */
+  cardsOnly?: boolean;
 }) {
-  const [view, setView] = useState<WeekView>(loadView);
+  const [view, setView] = useState<WeekView>(() => loadChoice("weekly-plan-view", ["table", "cards"], "table"));
   const changeView = (v: WeekView) => {
     setView(v);
-    saveView(v);
+    saveChoice("weekly-plan-view", v);
   };
+
+  const [range, setRange] = useState<PlanRange>(() => loadChoice("weekly-plan-range", ["week", "month"], "week"));
+  const changeRange = (r: PlanRange) => {
+    setRange(r);
+    saveChoice("weekly-plan-range", r);
+  };
+
+  const [anchor, setAnchor] = useState(today);
 
   const week = plan.weekOf(today);
   const stats = plan.stats(today);
@@ -68,9 +90,36 @@ export function WeeklyPlanView<TItem extends PlanItem>({
   return (
     <div className="weekly-plan">
       <StatRow stats={stats} />
-      {plan.context && <ContextBanner context={plan.context} />}
-      <ViewToggle view={view} onChange={changeView} />
-      {view === "table" ? (
+      {!cardsOnly && plan.context && <ContextBanner context={plan.context} />}
+      {!cardsOnly && (
+        <div className="plan-toggles">
+          <SegmentedToggle
+            label="Range"
+            options={[
+              { value: "week", text: "Week" },
+              { value: "month", text: "Month" },
+            ]}
+            value={range}
+            onChange={changeRange}
+          />
+          {range === "week" && (
+            <SegmentedToggle
+              label="Week layout"
+              options={[
+                { value: "table", text: "Table" },
+                { value: "cards", text: "Cards" },
+              ]}
+              value={view}
+              onChange={changeView}
+            />
+          )}
+        </div>
+      )}
+      {cardsOnly ? (
+        <WeekBoardCards week={week} categories={plan.categories} heading={heading} />
+      ) : range === "month" ? (
+        <WeekBoardMonth plan={plan} anchor={anchor} today={today} onAnchorChange={setAnchor} />
+      ) : view === "table" ? (
         <WeekBoardTable week={week} categories={plan.categories} heading={heading} />
       ) : (
         <WeekBoardCards week={week} categories={plan.categories} heading={heading} />

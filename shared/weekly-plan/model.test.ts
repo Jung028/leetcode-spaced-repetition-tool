@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { WeeklyPlan } from "./model";
+import { WeeklyPlan, focusFor } from "./model";
 import type { PlanDay, Stat } from "./model";
 
 const categories = { x: { label: "X", colorToken: "--accent" } };
@@ -42,4 +42,15 @@ test("stats delegates to the injected calculator with the plan instance and toda
   const result = plan.stats("2026-09-28");
   expect(result).toEqual([{ value: "42", label: "Mock" }]);
   expect(calls).toEqual([{ plan, today: "2026-09-28" }]);
+});
+
+test("focusFor names a rest day and joins category labels otherwise", () => {
+  const categories = { bike: { label: "Bike", colorToken: "--accent" }, strength: { label: "Strength", colorToken: "--red" } };
+  expect(focusFor({ day: "Fri", items: [] }, categories)).toBe("Rest");
+  expect(
+    focusFor(
+      { day: "Tue", items: [{ title: "a", category: "bike", steps: [] }, { title: "b", category: "strength", steps: [] }] },
+      categories,
+    ),
+  ).toBe("Bike / Strength");
 });

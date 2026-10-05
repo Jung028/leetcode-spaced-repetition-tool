@@ -87,6 +87,44 @@ export function formatFullDate(dateKey: string): string {
   return `${weekday}, ${date.getDate()} ${month} ${date.getFullYear()}`;
 }
 
+export interface MonthGroup {
+  monthKey: string;
+  label: string;
+  noteCount: number;
+  days: DayGroup[];
+}
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// Takes groupNotesByDay's output, so day bucketing, day order and the
+// Today / Yesterday labels are decided in exactly one place.
+export function groupDaysByMonth(groups: DayGroup[]): MonthGroup[] {
+  const months = new Map<string, MonthGroup>();
+  for (const day of groups) {
+    const monthKey = day.dateKey.slice(0, 7);
+    let month = months.get(monthKey);
+    if (!month) {
+      const [year, monthNumber] = monthKey.split("-").map(Number);
+      month = { monthKey, label: `${MONTH_NAMES[monthNumber! - 1]} ${year}`, noteCount: 0, days: [] };
+      months.set(monthKey, month);
+    }
+    month.days.push(day);
+    month.noteCount += day.notes.length;
+  }
+  return Array.from(months.values());
+}
+
+export function formatNoteTime(id: string): string {
+  const timestamp = parseNoteTimestamp(id);
+  if (!timestamp) return id;
+  const hours = String(timestamp.getHours()).padStart(2, "0");
+  const minutes = String(timestamp.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
 export function formatRelativeTime(from: Date, now: Date = new Date()): string {
   const diffMin = Math.floor((now.getTime() - from.getTime()) / 60000);
   if (diffMin < 1) return "just now";

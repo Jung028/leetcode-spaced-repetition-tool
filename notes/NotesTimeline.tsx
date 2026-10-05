@@ -1,7 +1,7 @@
 // notes/NotesTimeline.tsx
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import type { Note } from "./notes-client";
-import { formatFullDate, formatRelativeTime } from "./notes-grouping";
+import { formatFullDate, formatNoteTime, formatRelativeTime } from "./notes-grouping";
 
 const TRUNCATE_AT = 320;
 
@@ -31,7 +31,6 @@ function NoteEntry({
   if (isEditing) {
     return (
       <li className="notes-entry notes-entry-editing">
-        <span className="notes-entry-dot" aria-hidden="true" />
         <div className="notes-entry-body">
           <textarea
             className="notes-edit-textarea"
@@ -54,7 +53,6 @@ function NoteEntry({
 
   return (
     <li className="notes-entry" onClick={onStartEdit}>
-      <span className="notes-entry-dot" aria-hidden="true" />
       <div className="notes-entry-body">
         <span className="notes-entry-text">{shownText}</span>
         {isLong && (
@@ -69,7 +67,7 @@ function NoteEntry({
             {expanded ? "Show less" : "Show more"}
           </button>
         )}
-        <span className="notes-entry-time">{note.createdAt}</span>
+        <span className="notes-entry-time">{formatNoteTime(note.id)}</span>
       </div>
     </li>
   );
@@ -83,6 +81,9 @@ export default function NotesTimeline({
   busy,
   lastSyncedAt,
   hasUpdates,
+  daysOpen,
+  onOpenDays,
+  daysToggleRef,
   onPull,
   onSync,
   editingId,
@@ -99,6 +100,9 @@ export default function NotesTimeline({
   busy: boolean;
   lastSyncedAt: Date | null;
   hasUpdates: boolean;
+  daysOpen: boolean;
+  onOpenDays: () => void;
+  daysToggleRef: RefObject<HTMLButtonElement | null>;
   onPull: () => void;
   onSync: () => void;
   editingId: string | null;
@@ -111,6 +115,21 @@ export default function NotesTimeline({
   return (
     <section className="notes-main">
       <header className="notes-main-header">
+        <button
+          type="button"
+          ref={daysToggleRef}
+          className="notes-days-toggle"
+          aria-expanded={daysOpen}
+          aria-controls="notes-days"
+          aria-label="Open day list"
+          onClick={onOpenDays}
+        >
+          <span className="notes-days-toggle-bars" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+        </button>
         <div>
           <h2 className="notes-day-title">
             {dayLabel} <span className="notes-day-subtitle">· {formatFullDate(dateKey)}</span>

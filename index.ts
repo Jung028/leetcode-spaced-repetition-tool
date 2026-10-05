@@ -25,7 +25,6 @@ import { JOB_SEED } from "./jobs/seed";
 import { migrateGoals, seedGoalsOnce } from "./training/goals-db";
 import { goalsApiRoutes } from "./training/goals-api";
 import { GOAL_SEED } from "./training/goals-seed";
-import { roadmapApiRoutes } from "./training/roadmap-api";
 import { localToday } from "./shared/scheduling";
 
 const db = openDb(process.env.SRS_DB_PATH ?? "srs.db");
@@ -95,7 +94,6 @@ const server = Bun.serve({
     ...moduleItemsApiRoutes(db),
     ...jobsApiRoutes(db),
     ...goalsApiRoutes(db),
-    ...roadmapApiRoutes(),
     ...notesApiRoutes(NOTES_CLONE_PATH),
   },
   development: {

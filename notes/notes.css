@@ -85,6 +85,22 @@
   margin: 0 0 0.25rem;
 }
 
+.notes-month + .notes-month {
+  margin-top: 1rem;
+}
+
+.notes-month-heading {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 0 0.35rem;
+  padding: 0 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--notes-dim);
+}
+
 .notes-day-list {
   list-style: none;
   margin: 0;
@@ -229,43 +245,25 @@
   margin: 0;
 }
 
-/* Timeline: a left rail of dots connected by a vertical line, one dot per
-   entry, matching the reference mockup. */
+/* Timeline: notes rendered as standalone cards, one per entry. */
 .notes-timeline {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0;
-  position: relative;
+  gap: 0.75rem;
 }
 
 .notes-entry {
+  background: var(--notes-panel);
+  border: 1px solid var(--notes-line);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
   display: flex;
   gap: 0.75rem;
-  padding: 0.75rem 0;
   cursor: pointer;
   position: relative;
-}
-
-.notes-entry:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: 1.2rem;
-  bottom: -0.1rem;
-  width: 1px;
-  background: var(--notes-line);
-}
-
-.notes-entry-dot {
-  flex: 0 0 auto;
-  width: 11px;
-  height: 11px;
-  margin-top: 0.3rem;
-  border-radius: 50%;
-  background: var(--notes-accent);
 }
 
 .notes-entry-body {
@@ -323,8 +321,14 @@
   list-style: none;
 }
 
+.notes-days-toggle,
+.notes-scrim {
+  display: none;
+}
+
 /* Narrow screens (phone capture page): the fixed sidebar doesn't fit, so it
-   collapses into a horizontally scrollable day-chip row above the composer. */
+   becomes a slide-in drawer triggered by the "Days" button, with a scrim
+   behind it to catch dismiss clicks. */
 @media (max-width: 640px) {
   .notes-view {
     flex-direction: column;
@@ -332,34 +336,63 @@
     padding: 0.75rem;
   }
 
+  .notes-days-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--notes-line);
+    border-radius: 8px;
+    background: var(--notes-panel);
+    color: var(--notes-text);
+  }
+
+  .notes-days-toggle-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 18px;
+  }
+
+  .notes-days-toggle-bars span {
+    display: block;
+    height: 2px;
+    border-radius: 1px;
+    background: currentColor;
+  }
+
   .notes-sidebar {
-    flex: 0 0 auto;
-    width: 100%;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 30;
+    width: min(300px, 85vw);
+    padding: 1rem 0.75rem;
+    overflow-y: auto;
+    background: var(--notes-bg);
+    border-right: 1px solid var(--notes-line);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 200ms ease, visibility 200ms;
   }
 
-  .notes-sidebar-heading {
-    display: none;
+  .notes-view-days-open .notes-sidebar {
+    transform: none;
+    visibility: visible;
   }
 
-  .notes-day-list {
-    flex-direction: row;
-    overflow-x: auto;
-    gap: 0.4rem;
-    padding-bottom: 0.25rem;
+  .notes-view-days-open .notes-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    border: 0;
+    background: rgba(0, 0, 0, 0.45);
   }
 
   .notes-day-item {
-    flex: 0 0 auto;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.1rem;
-    padding: 0.4rem 0.7rem;
-    border: 1px solid var(--notes-line);
-    border-radius: 999px;
-  }
-
-  .notes-day-count {
-    font-size: 0.7rem;
+    min-height: 44px;
   }
 
   .notes-composer-footer {
@@ -368,7 +401,13 @@
   }
 
   .notes-main-header {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notes-sidebar {
+    transition: none;
   }
 }

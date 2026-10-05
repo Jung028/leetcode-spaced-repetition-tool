@@ -14,7 +14,7 @@ const InterviewApp = React.lazy(() => import("./interview/App"));
 const JobsApp = React.lazy(() => import("./jobs/App"));
 const TrainingApp = React.lazy(() => import("./training/App"));
 const GoalsApp = React.lazy(() => import("./training/GoalsApp"));
-const RoadmapLinks = React.lazy(() => import("./training/RoadmapLinks"));
+const RaceCalendarEmbed = React.lazy(() => import("./training/RaceCalendarEmbed"));
 import "./index.css";
 
 type View =
@@ -917,7 +917,7 @@ function App() {
       )}
       {tab === "roadmap" && (
         <Suspense fallback={<p className="board-empty">Loading…</p>}>
-          <RoadmapLinks />
+          <RaceCalendarEmbed />
         </Suspense>
       )}
     </div>
