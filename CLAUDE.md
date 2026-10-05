@@ -449,3 +449,9 @@ Every SPEC.md (or equivalent spec/plan doc) written for this project must includ
 - **Autonomous Correction**: if a test fails, the AI sees the failure output immediately and attempts to fix its own mistake before the user has to intervene, so the user always returns to a green (passing) state.
 
 The PostToolUse hook is configured in `.claude/settings.json` (runs `bun test` and `tsc --noEmit`); any SPEC.md must still include this section.
+
+## Notes feature — live infra
+
+- The phone capture page is live at `https://jung028.github.io/leetcode-spaced-repetition-tool/` (repo: `Jung028/leetcode-spaced-repetition-tool`, Pages source: GitHub Actions). It deploys **automatically** on every push to `main` that touches `notes/**` or `notes-capture/index.html` — see `.github/workflows/deploy-notes-capture.yml`. Never deploy by hand; just push to `main` and check the Actions run.
+- That page is a **self-contained bundle** (`bun build ./notes/capture-entry.tsx --outdir ./notes-capture`) — it never loads `index.css` or the app shell, only `notes/notes.css`. A fix made in `index.css` (e.g. theme/background) does **not** reach this page — if the same bug shows there too, fix `notes/notes.css` separately (learned the hard way 2026-10-06: the html/body background-bleed fix needed two separate patches, one per stylesheet).
+- Private data repo: `git@github.com:Jung028/notes-data.git` — phone auth uses a **fine-grained** GitHub PAT (`github_pat_` prefix) scoped to that one repo, never a classic `ghp_` token (would leak access to every private repo on the account).
