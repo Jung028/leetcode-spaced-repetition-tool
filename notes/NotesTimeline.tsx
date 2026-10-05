@@ -121,9 +121,14 @@ export default function NotesTimeline({
           className="notes-days-toggle"
           aria-expanded={daysOpen}
           aria-controls="notes-days"
+          aria-label="Open day list"
           onClick={onOpenDays}
         >
-          Days
+          <span className="notes-days-toggle-bars" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
         </button>
         <div>
           <h2 className="notes-day-title">

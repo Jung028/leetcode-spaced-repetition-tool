@@ -339,14 +339,28 @@
   .notes-days-toggle {
     display: inline-flex;
     align-items: center;
-    min-height: 44px;
-    padding: 0 0.9rem;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
     border: 1px solid var(--notes-line);
     border-radius: 8px;
     background: var(--notes-panel);
     color: var(--notes-text);
-    font: inherit;
-    font-weight: 600;
+  }
+
+  .notes-days-toggle-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 18px;
+  }
+
+  .notes-days-toggle-bars span {
+    display: block;
+    height: 2px;
+    border-radius: 1px;
+    background: currentColor;
   }
 
   .notes-sidebar {
