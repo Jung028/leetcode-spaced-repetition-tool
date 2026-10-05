@@ -7,7 +7,7 @@ const CLUB_PLAN_URL =
 export default function TrainingApp() {
   return (
     <>
-      <WeeklyPlanView plan={TRAINING_PLAN} />
+      <WeeklyPlanView plan={TRAINING_PLAN} cardsOnly />
       <p className="broader-view-note">
         Looking further ahead? This week's plan is the only view that reflects the current
         injury status — for next week, next month or the full year once you're back to full

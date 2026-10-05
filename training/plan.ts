@@ -151,47 +151,4 @@ export const TRAINING_PLAN = definePlan<TrainingItem>({
       "Skip: NSW 10000m (15 Oct), NSW 3000m (31 Oct), Twilight 5000m (26 Nov). NSW Duathlon State Champs (late Jan 2027) only if pain-free running for 6+ weeks by then.",
     ],
   },
-  panels: [
-    {
-      title: "Strength · shin-safe",
-      badge: "Tue + Thu, no shin load",
-      rows: [
-        { label: "Glute bridge", detail: "3×12, rest 60\"" },
-        { label: "Clamshell", detail: "3×15 each side, rest 30\"" },
-        { label: "Side-lying leg raise", detail: "3×15 each side, rest 30\"" },
-        { label: "Upper body (push-up or row)", detail: "3×10, rest 60\"" },
-        { label: "Core (dead bug / plank)", detail: "3×40\", rest 30\"" },
-      ],
-    },
-    {
-      title: "Return to running",
-      badge: "Only once cleared — 6–12 weeks typical",
-      rows: [
-        { label: "1. Walk", detail: "30' pain-free for 1–2 weeks, no pain when the doctor presses the bone" },
-        { label: "2. Hop test", detail: "20× on the injured leg with no pain" },
-        { label: "3. Walk–run", detail: "1' run / 1' walk × 10, every second day, build over 4–6 weeks" },
-        { label: "4. Easy running", detail: "2–3 weeks before any speed work" },
-        { label: "5. Rebuild", detail: "add no more than ~10% running per week back to the old plan" },
-      ],
-    },
-    {
-      title: "Bone healing basics",
-      rows: [
-        { label: "Fuel", detail: "Eat enough — under-fuelling (RED-S) is a main cause of stress fractures. Fuel every ride over 60'" },
-        { label: "Calcium", detail: "~1,000mg/day — dairy, fortified soy milk, tofu, leafy greens" },
-        { label: "Vitamin D", detail: "Ask your doctor to check it" },
-        { label: "Sleep", detail: "8 hours — that's when bone repairs" },
-      ],
-    },
-    {
-      title: "Pace guide (target once cleared)",
-      badge: "5k 17:36 → 16:00 · 10k 38:46 → 34:00",
-      rows: [
-        { label: "Easy", detail: "4:50–5:15/km, can talk" },
-        { label: "Threshold", detail: "4:00–4:05/km, comfortably hard" },
-        { label: "5k pace", detail: "~3:30/km, hard and controlled" },
-        { label: "Strides", detail: "fast and relaxed, not a sprint" },
-      ],
-    },
-  ],
 });

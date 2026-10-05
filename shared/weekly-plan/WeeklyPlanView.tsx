@@ -62,9 +62,12 @@ function SegmentedToggle<T extends string>({
 export function WeeklyPlanView<TItem extends PlanItem>({
   plan,
   today = localToday(),
+  cardsOnly = false,
 }: {
   plan: WeeklyPlan<TItem>;
   today?: string;
+  /** Skip the context banner and range/layout toggles, always render the week as cards. */
+  cardsOnly?: boolean;
 }) {
   const [view, setView] = useState<WeekView>(() => loadChoice("weekly-plan-view", ["table", "cards"], "table"));
   const changeView = (v: WeekView) => {
@@ -87,30 +90,34 @@ export function WeeklyPlanView<TItem extends PlanItem>({
   return (
     <div className="weekly-plan">
       <StatRow stats={stats} />
-      {plan.context && <ContextBanner context={plan.context} />}
-      <div className="plan-toggles">
-        <SegmentedToggle
-          label="Range"
-          options={[
-            { value: "week", text: "Week" },
-            { value: "month", text: "Month" },
-          ]}
-          value={range}
-          onChange={changeRange}
-        />
-        {range === "week" && (
+      {!cardsOnly && plan.context && <ContextBanner context={plan.context} />}
+      {!cardsOnly && (
+        <div className="plan-toggles">
           <SegmentedToggle
-            label="Week layout"
+            label="Range"
             options={[
-              { value: "table", text: "Table" },
-              { value: "cards", text: "Cards" },
+              { value: "week", text: "Week" },
+              { value: "month", text: "Month" },
             ]}
-            value={view}
-            onChange={changeView}
+            value={range}
+            onChange={changeRange}
           />
-        )}
-      </div>
-      {range === "month" ? (
+          {range === "week" && (
+            <SegmentedToggle
+              label="Week layout"
+              options={[
+                { value: "table", text: "Table" },
+                { value: "cards", text: "Cards" },
+              ]}
+              value={view}
+              onChange={changeView}
+            />
+          )}
+        </div>
+      )}
+      {cardsOnly ? (
+        <WeekBoardCards week={week} categories={plan.categories} heading={heading} />
+      ) : range === "month" ? (
         <WeekBoardMonth plan={plan} anchor={anchor} today={today} onAnchorChange={setAnchor} />
       ) : view === "table" ? (
         <WeekBoardTable week={week} categories={plan.categories} heading={heading} />
