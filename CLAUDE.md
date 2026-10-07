@@ -312,15 +312,34 @@ It could cover any topic we are discussing in lectures or tutorials." It's a
 closed-book, supervised, 2-hour hurdle exam (60% of the unit, one A4
 double-sided notes sheet allowed) — see `exam-content/info6007/assessment_overview.md`.
 
+The lecturer confirmed this format in a follow-up announcement, saved verbatim
+at `exam-content/info6007/exam-prep.md` (2026-10-06). It adds: **duration** is
+2 hours plus 10 minutes reading time; **mark distribution** is 15 points per
+question (4 questions × 15 = 60 points, matching the unit's 60% weighting);
+**scope** is any topic from lectures or tutorials — reading material and
+guest lectures are explicitly NOT tested, though they can be used to
+strengthen an answer (so scenarios should stay anchored to lecture/tutorial
+content, not reading-only material); **what's allowed** is a two-sided
+cheat sheet (handwritten or typed), a non-programmable calculator, and a
+bilingual dictionary. Treat `exam-prep.md` as the authoritative source for
+this format going forward — re-read it before authoring a new final-exam-style
+paper in case the lecturer posts an update.
+
 **From now on, every INFO6007 week (new or updated) gets a third paper on top
 of the usual lecture + tutorial papers**, matching this exact shape:
 
-- 4 scenario-driven questions, each with 3-4 parts. Model as `scenario`-type
-  questions per the exception above — either one `scenario` entry per
-  question whose `prompt` states the brief scenario once and then lists parts
-  (a)-(d), with `modelAnswer` answering each part in turn, or up to 4 linked
-  `scenario` entries sharing the same scenario intro line, one part each.
-  Whichever reads more naturally for that scenario.
+- 4 scenario-driven questions, each with 3-4 parts, 15 points per question.
+  **Always split each question into one `scenario` entry per sub-part** —
+  never bundle (a)-(d) into a single entry's `prompt`. Each part gets its own
+  `ExamQuestionSeed`: repeat the same scenario intro line verbatim at the top
+  of every part's `prompt`, followed by just that one part's question (e.g.
+  "...(b) ..."), and its `modelAnswer` answers only that part. This is a
+  deliberate change from the old "whichever reads more naturally" rule — the
+  app renders one question per page, so one entry per sub-part means the
+  student sees question 1a alone, then 1b alone, then 1c, 1d, then 2a, 2b...,
+  and can focus on one part at a time instead of the whole multi-part
+  question at once. `exam-content/info6007/final-practice.ts` already follows
+  this split-entry shape — match it exactly.
 - Each part's answer follows the same "explain it to a teenager" shape as
   every other subjective `modelAnswer` in this repo (see "Subjective (`short`
   / `scenario`) model answers" above): plain analogy first, then labelled

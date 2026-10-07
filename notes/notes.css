@@ -3,8 +3,12 @@
 /* Self-contained theme tokens: the phone capture bundle renders this
    component standalone (no app shell, no index.css), so these can't rely on
    the host app's CSS variables. Light is the default; dark follows the
-   device's own preference, since the phone page has no in-app toggle. */
-.notes-view {
+   device's own preference, since the phone page has no in-app toggle.
+   Defined on :root (not .notes-view) so html/body below can use them too —
+   the content column is intentionally narrower than the viewport, and
+   without this the canvas outside that column stayed the browser's default
+   white instead of matching the theme. */
+:root {
   --notes-bg: #fbf8f0;
   --notes-panel: #f3eee0;
   --notes-panel-raised: #ece4d0;
@@ -16,7 +20,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  .notes-view {
+  :root {
     --notes-bg: #17171a;
     --notes-panel: #1f1f23;
     --notes-panel-raised: #27272c;
@@ -33,7 +37,7 @@
    above, so the Notes panel matches the rest of the app instead of
    mismatching it. The phone capture page never sets this attribute, so it
    always falls through to the prefers-color-scheme rule above. */
-:root[data-theme="dark"] .notes-view {
+:root[data-theme="dark"] {
   --notes-bg: #17171a;
   --notes-panel: #1f1f23;
   --notes-panel-raised: #27272c;
@@ -44,7 +48,7 @@
   --notes-on-accent: #1a1108;
 }
 
-:root[data-theme="light"] .notes-view {
+:root[data-theme="light"] {
   --notes-bg: #fbf8f0;
   --notes-panel: #f3eee0;
   --notes-panel-raised: #ece4d0;
@@ -55,11 +59,16 @@
   --notes-on-accent: #fbf8f0;
 }
 
+html,
+body {
+  margin: 0;
+  background: var(--notes-bg);
+}
+
 .notes-view {
   display: flex;
   align-items: flex-start;
   gap: 1.5rem;
-  min-height: 100vh;
   max-width: 920px;
   margin: 0 auto;
   padding: 1rem;

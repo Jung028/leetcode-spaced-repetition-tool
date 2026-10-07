@@ -130,6 +130,7 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
   const [loadError, setLoadError] = useState(false);
   const [openModal, setOpenModal] = useState<StatModal>(null);
   const [completedList, setCompletedList] = useState<DueItem[] | null>(null);
+  const [hideLeetCode, setHideLeetCode] = useState(true);
 
   const dueToday = items.filter((item) => item.overdueDays === 0);
   const overdue = items.filter((item) => item.overdueDays > 0);
@@ -216,6 +217,15 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
         <div className="section-head">
           <h2>Everything due</h2>
           <span className="board-count">{items.length}</span>
+          {/* NEW: Toggle Button */}
+          <button
+            type="button"
+            className="section-head-link" // Uses existing link style or create a btn class
+            style={{ background: "none", border: "none", cursor: "pointer" }}
+            onClick={() => setHideLeetCode((prev) => !prev)}
+          >
+            {hideLeetCode ? "Show LeetCode" : "Hide LeetCode"}
+          </button>
           <a
             className="section-head-link"
             href={ED_DIGEST_URL}
@@ -231,7 +241,10 @@ export default function HomeApp({ onNavigate }: { onNavigate: (item: DueItem) =>
           <p className="board-empty">Nothing due — you're all caught up.</p>
         ) : (
           <ul className="card-grid">
-            {items.map((item, i) => {
+            {items
+            // NEW: Filter out items with source "leetcode" when hideLeetCode is true
+            .filter((item) => !hideLeetCode || item.source?.toLowerCase() !== "leetcode")
+            .map((item, i) => {
               const color = item.overdueDays > 0 ? "red" : "gold";
               const hasLink = !!item.subtitle && isValidUrl(item.subtitle);
               return (

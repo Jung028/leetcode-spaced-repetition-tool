@@ -55,8 +55,8 @@ export function createTodo(
 export function listDueTodos(db: Database, today: string): Todo[] {
   return (
     db
-      .query(`SELECT * FROM todos WHERE done = 0 AND due_date <= ? ORDER BY due_date, id`)
-      .all(today) as TodoRow[]
+      .query(`SELECT * FROM todos WHERE done = 0 ORDER BY due_date, id`)
+      .all() as TodoRow[]
   ).map(toTodo);
 }
 
