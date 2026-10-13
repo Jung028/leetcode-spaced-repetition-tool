@@ -9,6 +9,7 @@ import { WEEK_5_PAPERS as INFO5995_WEEK_5_PAPERS } from "../exam-content/info599
 import { WEEK_6_PAPERS as INFO5995_WEEK_6_PAPERS } from "../exam-content/info5995/week-6";
 import { WEEK_7_PAPERS as INFO5995_WEEK_7_PAPERS } from "../exam-content/info5995/week-7";
 import { WEEK_8_PAPERS as INFO5995_WEEK_8_PAPERS } from "../exam-content/info5995/week-8";
+import { WEEK_9_PAPERS as INFO5995_WEEK_9_PAPERS } from "../exam-content/info5995/week-9";
 import { INFO5995_FINAL_PRACTICE_PAPERS } from "../exam-content/info5995/final-practice";
 import { WEEK_1_PAPERS as COMP5348_WEEK_1_PAPERS } from "../exam-content/comp5348/week-1";
 import { WEEK_2_PAPERS as COMP5348_WEEK_2_PAPERS } from "../exam-content/comp5348/week-2";
@@ -18,6 +19,7 @@ import { WEEK_5_PAPERS as COMP5348_WEEK_5_PAPERS } from "../exam-content/comp534
 import { WEEK_6_PAPERS as COMP5348_WEEK_6_PAPERS } from "../exam-content/comp5348/week-6";
 import { WEEK_7_PAPERS as COMP5348_WEEK_7_PAPERS } from "../exam-content/comp5348/week-7";
 import { WEEK_8_PAPERS as COMP5348_WEEK_8_PAPERS } from "../exam-content/comp5348/week-8";
+import { WEEK_9_PAPERS as COMP5348_WEEK_9_PAPERS } from "../exam-content/comp5348/week-9";
 import { WEEK_1_PAPERS as INFO6007_WEEK_1_PAPERS } from "../exam-content/info6007/week-1";
 import { WEEK_2_PAPERS as INFO6007_WEEK_2_PAPERS } from "../exam-content/info6007/week-2";
 import { WEEK_3_PAPERS as INFO6007_WEEK_3_PAPERS } from "../exam-content/info6007/week-3";
@@ -26,6 +28,7 @@ import { WEEK_5_PAPERS as INFO6007_WEEK_5_PAPERS } from "../exam-content/info600
 import { WEEK_6_PAPERS as INFO6007_WEEK_6_PAPERS } from "../exam-content/info6007/week-6";
 import { WEEK_7_PAPERS as INFO6007_WEEK_7_PAPERS } from "../exam-content/info6007/week-7";
 import { WEEK_8_PAPERS as INFO6007_WEEK_8_PAPERS } from "../exam-content/info6007/week-8";
+import { WEEK_9_PAPERS as INFO6007_WEEK_9_PAPERS } from "../exam-content/info6007/week-9";
 import { INFO6007_FINAL_PRACTICE_PAPERS } from "../exam-content/info6007/final-practice";
 import { WEEK_1_PAPERS as INFO5990_WEEK_1_PAPERS } from "../exam-content/info5990/week-1";
 import { WEEK_2_PAPERS as INFO5990_WEEK_2_PAPERS } from "../exam-content/info5990/week-2";
@@ -35,6 +38,7 @@ import { WEEK_5_PAPERS as INFO5990_WEEK_5_PAPERS } from "../exam-content/info599
 import { WEEK_6_PAPERS as INFO5990_WEEK_6_PAPERS } from "../exam-content/info5990/week-6";
 import { WEEK_7_PAPERS as INFO5990_WEEK_7_PAPERS } from "../exam-content/info5990/week-7";
 import { WEEK_8_PAPERS as INFO5990_WEEK_8_PAPERS } from "../exam-content/info5990/week-8";
+import { WEEK_9_PAPERS as INFO5990_WEEK_9_PAPERS } from "../exam-content/info5990/week-9";
 import { INFO5990_FINAL_PRACTICE_PAPERS } from "../exam-content/info5990/final-practice";
 import { WEEK_1_PAPERS as TRACELY_WEEK_1_PAPERS } from "../exam-content/tracely/week-1";
 import type { ExamPaperSeed } from "../exam-content/types";
@@ -49,6 +53,7 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO5995_WEEK_6_PAPERS,
   ...INFO5995_WEEK_7_PAPERS,
   ...INFO5995_WEEK_8_PAPERS,
+  ...INFO5995_WEEK_9_PAPERS,
   ...INFO5995_FINAL_PRACTICE_PAPERS,
   ...COMP5348_WEEK_1_PAPERS,
   ...COMP5348_WEEK_2_PAPERS,
@@ -58,6 +63,7 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...COMP5348_WEEK_6_PAPERS,
   ...COMP5348_WEEK_7_PAPERS,
   ...COMP5348_WEEK_8_PAPERS,
+  ...COMP5348_WEEK_9_PAPERS,
   ...INFO6007_WEEK_1_PAPERS,
   ...INFO6007_WEEK_2_PAPERS,
   ...INFO6007_WEEK_3_PAPERS,
@@ -66,6 +72,7 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO6007_WEEK_6_PAPERS,
   ...INFO6007_WEEK_7_PAPERS,
   ...INFO6007_WEEK_8_PAPERS,
+  ...INFO6007_WEEK_9_PAPERS,
   ...INFO6007_FINAL_PRACTICE_PAPERS,
   ...INFO5990_WEEK_1_PAPERS,
   ...INFO5990_WEEK_2_PAPERS,
@@ -75,6 +82,7 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO5990_WEEK_6_PAPERS,
   ...INFO5990_WEEK_7_PAPERS,
   ...INFO5990_WEEK_8_PAPERS,
+  ...INFO5990_WEEK_9_PAPERS,
   ...INFO5990_FINAL_PRACTICE_PAPERS,
   ...TRACELY_WEEK_1_PAPERS,
 ];
