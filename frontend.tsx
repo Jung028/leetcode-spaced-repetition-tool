@@ -4,7 +4,7 @@ import { LADDER, isDue, localToday } from "./shared/scheduling";
 import type { ProblemSummary, ProblemDetail } from "./leetcode/db";
 import { highlightCode } from "./leetcode/highlight";
 import TodoApp from "./todo/App";
-import NotesApp from "./notes/App";
+import NotesApp from "./remote-access/App";
 import HomeApp from "./HomeApp";
 import type { DueItem } from "./home-api";
 import ExamApp from "./exam/App";
