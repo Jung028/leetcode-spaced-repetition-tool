@@ -1,7 +1,8 @@
 // notes/capture-entry.tsx
 import { createRoot } from "react-dom/client";
-import NotesView from "./NotesView";
+import StudyTabs from "../StudyTabs";
 import { createGithubClient, TOKEN_STORAGE_KEY } from "./github-client";
+import { createFlashcardsGithubClient } from "../flashcards-page/flashcards-github-client";
 
 function getOrPromptToken(): string {
   const existing = localStorage.getItem(TOKEN_STORAGE_KEY);
@@ -15,11 +16,19 @@ function getOrPromptToken(): string {
 }
 
 const token = getOrPromptToken();
-const client = createGithubClient({
+const notesClient = createGithubClient({
+  owner: "Jung028",
+  repo: "notes-data",
+  token,
+  storage: localStorage,
+});
+const flashcardsClient = createFlashcardsGithubClient({
   owner: "Jung028",
   repo: "notes-data",
   token,
   storage: localStorage,
 });
 
-createRoot(document.getElementById("root")!).render(<NotesView client={client} />);
+createRoot(document.getElementById("root")!).render(
+  <StudyTabs notesClient={notesClient} flashcardsClient={flashcardsClient} />,
+);

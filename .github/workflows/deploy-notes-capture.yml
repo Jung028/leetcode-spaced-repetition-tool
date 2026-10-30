@@ -5,7 +5,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "notes/**"
+      - "remote-access/notes/**"
+      - "remote-access/flashcards-page/**"
       - "notes-capture/index.html"
       - ".github/workflows/deploy-notes-capture.yml"
   workflow_dispatch:
@@ -31,7 +32,7 @@ jobs:
         with:
           bun-version: latest
       - run: bun install
-      - run: bun build ./notes/capture-entry.tsx --outdir ./notes-capture
+      - run: bun build ./remote-access/notes/capture-entry.tsx --outdir ./notes-capture
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

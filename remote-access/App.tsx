@@ -1,10 +1,12 @@
 // notes/App.tsx
-import NotesView from "./notes/NotesView";
 import { createLocalClient } from "./notes/local-client";
+import { createFlashcardsLocalClient } from "./flashcards-page/flashcards-local-client";
 import { WeeklyPlanView } from "../shared/weekly-plan/WeeklyPlanView";
 import { TRAINING_PLAN } from "../training/plan";
+import StudyTabs from "./StudyTabs";
 
-const client = createLocalClient();
+const notesClient = createLocalClient();
+const flashcardsClient = createFlashcardsLocalClient();
 
 export default function NotesApp() {
   return (
@@ -13,7 +15,8 @@ export default function NotesApp() {
         <summary>This week's training</summary>
         <WeeklyPlanView plan={TRAINING_PLAN} cardsOnly />
       </details>
-      <NotesView client={client} />
+
+      <StudyTabs notesClient={notesClient} flashcardsClient={flashcardsClient} />
     </>
   );
 }
