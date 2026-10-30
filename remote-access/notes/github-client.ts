@@ -21,7 +21,7 @@ function isRateLimitResponse(res: Response): boolean {
   return res.headers.get("x-ratelimit-remaining") === "0" || res.headers.has("retry-after");
 }
 
-function throwIfAuthFailure(res: Response, storage: Storage): void {
+export function throwIfAuthFailure(res: Response, storage: Storage): void {
   if (res.status !== 401 && res.status !== 403) return;
   if (res.status === 403 && isRateLimitResponse(res)) {
     throw new Error("GitHub rate limit hit — try again in a bit.");
@@ -63,11 +63,11 @@ function timestampId(date: Date): string {
   return `${stamp}-${suffix}`;
 }
 
-function toBase64(text: string): string {
+export function toBase64(text: string): string {
   return btoa(unescape(encodeURIComponent(text)));
 }
 
-function fromBase64(content: string): string {
+export function fromBase64(content: string): string {
   return decodeURIComponent(escape(atob(content.replace(/\n/g, ""))));
 }
 
