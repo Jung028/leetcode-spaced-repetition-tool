@@ -3,7 +3,7 @@ import type { Note, NotesClient } from "./notes-client";
 
 export type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
-async function readErrorMessage(res: Response, fallback: string): Promise<string> {
+export async function readErrorMessage(res: Response, fallback: string): Promise<string> {
   try {
     const body = (await res.json()) as { error?: string };
     if (body?.error) return body.error;
