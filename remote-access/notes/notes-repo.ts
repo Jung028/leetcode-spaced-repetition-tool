@@ -34,7 +34,7 @@ async function runReportingStderr<T>(command: string, run: () => Promise<T>): Pr
 
 // Without this, git walks up from a missing or non-repo clonePath into any
 // enclosing repository and would stage, commit and push that repo's files instead.
-async function assertOwnRepo(clonePath: string): Promise<void> {
+export async function assertOwnRepo(clonePath: string): Promise<void> {
   let toplevel: string;
   try {
     toplevel = (await Bun.$`git rev-parse --show-toplevel`.cwd(clonePath).quiet().text()).trim();
