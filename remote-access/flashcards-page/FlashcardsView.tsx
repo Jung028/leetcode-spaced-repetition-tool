@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FlashcardDeck } from "./flashcard-parser";
 import type { FlashcardsClient } from "./flashcards-client";
 import { groupDecksBySubject } from "./flashcards-grouping";
+import { mergeSavedDeck } from "./flashcards-merge";
 import FlashcardsSidebar from "./FlashcardsSidebar";
 import FlashcardsDeckUploader from "./FlashcardsDeckUploader";
 import FlashcardsCard from "./FlashcardsCard";
@@ -51,8 +52,9 @@ export default function FlashcardsView({ client }: { client: FlashcardsClient })
       const deck = await client.saveDeck(markdown);
       setUploadText("");
       setStatus(null);
-      await load();
+      setDecks((current) => mergeSavedDeck(current, deck));
       selectDeck(deck.subjectSlug, deck.examSlug);
+      void load(); // picks up decks saved from other sessions/devices; the saved deck above is already visible
     } catch (err) {
       setStatus((err as Error).message);
     } finally {

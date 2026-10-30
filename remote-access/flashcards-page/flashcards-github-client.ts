@@ -35,7 +35,7 @@ export function createFlashcardsGithubClient(opts: {
     `https://api.github.com/repos/${opts.owner}/${opts.repo}/contents/${path}`;
 
   const fetchShaFromRemote = async (path: string): Promise<string | undefined> => {
-    const res = await fetchFn(contentsUrl(path), { headers: authHeaders });
+    const res = await fetchFn(contentsUrl(path), { headers: authHeaders, cache: "no-store" });
     throwIfAuthFailure(res, opts.storage);
     if (res.status === 404) return undefined;
     if (!res.ok) throw new Error(`could not read deck from GitHub (${res.status})`);
@@ -66,7 +66,7 @@ export function createFlashcardsGithubClient(opts: {
   };
 
   const listSubjectDirs = async (): Promise<GithubEntry[]> => {
-    const res = await fetchFn(contentsUrl("flashcards"), { headers: authHeaders });
+    const res = await fetchFn(contentsUrl("flashcards"), { headers: authHeaders, cache: "no-store" });
     if (res.status === 404) return [];
     throwIfAuthFailure(res, opts.storage);
     if (!res.ok) throw new Error(`could not list flashcard subjects from GitHub (${res.status})`);
@@ -75,7 +75,7 @@ export function createFlashcardsGithubClient(opts: {
   };
 
   const listDeckFiles = async (subjectSlug: string): Promise<GithubEntry[]> => {
-    const res = await fetchFn(contentsUrl(`flashcards/${subjectSlug}`), { headers: authHeaders });
+    const res = await fetchFn(contentsUrl(`flashcards/${subjectSlug}`), { headers: authHeaders, cache: "no-store" });
     if (res.status === 404) return [];
     throwIfAuthFailure(res, opts.storage);
     if (!res.ok) throw new Error(`could not list decks for ${subjectSlug} from GitHub (${res.status})`);
@@ -84,7 +84,7 @@ export function createFlashcardsGithubClient(opts: {
   };
 
   const readDeck = async (path: string): Promise<{ deck: FlashcardDeck; sha: string }> => {
-    const res = await fetchFn(contentsUrl(path), { headers: authHeaders });
+    const res = await fetchFn(contentsUrl(path), { headers: authHeaders, cache: "no-store" });
     throwIfAuthFailure(res, opts.storage);
     if (!res.ok) throw new Error(`could not read deck ${path} from GitHub (${res.status})`);
     const file = (await res.json()) as { content: string; sha: string };

@@ -102,6 +102,42 @@ test("saveDeck retries once with a fresh sha when GitHub rejects a stale one, th
   expect(putAttempts).toBeGreaterThanOrEqual(2);
 });
 
+test("listDecks' GET requests pass cache: no-store so a stale cached listing is never served", async () => {
+  const getInits: (RequestInit | undefined)[] = [];
+  const fetchFn = (async (url: string, init?: RequestInit) => {
+    getInits.push(init);
+    if (url.endsWith("/contents/flashcards")) return Response.json([{ name: "info5990", type: "dir" }]);
+    if (url.endsWith("/contents/flashcards/info5990")) return Response.json([{ name: "exam-2.md", type: "file" }]);
+    if (url.endsWith("/contents/flashcards/info5990/exam-2.md")) return Response.json({ content: toBase64(SAMPLE), sha: "sha-1" });
+    throw new Error(`unexpected request: ${url}`);
+  }) as unknown as typeof fetch;
+  const client = createFlashcardsGithubClient({ owner: "me", repo: "notes-data", token: "t", storage, fetchFn });
+  await client.listDecks();
+  expect(getInits.length).toBeGreaterThan(0);
+  for (const init of getInits) {
+    expect(init?.cache).toBe("no-store");
+  }
+});
+
+test("saveDeck's sha lookup GET passes cache: no-store, but the PUT itself does not", async () => {
+  const calls: { url: string; init: RequestInit | undefined }[] = [];
+  const fetchFn = (async (url: string, init?: RequestInit) => {
+    calls.push({ url, init });
+    if (init?.method === "PUT") return Response.json({ content: { sha: "s1" } }, { status: 201 });
+    return new Response("Not Found", { status: 404 });
+  }) as unknown as typeof fetch;
+  const client = createFlashcardsGithubClient({ owner: "me", repo: "notes-data", token: "t", storage, fetchFn });
+  await client.saveDeck(SAMPLE);
+  const getCalls = calls.filter((c) => c.init?.method !== "PUT");
+  const putCalls = calls.filter((c) => c.init?.method === "PUT");
+  expect(getCalls.length).toBeGreaterThan(0);
+  for (const call of getCalls) {
+    expect(call.init?.cache).toBe("no-store");
+  }
+  expect(putCalls.length).toBe(1);
+  expect(putCalls[0]!.init?.cache).toBeUndefined();
+});
+
 test("saveDeck surfaces a clear error when the retry also hits a stale sha", async () => {
   const fetchFn = (async (url: string, init?: RequestInit) => {
     if (init?.method === "PUT") return new Response("Conflict", { status: 409 });
