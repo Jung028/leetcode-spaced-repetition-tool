@@ -6,6 +6,7 @@ import { migrateTodo } from "./todo/db";
 import { todoApiRoutes } from "./todo/api";
 import { ensureNotesRepoCloned } from "./remote-access/notes/notes-repo";
 import { notesApiRoutes } from "./remote-access/notes/notes-api";
+import { flashcardsApiRoutes } from "./remote-access/flashcards-page/flashcards-api";
 import { migrateAnnouncements } from "./announcement-db";
 import { announcementApiRoutes } from "./announcement-api";
 import { migrateModules } from "./modules-db";
@@ -95,6 +96,7 @@ const server = Bun.serve({
     ...jobsApiRoutes(db),
     ...goalsApiRoutes(db),
     ...notesApiRoutes(NOTES_CLONE_PATH),
+    ...flashcardsApiRoutes(NOTES_CLONE_PATH),
   },
   development: {
     hmr: true,
