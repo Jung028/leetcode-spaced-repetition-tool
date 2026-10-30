@@ -30,7 +30,14 @@ export default function StudyTabs({
           Flashcards
         </button>
       </nav>
-      <main>{activeTab === "notes" ? <NotesView client={notesClient} /> : <FlashcardsView client={flashcardsClient} />}</main>
+      <main>
+        <div hidden={activeTab !== "notes"}>
+          <NotesView client={notesClient} />
+        </div>
+        <div hidden={activeTab !== "flashcards"}>
+          <FlashcardsView client={flashcardsClient} />
+        </div>
+      </main>
     </>
   );
 }
