@@ -16,7 +16,7 @@ export interface FlashcardDeck {
 
 export class FlashcardParseError extends Error {}
 
-const HEADER_RE = /^#\s+(.+?)\s*[—-]\s*Exam\s+(\S.*?)\s*$/i;
+const HEADER_RE = /^#\s+(.+?)\s*[—–-]\s*Exam\s+(\S.*?)\s*$/i;
 const QUESTION_RE = /^###\s+Q(\d+)([a-zA-Z]*)\.\s*(.*)$/i;
 
 function slugify(value: string): string {
@@ -24,7 +24,8 @@ function slugify(value: string): string {
 }
 
 function parseHeader(line: string | undefined): { subject: string; exam: string } {
-  const match = line === undefined ? null : HEADER_RE.exec(line);
+  const trimmedLine = line?.trim();
+  const match = trimmedLine === undefined ? null : HEADER_RE.exec(trimmedLine);
   if (!match) {
     throw new FlashcardParseError(
       `the first line must look like "# Subject — Exam N" (e.g. "# INFO5990 — Exam 2")`,
@@ -93,5 +94,14 @@ export function parseFlashcardDeck(markdown: string): FlashcardDeck {
     throw new FlashcardParseError("no questions found (expected headings like \"### Q1. Question?\")");
   }
 
-  return { subject, subjectSlug: slugify(subject), exam, examSlug: slugify(exam), cards };
+  const subjectSlug = slugify(subject);
+  if (subjectSlug === "") {
+    throw new FlashcardParseError("subject must contain at least one letter or digit");
+  }
+  const examSlug = slugify(exam);
+  if (examSlug === "") {
+    throw new FlashcardParseError("exam must contain at least one letter or digit");
+  }
+
+  return { subject, subjectSlug, exam, examSlug, cards };
 }

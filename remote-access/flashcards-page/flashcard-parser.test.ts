@@ -62,3 +62,28 @@ test("throws on a duplicate question id within the same file", () => {
     parseFlashcardDeck(`# S — Exam 1\n\n### Q1. a?\nx\n\n### Q1. b?\ny\n`),
   ).toThrow(/duplicate question id/);
 });
+
+test("throws a clear error instead of silently producing an empty subject slug", () => {
+  expect(() => parseFlashcardDeck(`# 网络安全 — Exam 2\n\n### Q1. x?\ny\n`)).toThrow(FlashcardParseError);
+  expect(() => parseFlashcardDeck(`# 网络安全 — Exam 2\n\n### Q1. x?\ny\n`)).toThrow(
+    /subject must contain at least one letter or digit/,
+  );
+});
+
+test("throws a clear error instead of silently producing an empty exam slug", () => {
+  expect(() => parseFlashcardDeck(`# S — Exam ???\n\n### Q1. x?\ny\n`)).toThrow(FlashcardParseError);
+  expect(() => parseFlashcardDeck(`# S — Exam ???\n\n### Q1. x?\ny\n`)).toThrow(
+    /exam must contain at least one letter or digit/,
+  );
+});
+
+test("accepts an en dash in the header, like a hyphen or em dash", () => {
+  const deck = parseFlashcardDeck(`# INFO5990 – Exam 2\n\n### Q1. x?\ny\n`);
+  expect(deck.subject).toBe("INFO5990");
+  expect(deck.exam).toBe("2");
+});
+
+test("trims leading whitespace on the header line before matching", () => {
+  const deck = parseFlashcardDeck(`  # INFO5990 — Exam 2\n\n### Q1. x?\ny\n`);
+  expect(deck.subject).toBe("INFO5990");
+});
