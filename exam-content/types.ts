@@ -62,6 +62,8 @@ export interface ExamPaperSeed {
   paperNumber: number; // 1-based within the week
   title: string;
   topics: string;
+  // Optional exam conditions/format shown above the first question.
+  instructions?: string;
   // Paths (relative to that week's course folder) to the material this
   // paper's questions were written from — carried along so content can be
   // regenerated/expanded later without losing track of its sources.

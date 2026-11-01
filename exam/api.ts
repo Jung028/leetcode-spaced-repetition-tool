@@ -100,6 +100,7 @@ export interface ExamPaperView {
   paperNumber: number;
   title: string;
   topics: string;
+  instructions: string | null;
   dueDate: string;
   submittedAt: string | null;
   scoreCorrect: number | null;
@@ -146,6 +147,7 @@ function paperView(db: Database, course: string, row: ExamPaperRow): ExamPaperVi
     paperNumber: row.paper_number,
     title: content.title,
     topics: content.topics,
+    instructions: content.instructions ?? null,
     dueDate: weekDueDate(row.week),
     submittedAt: row.submitted_at,
     scoreCorrect: row.score_correct,

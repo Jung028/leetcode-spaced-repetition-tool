@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ExamPaperView, ExamQuestionView, ExamHistoryWeek } from "./api";
-import type { ExamWeekView } from "./content";
+import { examWeekLabel, type ExamWeekView } from "./content";
 import type { JobStatus } from "./generate";
 import { STAGE_LABELS, STAGES } from "./pipeline";
 import { TIMELINE_URL, TIMELINE_ANCHORS } from "../shared/timeline-link";
@@ -1348,7 +1348,7 @@ function WeekPicker({
   return (
     <article className="detail">
       <header className="detail-head">
-        <h2>Week {weekView.week}</h2>
+        <h2>{weekView.label}</h2>
         <span className="tag">{weekView.overdue ? "overdue" : "due"} — {weekView.dueDate}</span>
         <span className="lang-tag">{doneQuestions}/{totalQuestions} questions done</span>
         <UpdateWeekButton course={course} week={weekView.week} onUpdated={onUpdated} />
@@ -1443,9 +1443,9 @@ function HistoryView({
         <p className="board-empty">No past weeks yet.</p>
       ) : (
         weeks.map((w) => (
-          <section key={w.week} className="board" aria-label={`Week ${w.week}`}>
+          <section key={w.week} className="board" aria-label={w.label}>
             <div className="section-head">
-              <h2>Week {w.week}</h2>
+              <h2>{examWeekLabel(course, w.week)}</h2>
               <span style={{ marginLeft: "auto" }}>
                 <UpdateWeekButton course={course} week={w.week} onUpdated={onUpdated} />
               </span>
@@ -1773,7 +1773,7 @@ export default function ExamApp({
                       <div className="board-row">
                         <button className="board-row-main" onClick={goDirectly}>
                           <span className="tag">{w.overdue ? "overdue" : "due"}</span>
-                          <span className="board-title">Week {w.week}</span>
+                          <span className="board-title">{w.label}</span>
                           <span className="lang-tag">{submittedCount}/{w.papers.length} submitted · due {w.dueDate}</span>
                         </button>
                         {confirmingHideWeek === w.week ? (

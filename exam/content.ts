@@ -38,6 +38,7 @@ import { WEEK_8_PAPERS as INFO6007_WEEK_8_PAPERS } from "../exam-content/info600
 import { WEEK_9_PAPERS as INFO6007_WEEK_9_PAPERS } from "../exam-content/info6007/week-9";
 import { INFO6007_FINAL_PRACTICE_PAPERS } from "../exam-content/info6007/final-practice";
 import { INFO6007_PREDICTED_EXAM_PAPERS } from "../exam-content/info6007/predicted-exam";
+import { INFO6007_PRACTICE_EXAM_PAPERS } from "../exam-content/info6007/practice-exams";
 import { WEEK_1_PAPERS as INFO5990_WEEK_1_PAPERS } from "../exam-content/info5990/week-1";
 import { WEEK_2_PAPERS as INFO5990_WEEK_2_PAPERS } from "../exam-content/info5990/week-2";
 import { WEEK_3_PAPERS as INFO5990_WEEK_3_PAPERS } from "../exam-content/info5990/week-3";
@@ -49,6 +50,7 @@ import { WEEK_8_PAPERS as INFO5990_WEEK_8_PAPERS } from "../exam-content/info599
 import { WEEK_9_PAPERS as INFO5990_WEEK_9_PAPERS } from "../exam-content/info5990/week-9";
 import { INFO5990_FINAL_PRACTICE_PAPERS } from "../exam-content/info5990/final-practice";
 import { INFO5990_PREDICTED_EXAM_PAPERS } from "../exam-content/info5990/predicted-exam";
+import { INFO5990_PRACTICE_EXAM_PAPERS } from "../exam-content/info5990/practice-exams";
 import { WEEK_1_PAPERS as TRACELY_WEEK_1_PAPERS } from "../exam-content/tracely/week-1";
 import type { ExamPaperSeed } from "../exam-content/types";
 import { addDays } from "../shared/scheduling";
@@ -90,6 +92,7 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO6007_WEEK_8_PAPERS,
   ...INFO6007_WEEK_9_PAPERS,
   ...INFO6007_PREDICTED_EXAM_PAPERS,
+  ...INFO6007_PRACTICE_EXAM_PAPERS,
   ...INFO6007_FINAL_PRACTICE_PAPERS,
   ...INFO5990_WEEK_1_PAPERS,
   ...INFO5990_WEEK_2_PAPERS,
@@ -101,6 +104,7 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO5990_WEEK_8_PAPERS,
   ...INFO5990_WEEK_9_PAPERS,
   ...INFO5990_PREDICTED_EXAM_PAPERS,
+  ...INFO5990_PRACTICE_EXAM_PAPERS,
   ...INFO5990_FINAL_PRACTICE_PAPERS,
   ...TRACELY_WEEK_1_PAPERS,
 ];
@@ -146,6 +150,13 @@ export function weekDueDate(week: number): string {
   return addDays(SEMESTER_START, (week - 1) * 7 + 6);
 }
 
+// Week 9 is where the exam practice papers are grouped in these two modules.
+export function examWeekLabel(course: string, week: number): string {
+  return week === 9 && (course === "INFO5990" || course === "INFO6007")
+    ? "Exam Paper"
+    : `Week ${week}`;
+}
+
 export interface ExamWeekPaperSummary {
   paperNumber: number;
   title: string;
@@ -161,6 +172,7 @@ export interface ExamWeekPaperSummary {
 
 export interface ExamWeekView {
   week: number;
+  label: string;
   dueDate: string;
   overdue: boolean;
   papers: ExamWeekPaperSummary[];
@@ -207,7 +219,7 @@ export function groupExamPapersByWeek(
           questionCount: content?.questions.length ?? 0,
         };
       });
-    groups.push({ week, dueDate: weekDueDate(week), overdue: weekDueDate(week) < today, papers });
+    groups.push({ week, label: examWeekLabel(course, week), dueDate: weekDueDate(week), overdue: weekDueDate(week) < today, papers });
   }
   return groups.sort((a, b) => a.week - b.week);
 }
