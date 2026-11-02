@@ -206,6 +206,29 @@ button {
   border-left: 2px solid var(--line);
 }
 
+.exam-format-note strong {
+  display: block;
+  margin-bottom: 0.55rem;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 0.88rem;
+}
+
+.exam-format-note ul {
+  list-style: disc;
+  margin: 0 0 0.65rem;
+  padding-left: 1.25rem;
+}
+
+.exam-format-note li + li {
+  margin-top: 0.3rem;
+}
+
+.exam-format-use-note {
+  margin: 0;
+  font-size: 0.72rem;
+}
+
 /* Stats strip */
 .stats {
   display: grid;

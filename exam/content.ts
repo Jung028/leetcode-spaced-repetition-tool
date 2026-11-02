@@ -12,6 +12,7 @@ import { WEEK_8_PAPERS as INFO5995_WEEK_8_PAPERS } from "../exam-content/info599
 import { WEEK_9_PAPERS as INFO5995_WEEK_9_PAPERS } from "../exam-content/info5995/week-9";
 import { INFO5995_FINAL_PRACTICE_PAPERS } from "../exam-content/info5995/final-practice";
 import { INFO5995_PREDICTED_EXAM_PAPERS } from "../exam-content/info5995/predicted-exam";
+import { INFO5995_PRACTICE_EXAM_PAPERS } from "../exam-content/info5995/practice-exams";
 import { WEEK_1_PAPERS as COMP5348_WEEK_1_PAPERS } from "../exam-content/comp5348/week-1";
 import { WEEK_2_PAPERS as COMP5348_WEEK_2_PAPERS } from "../exam-content/comp5348/week-2";
 import { WEEK_3_PAPERS as COMP5348_WEEK_3_PAPERS } from "../exam-content/comp5348/week-3";
@@ -27,6 +28,9 @@ import { COMP5348_PRACTICE_EXAM_3_PAPERS } from "../exam-content/comp5348/practi
 import { COMP5348_PRACTICE_EXAM_4_PAPERS } from "../exam-content/comp5348/practice-exam-4";
 import { COMP5348_PRACTICE_EXAM_5_PAPERS } from "../exam-content/comp5348/practice-exam-5";
 import { COMP5348_PRACTICE_EXAM_6_PAPERS } from "../exam-content/comp5348/practice-exam-6";
+import { COMP5348_PRACTICE_EXAM_7_PAPERS } from "../exam-content/comp5348/practice-exam-7";
+import { COMP5348_PRACTICE_EXAM_8_PAPERS } from "../exam-content/comp5348/practice-exam-8";
+import { COMP5348_PRACTICE_EXAM_9_PAPERS } from "../exam-content/comp5348/practice-exam-9";
 import { WEEK_1_PAPERS as INFO6007_WEEK_1_PAPERS } from "../exam-content/info6007/week-1";
 import { WEEK_2_PAPERS as INFO6007_WEEK_2_PAPERS } from "../exam-content/info6007/week-2";
 import { WEEK_3_PAPERS as INFO6007_WEEK_3_PAPERS } from "../exam-content/info6007/week-3";
@@ -66,6 +70,7 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...INFO5995_WEEK_8_PAPERS,
   ...INFO5995_WEEK_9_PAPERS,
   ...INFO5995_PREDICTED_EXAM_PAPERS,
+  ...INFO5995_PRACTICE_EXAM_PAPERS,
   ...INFO5995_FINAL_PRACTICE_PAPERS,
   ...COMP5348_WEEK_1_PAPERS,
   ...COMP5348_WEEK_2_PAPERS,
@@ -82,6 +87,9 @@ const ALL_PAPERS: ExamPaperSeed[] = [
   ...COMP5348_PRACTICE_EXAM_4_PAPERS,
   ...COMP5348_PRACTICE_EXAM_5_PAPERS,
   ...COMP5348_PRACTICE_EXAM_6_PAPERS,
+  ...COMP5348_PRACTICE_EXAM_7_PAPERS,
+  ...COMP5348_PRACTICE_EXAM_8_PAPERS,
+  ...COMP5348_PRACTICE_EXAM_9_PAPERS,
   ...INFO6007_WEEK_1_PAPERS,
   ...INFO6007_WEEK_2_PAPERS,
   ...INFO6007_WEEK_3_PAPERS,
@@ -152,7 +160,7 @@ export function weekDueDate(week: number): string {
 
 // Week 9 is where the exam practice papers are grouped in these two modules.
 export function examWeekLabel(course: string, week: number): string {
-  return week === 9 && (course === "INFO5990" || course === "INFO6007")
+  return week === 9 && ["INFO5990", "INFO6007", "INFO5995", "COMP5348"].includes(course)
     ? "Exam Paper"
     : `Week ${week}`;
 }
@@ -172,7 +180,6 @@ export interface ExamWeekPaperSummary {
 
 export interface ExamWeekView {
   week: number;
-  label: string;
   dueDate: string;
   overdue: boolean;
   papers: ExamWeekPaperSummary[];
@@ -219,7 +226,7 @@ export function groupExamPapersByWeek(
           questionCount: content?.questions.length ?? 0,
         };
       });
-    groups.push({ week, label: examWeekLabel(course, week), dueDate: weekDueDate(week), overdue: weekDueDate(week) < today, papers });
+    groups.push({ week, dueDate: weekDueDate(week), overdue: weekDueDate(week) < today, papers });
   }
   return groups.sort((a, b) => a.week - b.week);
 }

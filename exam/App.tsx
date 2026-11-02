@@ -18,6 +18,29 @@ interface Stats {
   completedToday: number;
 }
 
+const FINAL_EXAM_FORMAT: Record<string, string[]> = {
+  INFO5995: [
+    "The exam is worth 50%, is a hurdle, and is described as similar in difficulty to the quizzes.",
+    "The supplied revision bank uses 10-mark scenarios and a separate set of 30 single-best-answer MCQs.",
+    "The assessment materials do not specify the final exam’s exact question count, duration, or permitted materials; the revision-bank counts are practice counts, not a confirmed final blueprint.",
+  ],
+  COMP5348: [
+    "The lecturer announced mostly MCQs, some fill-in-the-blank questions, and some short scenario/design questions; coverage includes lectures, labs, and assessments.",
+    "The base practice paper has 7 single-answer MCQs (Q1–Q7) and written questions Q8–Q13; these are sample counts only.",
+    "The announcement does not specify the final exam’s exact question count, duration, or permitted materials. The exam has a 40% hurdle.",
+  ],
+  INFO6007: [
+    "Four scenario questions, each with 3–4 subquestions; 15 marks each, 60 marks total.",
+    "Two hours writing time plus 10 minutes reading time.",
+    "Restricted open book: one double-sided A4 notes sheet, a non-programmable calculator, and a bilingual dictionary; no other electronic aids.",
+  ],
+  INFO5990: [
+    "Closed-book, supervised final exam; worth 50%, a hurdle, and AI is prohibited.",
+    "The course describes the exam as case-study-based plus MCQs. The practice bank contains six practice cases (eight application prompts each) and 30 single-best-answer MCQs.",
+    "The supplied materials do not confirm the final exam’s exact question counts, duration, or permitted materials; practice-bank counts are not a confirmed final blueprint.",
+  ],
+};
+
 interface HiddenPaper {
   week: number;
   paperNumber: number;
@@ -1348,7 +1371,7 @@ function WeekPicker({
   return (
     <article className="detail">
       <header className="detail-head">
-        <h2>{weekView.label}</h2>
+        <h2>{examWeekLabel(course, weekView.week)}</h2>
         <span className="tag">{weekView.overdue ? "overdue" : "due"} — {weekView.dueDate}</span>
         <span className="lang-tag">{doneQuestions}/{totalQuestions} questions done</span>
         <UpdateWeekButton course={course} week={weekView.week} onUpdated={onUpdated} />
@@ -1443,7 +1466,7 @@ function HistoryView({
         <p className="board-empty">No past weeks yet.</p>
       ) : (
         weeks.map((w) => (
-          <section key={w.week} className="board" aria-label={w.label}>
+          <section key={w.week} className="board" aria-label={examWeekLabel(course, w.week)}>
             <div className="section-head">
               <h2>{examWeekLabel(course, w.week)}</h2>
               <span style={{ marginLeft: "auto" }}>
@@ -1717,9 +1740,17 @@ export default function ExamApp({
       )}
       <ExamStats stats={stats} onOpenCompleted={openCompleted} />
       {error && <p className="form-error">{error}</p>}
-      <p className="rule-note">
-        Each week's papers are due by Sunday. After submitting, wrong questions are highlighted — retake just those or the whole paper.
-      </p>
+      <section className="rule-note exam-format-note" aria-label="Final exam format">
+        <strong>Final exam format — {courses.find((item) => item.code === course)?.name ?? course}</strong>
+        {FINAL_EXAM_FORMAT[course] ? (
+          <ul>
+            {FINAL_EXAM_FORMAT[course]!.map((item) => <li key={item}>{item}</li>)}
+          </ul>
+        ) : (
+          <ul><li>Check the course’s official exam information for its final-exam format and permitted materials.</li></ul>
+        )}
+        <p className="exam-format-use-note">Practice papers in this tracker are due by Sunday. After submitting, review wrong answers and retake them or the whole paper.</p>
+      </section>
       <div className="detail-meta">
         <a href={`${TIMELINE_URL}#${TIMELINE_ANCHORS[course] ?? ""}`} target="_blank" rel="noopener noreferrer">
           View full semester timeline ↗
@@ -1773,7 +1804,7 @@ export default function ExamApp({
                       <div className="board-row">
                         <button className="board-row-main" onClick={goDirectly}>
                           <span className="tag">{w.overdue ? "overdue" : "due"}</span>
-                          <span className="board-title">{w.label}</span>
+                          <span className="board-title">{examWeekLabel(course, w.week)}</span>
                           <span className="lang-tag">{submittedCount}/{w.papers.length} submitted · due {w.dueDate}</span>
                         </button>
                         {confirmingHideWeek === w.week ? (

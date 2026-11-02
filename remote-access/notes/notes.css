@@ -478,23 +478,64 @@ body {
 }
 
 .flashcards-subject + .flashcards-subject {
-  margin-top: 1rem;
+  margin-top: 0.35rem;
 }
 
 .flashcards-subject-heading {
-  margin: 0 0 0.35rem;
-  padding: 0 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.65rem 0.6rem;
+  border-radius: 6px;
   font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--notes-dim);
+  cursor: pointer;
+  list-style: none;
+}
+
+.flashcards-subject-heading::-webkit-details-marker {
+  display: none;
+}
+
+.flashcards-subject-heading::marker {
+  content: "";
+}
+
+.flashcards-subject-heading::before {
+  content: "▸";
+  flex: 0 0 auto;
+  font-size: 0.85rem;
+  transition: transform 120ms ease;
+}
+
+.flashcards-subject[open] > .flashcards-subject-heading::before {
+  transform: rotate(90deg);
+}
+
+.flashcards-subject-heading:hover,
+.flashcards-subject-heading:focus-visible {
+  color: var(--notes-text);
+  background: var(--notes-panel);
+  outline: none;
+}
+
+.flashcards-subject-count {
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .flashcards-deck-list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0 0 0 0.45rem;
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
@@ -604,7 +645,7 @@ body {
 .flashcards-card {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 0.75rem;
   width: 100%;
   min-height: 220px;
@@ -614,12 +655,13 @@ body {
   background: var(--notes-panel);
   color: var(--notes-text);
   font: inherit;
-  text-align: center;
+  text-align: left;
   cursor: pointer;
   box-sizing: border-box;
 }
 
 .flashcards-card-label {
+  text-align: center;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -630,10 +672,12 @@ body {
 .flashcards-card-text {
   margin: 0;
   white-space: pre-wrap;
+  line-height: 1.5;
   font-size: 1rem;
 }
 
 .flashcards-card-hint {
+  text-align: center;
   font-size: 0.75rem;
   color: var(--notes-dim);
 }
@@ -676,5 +720,29 @@ body {
     flex-direction: column;
     gap: 0.75rem;
     padding: 0.75rem;
+  }
+
+  .flashcards-sidebar {
+    flex: none;
+    width: 100%;
+    gap: 0.25rem;
+  }
+
+  .flashcards-subject + .flashcards-subject {
+    margin-top: 0.15rem;
+  }
+
+  .flashcards-subject-heading {
+    min-height: 44px;
+    font-size: 0.76rem;
+  }
+
+  .flashcards-deck-item {
+    min-height: 44px;
+    padding: 0.6rem 0.65rem;
+  }
+
+  .flashcards-card {
+    padding: 1rem;
   }
 }
