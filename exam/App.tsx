@@ -8,7 +8,7 @@ import { TIMELINE_URL, TIMELINE_ANCHORS } from "../shared/timeline-link";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { isMultiCorrect } from "./grading";
 import { questionTimeBudget, formatCountdown, isOvertime } from "./timer";
-import { PromptText, DrawingLink } from "./shared-ui";
+import { PromptText, ModelAnswerText, DrawingLink } from "./shared-ui";
 import { FillBlankQuestion, MatchQuestion, OrderQuestion, SortQuestion, ReadingCard, type GradeFn } from "./FormatQuestions";
 import { readingFor, roundFullyGraded, initialSeenCards } from "./reading";
 
@@ -806,7 +806,7 @@ function ShortOrScenarioQuestion({
       {revealed && (
         <div className="theory-model-answer">
           <h3>Model answer</h3>
-          <PromptText text={question.modelAnswer} />
+          <ModelAnswerText text={question.modelAnswer} prompt={question.prompt} />
           {question.answerDiagram && <MermaidDiagram chart={question.answerDiagram} />}
           {question.requiresDrawing && <DrawingLink />}
         </div>

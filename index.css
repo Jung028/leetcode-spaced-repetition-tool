@@ -1908,7 +1908,8 @@ a.btn {
 .exam-prompt {
   font-weight: 500;
   margin-bottom: 0.75rem;
-  white-space: pre-wrap;
+  white-space: normal;
+  line-height: 1.65;
 }
 
 .exam-code-block {
@@ -1969,6 +1970,66 @@ a.btn {
   color: var(--dim);
   white-space: pre-wrap;
 }
+
+.exam-answer-parts {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.exam-answer-part {
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg) 36%, var(--panel));
+}
+
+.exam-answer-part h4 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0 0.55rem;
+  color: var(--text);
+  font-size: 0.96rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.exam-mark-badge {
+  flex: 0 0 auto;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--dim);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.exam-answer-copy {
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.94rem;
+  line-height: 1.68;
+  overflow-wrap: anywhere;
+}
+
+.exam-answer-copy p {
+  margin: 0.35rem 0 0.6rem;
+  white-space: normal;
+}
+
+.exam-answer-copy p:last-child { margin-bottom: 0; }
+
+.exam-answer-list {
+  margin: 0.45rem 0 0.7rem;
+  padding-left: 1.35rem;
+}
+
+.exam-answer-list li { padding-left: 0.15rem; margin: 0.25rem 0; }
+.exam-answer-list li:last-child { margin-bottom: 0; }
 
 .exam-multi-hint {
   margin: 0.25rem 0 0.5rem;
@@ -2313,4 +2374,35 @@ a.btn {
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.exam-answer-part h4 > span:first-child {
+  flex: 1 1 auto;
+}
+
+.exam-rubric-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text);
+  font-size: 0.94rem;
+  line-height: 1.68;
+}
+
+.exam-rubric-list li {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: start;
+  gap: 0.55rem;
+  padding-left: 0;
+  overflow-wrap: anywhere;
+}
+
+.exam-rubric-mark {
+  color: var(--dim);
+  font-size: 0.9em;
+  font-weight: 700;
+  white-space: nowrap;
 }
