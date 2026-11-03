@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { buildExamSchedule, listExamCourses, examWeekLabel, type ExamPaper } from "../exam/content";
-import { PromptText, ModelAnswerText, DrawingLink } from "../exam/shared-ui";
+import { PromptText, DrawingLink } from "../exam/shared-ui";
 import { MermaidDiagram } from "../exam/MermaidDiagram";
 import { FillBlankQuestion, MatchQuestion, OrderQuestion, SortQuestion, ReadingCard, type GradeFn } from "../exam/FormatQuestions";
 import { isMultiCorrect } from "../exam/grading";
@@ -171,7 +171,7 @@ function LocalShortOrScenarioQuestion({ question, onGraded }: { question: ExamQu
       {revealed && (
         <div className="theory-model-answer">
           <h3>Model answer</h3>
-          <ModelAnswerText text={question.modelAnswer} prompt={question.prompt} />
+          <PromptText text={question.modelAnswer} />
           {question.answerDiagram && <MermaidDiagram chart={question.answerDiagram} />}
           {question.requiresDrawing && <DrawingLink />}
         </div>
