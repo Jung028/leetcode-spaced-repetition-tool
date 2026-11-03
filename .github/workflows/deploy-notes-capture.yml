@@ -1,5 +1,5 @@
 # .github/workflows/deploy-notes-capture.yml
-name: Deploy notes capture page
+name: Deploy GitHub Pages site
 
 on:
   push:
@@ -9,6 +9,17 @@ on:
       - "remote-access/flashcards-page/**"
       - "remote-access/StudyTabs.tsx"
       - "notes-capture/index.html"
+      - "exam-static/**"
+      - "exam-content/**"
+      - "exam/content.ts"
+      - "exam/shared-ui.tsx"
+      - "exam/FormatQuestions.tsx"
+      - "exam/MermaidDiagram.tsx"
+      - "exam/grading.ts"
+      - "exam/formats.ts"
+      - "exam/api.ts"
+      - "shared/scheduling.ts"
+      - "index.css"
       - ".github/workflows/deploy-notes-capture.yml"
   workflow_dispatch:
 
@@ -33,10 +44,15 @@ jobs:
         with:
           bun-version: latest
       - run: bun install
+      # Notes capture stays at the site root (unchanged URL).
       - run: bun build ./remote-access/notes/capture-entry.tsx --outdir ./notes-capture
+      # Exam viewer (read-only, no backend) lives under /exam/.
+      - run: bun build ./exam-static/entry.tsx --outdir ./pages-dist/exam
+      - run: cp ./exam-static/index.html ./pages-dist/exam/index.html
+      - run: cp -r ./notes-capture/. ./pages-dist/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: notes-capture
+          path: pages-dist
       - id: deployment
         uses: actions/deploy-pages@v4

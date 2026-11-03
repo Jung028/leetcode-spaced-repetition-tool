@@ -8,5 +8,6 @@ srs.db*
 exam-attempts.jsonl*
 notes-capture/capture-entry.js
 notes-capture/capture-entry.css
+pages-dist/
 exam-content/*/memorisation-script.txt
 exam-content/*/memorisation-script.pdf
